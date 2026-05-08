@@ -7,7 +7,7 @@ This is a **skill pack** for Codex-style environments. Skills are thin wrappers 
 Install the CLI:
 
 ```bash
-pipx install forge-codex
+pipx install forge-next
 ```
 
 Verify:
@@ -19,4 +19,13 @@ forge doctor
 ## Skills
 
 Skill definitions live in `integrations/codex/skills/` and invoke `forge ...`.
+
+### Default install location (via `forge install`)
+
+By default, `forge install --codex` installs to:
+
+- Windows: `%USERPROFILE%\.codex\skills\forge\`
+- macOS/Linux/WSL: `~/.codex/skills/forge/`
+
+Override with `forge install --codex-dir <path>`.
 

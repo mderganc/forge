@@ -7,7 +7,7 @@ This folder contains wrapper artifacts for editor/agent environments that call t
 Install the CLI once:
 
 ```bash
-pipx install forge-codex
+pipx install forge-next
 ```
 
 Verify:

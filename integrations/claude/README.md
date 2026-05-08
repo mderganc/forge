@@ -7,7 +7,7 @@ This is a **command pack** for Claude Code-style environments. It provides thin 
 Install the CLI:
 
 ```bash
-pipx install forge-codex
+pipx install forge-next
 ```
 
 Verify:
@@ -22,6 +22,15 @@ The exact install location/mechanism depends on your Claude Code environment.
 This pack is intentionally simple: each command definition just runs `forge …`.
 
 - Command definitions: `integrations/claude/commands/`
+
+### Default install location (via `forge install`)
+
+By default, `forge install --claude` installs to:
+
+- Windows: `%USERPROFILE%\.claude\commands\forge\`
+- macOS/Linux/WSL: `~/.claude/commands/forge/`
+
+Override with `forge install --claude-dir <path>`.
 
 ## Commands
 

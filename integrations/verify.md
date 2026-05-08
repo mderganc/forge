@@ -3,7 +3,7 @@
 ## 1) CLI install
 
 ```bash
-pipx install forge-codex
+pipx install forge-next
 forge doctor
 forge status
 ```

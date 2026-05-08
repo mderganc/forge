@@ -21,7 +21,7 @@ This repo ships a global `forge` launcher so you can install once and run
 workflows from any target repository (without copying `scripts/` into each repo).
 
 ```bash
-pipx install forge-codex
+pipx install forge-next
 ```
 
 Then, from any target repo:

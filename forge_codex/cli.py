@@ -5,6 +5,10 @@ import io
 import json
 import os
 import sys
+import tempfile
+import urllib.request
+import zipfile
+import shutil
 from pathlib import Path
 from contextlib import redirect_stdout, redirect_stderr
 
@@ -145,6 +149,19 @@ def build_parser() -> argparse.ArgumentParser:
     rs.add_argument("--force", action="store_true")
     rs.add_argument("--all-stale", action="store_true", dest="all_stale")
 
+    # install
+    ins = sub.add_parser("install", help="Install integrations (Cursor/Claude/Codex) for this user")
+    add_common_output_flags(ins)
+    ins.add_argument("--ref", type=str, default="main", help="Git ref/branch for downloads (default: main)")
+    ins.add_argument("--repo-url", type=str, default="https://github.com/mderganc/forge", help="Forge repo URL for integration downloads")
+    ins.add_argument("--cursor", action="store_true", help="Install Cursor plugin")
+    ins.add_argument("--claude", action="store_true", help="Install Claude command pack")
+    ins.add_argument("--codex", action="store_true", help="Install Codex skill pack")
+    ins.add_argument("--all", action="store_true", help="Install all integrations (default if none selected)")
+    ins.add_argument("--cursor-dir", type=str, default=None, help="Override Cursor local plugins directory")
+    ins.add_argument("--claude-dir", type=str, default=None, help="Override Claude commands install directory")
+    ins.add_argument("--codex-dir", type=str, default=None, help="Override Codex skills install directory")
+
     return p
 
 
@@ -168,11 +185,27 @@ def main(argv: list[str] | None = None) -> None:
 
     parser = build_parser()
     args = parser.parse_args(argv)
-    repo_root = _repo_root_from_args(getattr(args, "repo", None))
 
     cmd = args.command
     if getattr(args, "ascii", False):
         os.environ["FORGE_ASCII"] = "1"
+
+    if cmd == "install":
+        _run_install(
+            json_output=getattr(args, "json_output", False),
+            repo_url=getattr(args, "repo_url"),
+            ref=getattr(args, "ref"),
+            install_cursor=bool(getattr(args, "cursor", False)),
+            install_claude=bool(getattr(args, "claude", False)),
+            install_codex=bool(getattr(args, "codex", False)),
+            install_all=bool(getattr(args, "all", False)),
+            cursor_dir=getattr(args, "cursor_dir", None),
+            claude_dir=getattr(args, "claude_dir", None),
+            codex_dir=getattr(args, "codex_dir", None),
+        )
+        return
+
+    repo_root = _repo_root_from_args(getattr(args, "repo", None))
 
     if cmd == "doctor":
         _run_doctor(repo_root, json_output=getattr(args, "json_output", False))
@@ -406,4 +439,139 @@ def _summarize_orchestrator_output(repo_root: Path, command: str, human_output: 
         "warnings": warnings,
         "error": error,
     }
+
+
+def _default_cursor_local_plugins_dir() -> Path:
+    # Windows: %USERPROFILE%\.cursor\plugins\local
+    # POSIX:   ~/.cursor/plugins/local
+    home = Path(os.environ.get("USERPROFILE") or str(Path.home()))
+    return home / ".cursor" / "plugins" / "local"
+
+
+def _default_claude_commands_dir() -> Path:
+    # Opinionated default; can be overridden via --claude-dir.
+    home = Path(os.environ.get("USERPROFILE") or str(Path.home()))
+    return home / ".claude" / "commands"
+
+
+def _default_codex_skills_dir() -> Path:
+    # Opinionated default; can be overridden via --codex-dir.
+    home = Path(os.environ.get("USERPROFILE") or str(Path.home()))
+    return home / ".codex" / "skills"
+
+
+def _download_repo_zip(repo_url: str, ref: str, out_path: Path) -> None:
+    zip_url = repo_url.rstrip("/") + f"/archive/refs/heads/{ref}.zip"
+    req = urllib.request.Request(zip_url, headers={"User-Agent": "forge-next"})
+    with urllib.request.urlopen(req, timeout=30) as resp, out_path.open("wb") as f:
+        shutil.copyfileobj(resp, f)
+
+
+def _extract_zip(zip_path: Path, out_dir: Path) -> None:
+    with zipfile.ZipFile(zip_path) as zf:
+        zf.extractall(out_dir)
+
+
+def _copytree_replace(src: Path, dst: Path) -> None:
+    if dst.exists():
+        shutil.rmtree(dst)
+    dst.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copytree(src, dst)
+
+
+def _run_install(
+    *,
+    json_output: bool,
+    repo_url: str,
+    ref: str,
+    install_cursor: bool,
+    install_claude: bool,
+    install_codex: bool,
+    install_all: bool,
+    cursor_dir: str | None,
+    claude_dir: str | None,
+    codex_dir: str | None,
+) -> None:
+    # Default behavior: install all integrations if none were selected.
+    if not (install_cursor or install_claude or install_codex or install_all):
+        install_all = True
+    if install_all:
+        install_cursor = install_claude = install_codex = True
+
+    warnings: list[str] = []
+    installed: dict[str, str] = {}
+
+    try:
+        with tempfile.TemporaryDirectory(prefix="forge-install-") as td:
+            td_path = Path(td)
+            zip_path = td_path / "repo.zip"
+            extract_dir = td_path / "extract"
+            extract_dir.mkdir(parents=True, exist_ok=True)
+
+            _download_repo_zip(repo_url, ref, zip_path)
+            _extract_zip(zip_path, extract_dir)
+
+            top = next((p for p in extract_dir.iterdir() if p.is_dir()), None)
+            if top is None:
+                raise SystemExit("Failed to locate extracted repo folder.")
+
+            if install_cursor:
+                src = top / "integrations" / "cursor-plugin"
+                if not src.is_dir():
+                    warnings.append("Cursor plugin folder not found in downloaded repo.")
+                else:
+                    base = Path(cursor_dir).expanduser() if cursor_dir else _default_cursor_local_plugins_dir()
+                    dst = base / "forge"
+                    _copytree_replace(src, dst)
+                    installed["cursor_plugin"] = str(dst)
+
+            if install_claude:
+                src = top / "integrations" / "claude" / "commands"
+                if not src.is_dir():
+                    warnings.append("Claude commands folder not found in downloaded repo.")
+                else:
+                    base = Path(claude_dir).expanduser() if claude_dir else _default_claude_commands_dir()
+                    dst = base / "forge"
+                    _copytree_replace(src, dst)
+                    installed["claude_commands"] = str(dst)
+
+            if install_codex:
+                src = top / "integrations" / "codex" / "skills"
+                if not src.is_dir():
+                    warnings.append("Codex skills folder not found in downloaded repo.")
+                else:
+                    base = Path(codex_dir).expanduser() if codex_dir else _default_codex_skills_dir()
+                    dst = base / "forge"
+                    _copytree_replace(src, dst)
+                    installed["codex_skills"] = str(dst)
+    except Exception as e:
+        raise SystemExit(f"forge install failed (download/unpack): {e}")
+
+    payload = {
+        "command": "install",
+        "repo_url": repo_url,
+        "ref": ref,
+        "installed": installed,
+        "warnings": warnings,
+        "error": None,
+    }
+
+    if json_output:
+        print(json.dumps(payload, ensure_ascii=True))
+        return
+
+    title = "forge - install" if os.environ.get("FORGE_ASCII") == "1" else "forge — install"
+    print(title)
+    print("=" * 60)
+    for k, v in installed.items():
+        print(f"{k}: {v}")
+    if warnings:
+        print("")
+        print("Warnings:")
+        for w in warnings:
+            print(f"- {w}")
+    print("")
+    print("Next steps:")
+    print("- Restart your editor/agent environment(s) so new commands are picked up.")
+    print("- Run: forge doctor")
 

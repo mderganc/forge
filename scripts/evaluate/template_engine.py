@@ -28,7 +28,7 @@ def default_prompts_root() -> Path | _ResourceLike:
     Resolution order:
     1) FORGE_CODEX_PROMPTS_DIR env var (developer override)
     2) Repo-local `prompts/` relative to this file (editable checkout)
-    3) Packaged assets at `forge_codex.assets/prompts` (pipx install)
+    3) Packaged assets at `forge_next.assets/prompts` (pipx install)
     """
     override = os.environ.get("FORGE_CODEX_PROMPTS_DIR")
     if override:
@@ -38,7 +38,7 @@ def default_prompts_root() -> Path | _ResourceLike:
         return PROMPTS_DIR
 
     # Packaged fallback (installed distribution)
-    return resources.files("forge_codex.assets").joinpath("prompts")
+    return resources.files("forge_next.assets").joinpath("prompts")
 
 
 def _join(root: Path | _ResourceLike, rel: str) -> Path | _ResourceLike:

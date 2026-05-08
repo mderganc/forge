@@ -30,10 +30,15 @@ def test_forge_launcher_can_run_against_foreign_repo(tmp_path: Path) -> None:
     (foreign / "README.md").write_text("# Foreign Repo\n", encoding="utf-8")
 
     # Run `forge status` against it: should not crash and should print the repo path.
+    repo_root = Path(__file__).resolve().parents[1]
     cmd = [
         sys.executable,
         "-c",
-        "from forge_codex.cli import main; main(['status','--repo',r'" + str(foreign) + "'])",
+        "import sys; sys.path.insert(0, r'"
+        + str(repo_root)
+        + "'); from forge_next.cli import main; main(['status','--repo',r'"
+        + str(foreign)
+        + "'])",
     ]
     res = _run(cmd, cwd=foreign)
     assert res.returncode == 0, res.stderr

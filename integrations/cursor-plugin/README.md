@@ -19,6 +19,13 @@ Set-ExecutionPolicy -Scope Process Bypass -Force
 irm https://raw.githubusercontent.com/mderganc/forge/main/integrations/cursor-plugin/install.ps1 | iex
 ```
 
+To also install Claude/Codex wrappers into your WSL home:
+
+```powershell
+$env:AlsoWsl = "1"
+irm https://raw.githubusercontent.com/mderganc/forge/main/integrations/cursor-plugin/install.ps1 | iex -AlsoWsl
+```
+
 ### WSL / Linux / macOS
 
 ```bash
@@ -29,6 +36,12 @@ This installs:
 - Cursor plugin (`forge:*` commands)
 - Claude command pack
 - Codex skill pack
+
+Uninstall:
+
+```bash
+forge uninstall --all
+```
 
 ## Local install (development)
 

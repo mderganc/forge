@@ -5,6 +5,10 @@ param(
   [string]$CursorPluginsDir = "",
   [string]$ClaudeDir = "",
   [string]$CodexDir = "",
+  [switch]$AlsoWsl,
+  [string]$WslDistro = "",
+  [string]$WslClaudeDir = "",
+  [string]$WslCodexDir = "",
   [switch]$SkipCliInstall
 )
 
@@ -52,9 +56,29 @@ if ($CodexDir -and $CodexDir.Trim().Length -gt 0) { $args += @("--codex-dir", $C
 
 & forge @args
 
+if ($AlsoWsl) {
+  Write-Info "Installing Claude/Codex into WSL as well..."
+
+  $wslArgs = @()
+  if ($WslDistro -and $WslDistro.Trim().Length -gt 0) { $wslArgs += @("-d", $WslDistro) }
+
+  $envPairs = @()
+  if ($WslClaudeDir -and $WslClaudeDir.Trim().Length -gt 0) { $envPairs += "CLAUDE_DIR=$WslClaudeDir" }
+  if ($WslCodexDir -and $WslCodexDir.Trim().Length -gt 0) { $envPairs += "CODEX_DIR=$WslCodexDir" }
+
+  $envPrefix = ""
+  if ($envPairs.Count -gt 0) { $envPrefix = ($envPairs -join " ") + " " }
+
+  $cmd = $envPrefix + "curl -fsSL https://raw.githubusercontent.com/mderganc/forge/$Ref/integrations/cursor-plugin/install.sh | bash"
+  & wsl.exe @wslArgs "--" "bash" "-lc" $cmd
+}
+
 Write-Info "Done."
 Write-Info "Next steps:"
 Write-Host "  1) Restart Cursor"
 Write-Host "  2) Run: forge:doctor"
 Write-Host "  3) Run: forge:evaluate"
+
+Write-Info "Uninstall:"
+Write-Host "  forge uninstall --all"
 

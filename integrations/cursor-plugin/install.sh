@@ -46,3 +46,6 @@ echo "  1) Restart Cursor"
 echo "  2) Run: forge:doctor"
 echo "  3) Run: forge:evaluate"
 
+info "Uninstall:"
+echo "  forge uninstall --all"
+

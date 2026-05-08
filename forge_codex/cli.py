@@ -162,6 +162,17 @@ def build_parser() -> argparse.ArgumentParser:
     ins.add_argument("--claude-dir", type=str, default=None, help="Override Claude commands install directory")
     ins.add_argument("--codex-dir", type=str, default=None, help="Override Codex skills install directory")
 
+    # uninstall
+    un = sub.add_parser("uninstall", help="Uninstall integrations (Cursor/Claude/Codex) for this user")
+    add_common_output_flags(un)
+    un.add_argument("--cursor", action="store_true", help="Uninstall Cursor plugin")
+    un.add_argument("--claude", action="store_true", help="Uninstall Claude command pack")
+    un.add_argument("--codex", action="store_true", help="Uninstall Codex skill pack")
+    un.add_argument("--all", action="store_true", help="Uninstall all integrations (default if none selected)")
+    un.add_argument("--cursor-dir", type=str, default=None, help="Override Cursor local plugins directory")
+    un.add_argument("--claude-dir", type=str, default=None, help="Override Claude commands install directory")
+    un.add_argument("--codex-dir", type=str, default=None, help="Override Codex skills install directory")
+
     return p
 
 
@@ -199,6 +210,19 @@ def main(argv: list[str] | None = None) -> None:
             install_claude=bool(getattr(args, "claude", False)),
             install_codex=bool(getattr(args, "codex", False)),
             install_all=bool(getattr(args, "all", False)),
+            cursor_dir=getattr(args, "cursor_dir", None),
+            claude_dir=getattr(args, "claude_dir", None),
+            codex_dir=getattr(args, "codex_dir", None),
+        )
+        return
+
+    if cmd == "uninstall":
+        _run_uninstall(
+            json_output=getattr(args, "json_output", False),
+            uninstall_cursor=bool(getattr(args, "cursor", False)),
+            uninstall_claude=bool(getattr(args, "claude", False)),
+            uninstall_codex=bool(getattr(args, "codex", False)),
+            uninstall_all=bool(getattr(args, "all", False)),
             cursor_dir=getattr(args, "cursor_dir", None),
             claude_dir=getattr(args, "claude_dir", None),
             codex_dir=getattr(args, "codex_dir", None),
@@ -574,4 +598,75 @@ def _run_install(
     print("Next steps:")
     print("- Restart your editor/agent environment(s) so new commands are picked up.")
     print("- Run: forge doctor")
+
+
+def _run_uninstall(
+    *,
+    json_output: bool,
+    uninstall_cursor: bool,
+    uninstall_claude: bool,
+    uninstall_codex: bool,
+    uninstall_all: bool,
+    cursor_dir: str | None,
+    claude_dir: str | None,
+    codex_dir: str | None,
+) -> None:
+    if not (uninstall_cursor or uninstall_claude or uninstall_codex or uninstall_all):
+        uninstall_all = True
+    if uninstall_all:
+        uninstall_cursor = uninstall_claude = uninstall_codex = True
+
+    removed: dict[str, str] = {}
+    missing: list[str] = []
+    warnings: list[str] = []
+
+    def rm_tree(path: Path, key: str) -> None:
+        if path.exists():
+            try:
+                shutil.rmtree(path)
+                removed[key] = str(path)
+            except Exception as e:
+                warnings.append(f"Failed to remove {path}: {e}")
+        else:
+            missing.append(str(path))
+
+    if uninstall_cursor:
+        base = Path(cursor_dir).expanduser() if cursor_dir else _default_cursor_local_plugins_dir()
+        rm_tree(base / "forge", "cursor_plugin")
+
+    if uninstall_claude:
+        base = Path(claude_dir).expanduser() if claude_dir else _default_claude_commands_dir()
+        rm_tree(base / "forge", "claude_commands")
+
+    if uninstall_codex:
+        base = Path(codex_dir).expanduser() if codex_dir else _default_codex_skills_dir()
+        rm_tree(base / "forge", "codex_skills")
+
+    payload = {
+        "command": "uninstall",
+        "removed": removed,
+        "missing": missing,
+        "warnings": warnings,
+        "error": None,
+    }
+
+    if json_output:
+        print(json.dumps(payload, ensure_ascii=True))
+        return
+
+    title = "forge - uninstall" if os.environ.get("FORGE_ASCII") == "1" else "forge — uninstall"
+    print(title)
+    print("=" * 60)
+    for k, v in removed.items():
+        print(f"{k}: removed {v}")
+    if missing:
+        print("")
+        print("Not found (already absent):")
+        for p in missing:
+            print(f"- {p}")
+    if warnings:
+        print("")
+        print("Warnings:")
+        for w in warnings:
+            print(f"- {w}")
 

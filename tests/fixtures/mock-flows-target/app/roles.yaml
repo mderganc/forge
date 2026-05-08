@@ -1,0 +1,7 @@
+roles:
+  admin:
+    can: [upload, list_all]
+  member:
+    can: [upload, list_own]
+  viewer:
+    can: [list_public]

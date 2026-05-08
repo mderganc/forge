@@ -1,0 +1,10 @@
+{
+  "include": ["scripts", "tests"],
+  "exclude": [
+    "tests/fixtures/**",
+    "**/__pycache__"
+  ],
+  "extraPaths": ["."],
+  "reportMissingImports": "warning",
+  "reportUnusedVariable": "none"
+}

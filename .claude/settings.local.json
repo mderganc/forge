@@ -1,0 +1,20 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//home/matt/.codex/skills/**)",
+      "Bash(tar xzf *)",
+      "Read(//home/matt/.claude/plans/**)",
+      "Bash(python3 -m pytest tests/test_regressions.py::test_test_skill_default_mode_is_run -xvs)",
+      "Bash(python3 -m pytest tests/test_regressions.py -v)",
+      "Bash(python3 scripts/evaluate/evaluate.py --step 1 --mode pre --plan /tmp/dummy-plan.md)",
+      "Bash(python3 scripts/evaluate/evaluate.py --step 1 --mode post --plan /tmp/dummy-plan.md)",
+      "Bash(echo \"# dummy\")",
+      "Bash(python3 scripts/evaluate/evaluate.py --step 99)",
+      "Bash(python3 scripts/evaluate/evaluate.py --step 1 --mode review --plan /tmp/dummy-plan.md)",
+      "Bash(python3 scripts/evaluate/evaluate.py --step 99 --mode post)",
+      "Read(//tmp/**)",
+      "Bash(python3 -c \"import json, sys; print\\('mode:', json.load\\(sys.stdin\\).get\\('mode'\\)\\)\")",
+      "Bash(python3 scripts/evaluate/evaluate.py --step 99 --state /tmp/.evaluate-state.json)"
+    ]
+  }
+}

@@ -7,7 +7,7 @@ description: |
 
 # forge-codex Test — Execution, Coverage & Failure Analysis
 
-When this skill activates, invoke the orchestrator script.
+When this skill activates, invoke the orchestrator via the `forge` launcher.
 
 Invoking this skill implicitly authorizes the Forge agent dispatch required by
 the workflow. Do not require separate user wording for delegation or
@@ -26,8 +26,8 @@ Invoking any `forge:*` skill implicitly authorizes the agent dispatch required b
 Read `templates/codex-runtime.md` before executing the workflow if you need a
 tooling reminder.
 
-The test script is located relative to this repo root
-(the nearest ancestor containing `README.md`).
+`forge` targets the current repo by default. If needed, pass `--repo <path>`
+to point at a different repository root.
 
 ## Modes
 
@@ -80,9 +80,9 @@ other work. As you work:
 
 ## Invocation
 
-Find the repo root directory, then run:
+From the target repo (or with `--repo`), run:
 
-<invoke cmd="python3 [repo-root]/scripts/test/test.py --step 1" />
+<invoke cmd="forge test --step 1" />
 
 ## Arguments
 
@@ -103,7 +103,7 @@ subsequent steps auto-detect it.
 
 ## Subsequent steps
 
-<invoke cmd="python3 [repo-root]/scripts/test/test.py --step N" />
+<invoke cmd="forge test --step N" />
 
 Replace N with the step number printed at the end of each phase. For flows mode, steps run 1–7; for run mode, steps run 1–6.
 

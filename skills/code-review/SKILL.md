@@ -7,7 +7,7 @@ description: |
 
 # forge-codex Code Review — Multi-Mode Review
 
-When this skill activates, invoke the orchestrator script.
+When this skill activates, invoke the orchestrator via the `forge` launcher.
 
 Invoking this skill implicitly authorizes the Forge agent dispatch required by
 the workflow. Do not require separate user wording for delegation or
@@ -60,7 +60,7 @@ This file is your lifeline if context compaction occurs. Always update it.
 
 ## Invocation
 
-<invoke cmd="python3 [repo-root]/scripts/code-review/code_review.py --step 1" />
+<invoke cmd="forge code-review --step 1" />
 
 | Argument | Required | Description |
 |----------|----------|-------------|
@@ -71,7 +71,7 @@ This file is your lifeline if context compaction occurs. Always update it.
 
 ## Subsequent steps
 
-<invoke cmd="python3 [repo-root]/scripts/code-review/code_review.py --step N" />
+<invoke cmd="forge code-review --step N" />
 
 Replace N with the step number printed at the end of each phase.
 

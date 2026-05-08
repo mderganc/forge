@@ -397,7 +397,7 @@ def _handle_flow_step(step: int, state: SkillState, sp: Path) -> None:
             save_state(state, sp)
 
     # Render template with current variables
-    template = load_template(f"test/{template_base}", PROMPTS_DIR)
+    template = load_template(f"test/{template_base}")
     variables = _build_variables(state)
 
     # Populate gate failure variables
@@ -548,7 +548,7 @@ def handle_step_1(args) -> None:
         _handle_flow_step(1, state, sp)
     else:
         # Run mode: original flow
-        template = load_template("test/context", PROMPTS_DIR)
+        template = load_template("test/context")
         variables = _build_variables(state)
         body = render_template(template, variables)
 
@@ -609,7 +609,7 @@ def handle_step_n(step: int, state_file: str | None = None) -> None:
 
     # Load template before mutating state — a missing template must not leave
     # state half-written.
-    template = load_template(template_name, PROMPTS_DIR)
+    template = load_template(template_name)
     variables = _build_variables(state)
     body = render_template(template, variables)
 

@@ -346,7 +346,7 @@ def handle_step_1(args) -> None:
 
     # Load template before mutating state — a missing template must not leave
     # state half-written.
-    template = load_template(TEMPLATE_NAMES[1], PROMPTS_DIR)
+    template = load_template(TEMPLATE_NAMES[1])
     variables = _build_step1_variables(state)
     body = render_template(template, variables)
 
@@ -373,7 +373,7 @@ def handle_step_1(args) -> None:
 
 def handle_step_2(state: SkillState, sp: Path) -> None:
     """Step 2: Branch setup and wave identification."""
-    template = load_template(TEMPLATE_NAMES[2], PROMPTS_DIR)
+    template = load_template(TEMPLATE_NAMES[2])
     variables = _build_step2_variables(state)
     body = render_template(template, variables)
 
@@ -388,7 +388,7 @@ def handle_step_2(state: SkillState, sp: Path) -> None:
 
 def handle_step_3(state: SkillState, sp: Path) -> None:
     """Step 3: Wave dispatch -- send agents for current wave."""
-    template = load_template(TEMPLATE_NAMES[3], PROMPTS_DIR)
+    template = load_template(TEMPLATE_NAMES[3])
 
     current_wave = state.custom.get("current_wave", 0)
     if current_wave == 0:
@@ -425,7 +425,7 @@ def handle_step_3(state: SkillState, sp: Path) -> None:
 
 def handle_step_4(state: SkillState, sp: Path) -> None:
     """Step 4: Wave review -- per-task review loop."""
-    template = load_template(TEMPLATE_NAMES[4], PROMPTS_DIR)
+    template = load_template(TEMPLATE_NAMES[4])
     current_wave = state.custom.get("current_wave", 1)
     variables = _build_wave_variables(state)
     body = render_template(template, variables)
@@ -441,7 +441,7 @@ def handle_step_4(state: SkillState, sp: Path) -> None:
 
 def handle_step_5(state: SkillState, sp: Path) -> None:
     """Step 5: Wave completion -- merge and decide next wave or proceed."""
-    template = load_template(TEMPLATE_NAMES[5], PROMPTS_DIR)
+    template = load_template(TEMPLATE_NAMES[5])
 
     current_wave = state.custom.get("current_wave", 1)
     total_waves = state.custom.get("total_waves", 0)
@@ -480,7 +480,7 @@ def handle_step_5(state: SkillState, sp: Path) -> None:
 
 def handle_step_6(state: SkillState, sp: Path) -> None:
     """Step 6: Integration verification -- cross-wave checks after all waves complete."""
-    template = load_template(TEMPLATE_NAMES[6], PROMPTS_DIR)
+    template = load_template(TEMPLATE_NAMES[6])
     variables = _build_wave_variables(state)
     body = render_template(template, variables)
 
@@ -495,7 +495,7 @@ def handle_step_6(state: SkillState, sp: Path) -> None:
 
 def handle_step_7(state: SkillState, sp: Path) -> None:
     """Step 7: Documentation dispatch."""
-    template = load_template(TEMPLATE_NAMES[7], PROMPTS_DIR)
+    template = load_template(TEMPLATE_NAMES[7])
     variables = _build_doc_variables(state)
     body = render_template(template, variables)
 
@@ -510,7 +510,7 @@ def handle_step_7(state: SkillState, sp: Path) -> None:
 
 def handle_step_8(state: SkillState, sp: Path) -> None:
     """Step 8: Handoff and dashboard."""
-    template = load_template(TEMPLATE_NAMES[8], PROMPTS_DIR)
+    template = load_template(TEMPLATE_NAMES[8])
     variables = _build_handoff_variables(state)
     body = render_template(template, variables)
 

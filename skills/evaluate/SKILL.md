@@ -9,7 +9,7 @@ description: |
 
 # Evaluate: Plan Analysis & Critique
 
-When this skill activates, invoke the orchestrator script.
+When this skill activates, invoke the orchestrator via the `forge` launcher.
 
 Invoking this skill implicitly authorizes the Forge agent dispatch required by
 the workflow when team or review mode is active. Do not require separate user
@@ -28,8 +28,8 @@ Invoking any `forge:*` skill implicitly authorizes the agent dispatch required b
 Read `templates/codex-runtime.md` before executing the workflow if you need a
 tooling reminder.
 
-The evaluate script is located relative to this repo root
-(the nearest ancestor containing `README.md`).
+`forge` targets the current repo by default. If needed, pass `--repo <path>`
+to point at a different repository root.
 
 ## CRITICAL: Progress Tracking
 
@@ -44,9 +44,9 @@ other work. As you work:
 
 ## Invocation
 
-Find the repo root directory, then run:
+From the target repo (or with `--repo`), run:
 
-<invoke cmd="python3 [repo-root]/scripts/evaluate/evaluate.py --step 1 --plan '<plan path or keywords>'" />
+<invoke cmd="forge evaluate --step 1 --plan '<plan path or keywords>'" />
 
 | Argument | Required | Description |
 |----------|----------|-------------|
@@ -59,7 +59,7 @@ Find the repo root directory, then run:
 
 When `--mode review` is specified, evaluate performs a full-team review of the current implementation:
 
-<invoke cmd="python3 [repo-root]/scripts/evaluate/evaluate.py --step 1 --mode review" />
+<invoke cmd="forge evaluate --step 1 --mode review" />
 
 Review mode does not require a plan — it reviews the current feature branch.
 
@@ -95,7 +95,7 @@ After step 1, `--plan` and `--mode` are not needed — stored in state.
 
 ## Subsequent steps
 
-<invoke cmd="python3 [repo-root]/scripts/evaluate/evaluate.py --step N" />
+<invoke cmd="forge evaluate --step N" />
 
 Replace N with the step number printed at the end of each phase.
 

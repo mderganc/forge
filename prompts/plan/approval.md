@@ -5,7 +5,7 @@ Present the plan to the user for approval.
 Run a pre-mortem analysis per `templates/pre-mortem.md`:
 1. Imagine this plan was executed 6 months from now and **failed catastrophically**.
 2. Each team member generates 2-3 failure scenarios (technical, process, integration, assumption, external).
-3. Categorize and prioritize by likelihood × impact.
+3. Categorize and prioritize by likelihood Ã— impact.
 4. Add any new risks to the plan's risk register before presenting.
 
 ## Plan Summary
@@ -25,10 +25,10 @@ Use this question and these options:
 
 - Question: `Approve the implementation plan?`
 - Options:
-  - `Approve` — accept the plan and hand off to `implement`
-  - `Revise` — return to step 3 with feedback
-  - `Simplify` — scope the plan down before approval
-  - `Reject` — stop here because the plan is not viable
+  - `Approve` â€” accept the plan and hand off to `implement`
+  - `Revise` â€” return to step 3 with feedback
+  - `Simplify` â€” scope the plan down before approval
+  - `Reject` â€” stop here because the plan is not viable
 
 Record the user's decision in `project.md`. If approved, proceed to handoff.
 If changes requested, return to step 3 (plan creation).

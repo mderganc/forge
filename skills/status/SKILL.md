@@ -61,3 +61,9 @@ Based on the flow position, suggest the next skill to run:
 - If code-review is complete but test is not: suggest `test`
 - If test has failures: suggest `diagnose`
 - If all are complete: report "Flow complete"
+
+## Invocation
+
+Use the global launcher:
+
+<invoke cmd="forge status" />

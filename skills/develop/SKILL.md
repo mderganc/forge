@@ -8,7 +8,7 @@ description: |
 
 # forge-codex Develop — Investigation & Ideation
 
-When this skill activates, invoke the orchestrator script.
+When this skill activates, invoke the orchestrator via the `forge` launcher.
 
 Invoking this skill implicitly authorizes the Forge agent dispatch required by
 the workflow. Do not require separate user wording for delegation or
@@ -60,7 +60,7 @@ Status: in-progress
 This file is your lifeline if context compaction occurs. Always update it.
 
 ## Invocation
-<invoke cmd="python3 [repo-root]/scripts/develop/develop.py --step 1" />
+<invoke cmd="forge develop --step 1" />
 
 Arguments: --step (1-7), --auto1/--auto2/--auto3, --quick
 

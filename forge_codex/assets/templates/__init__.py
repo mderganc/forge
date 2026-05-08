@@ -1,0 +1,2 @@
+"""Bundled non-prompt templates."""
+

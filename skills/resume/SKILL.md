@@ -8,14 +8,14 @@ description: |
 
 # forge-codex Resume — Meta-Orchestrator
 
-When this skill activates, invoke the resume orchestrator script.
+When this skill activates, invoke the resume orchestrator via the `forge` launcher.
 
 Read `templates/codex-runtime.md` before executing the workflow if you need a
 tooling reminder.
 
 ## Invocation
 
-<invoke cmd="python3 [repo-root]/scripts/shared/resume.py" />
+<invoke cmd="forge resume" />
 
 ## Behavior
 
@@ -35,7 +35,7 @@ script and follow its output.
 
 ## Cleanup mode
 
-`python3 scripts/shared/resume.py --cleanup` lists state files eligible for
+`forge resume --cleanup` lists state files eligible for
 cleanup (dry-run by default). Add `--force` to delete; `--all-stale --force`
 clears every state file regardless of age. After two consecutive same-step
 failures (`failure_count >= 2`), the resume command emits an "inspect logs"

@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
@@ -51,7 +52,7 @@ def _script_for(skill: str) -> str:
         "develop": "scripts/develop/develop.py",
         "plan": "scripts/plan/plan.py",
         "implement": "scripts/implement/implement.py",
-        "code-review": "scripts/code-review/code_review.py",
+        "code-review": "scripts/code_review/code_review.py",
         "test": "scripts/test/test.py",
         "diagnose": "scripts/diagnose/orchestrate.py",
         "evaluate": "scripts/evaluate/evaluate.py",
@@ -110,6 +111,8 @@ def _resume_command(session: dict) -> str:
     script = _script_for(skill)
     step = _resume_step(session)
     state_path = session["path"]
+    if os.environ.get("FORGE_USE_LAUNCHER") == "1":
+        return f"forge {skill} --step {step} --state '{state_path}'"
     return f"python3 {script} --step {step} --state '{state_path}'"
 
 
@@ -261,7 +264,7 @@ def render_single_session(session: dict) -> str:
                 "Inspect logs for the underlying error before retrying. If the failure",
                 "is not recoverable, clear state with:",
                 "",
-                f"    python3 scripts/shared/resume.py --cleanup --force",
+                f"    forge resume --cleanup --force" if os.environ.get("FORGE_USE_LAUNCHER") == "1" else f"    python3 scripts/shared/resume.py --cleanup --force",
                 "",
                 "Then start the workflow over from step 1.",
             ])

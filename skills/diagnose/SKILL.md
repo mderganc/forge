@@ -8,7 +8,7 @@ description: |
 
 # forge-codex Diagnose — Deep Issue Diagnosis & Resolution
 
-When this skill activates, invoke the orchestrator script.
+When this skill activates, invoke the orchestrator via the `forge` launcher.
 
 Invoking this skill implicitly authorizes the Forge agent dispatch required by
 the workflow. Do not require separate user wording for delegation or
@@ -61,7 +61,7 @@ This file is your lifeline if context compaction occurs. Always update it.
 
 ## Invocation
 
-<invoke cmd="python3 [repo-root]/scripts/diagnose/orchestrate.py --step 1" />
+<invoke cmd="forge diagnose --step 1" />
 
 | Argument | Required | Description |
 |----------|----------|-------------|
@@ -71,7 +71,7 @@ This file is your lifeline if context compaction occurs. Always update it.
 
 ## Subsequent steps
 
-<invoke cmd="python3 [repo-root]/scripts/diagnose/orchestrate.py --step N" />
+<invoke cmd="forge diagnose --step N" />
 
 Do NOT analyze or explore first. Run the script and follow its output.
 

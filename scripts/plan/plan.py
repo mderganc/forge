@@ -359,7 +359,7 @@ def handle_step_1(args: argparse.Namespace) -> None:
     # Print state path so Codex knows where it is
     print(f"STATE FILE: {sp}\n", file=sys.stderr)
 
-    template = load_template("plan/context", PROMPTS_DIR)
+    template = load_template("plan/context")
     variables = _build_variables(state)
     body = render_template(template, variables)
 
@@ -415,7 +415,7 @@ def handle_step_n(step: int, state_file: str | None = None) -> None:
 
     # Load template before mutating state — a missing template must not leave
     # state half-written.
-    template = load_template(template_name, PROMPTS_DIR)
+    template = load_template(template_name)
     variables = _build_variables(state)
     body = render_template(template, variables)
 

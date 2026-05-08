@@ -20,7 +20,34 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-REPO_ROOT = Path(__file__).resolve().parents[2]
+def _detect_repo_root(start: Path | None = None) -> Path:
+    """Detect the target repo root from the current working directory.
+
+    This module is used both from a repo checkout and from an installed package
+    (e.g. via `pipx`). In installed mode, `__file__` points into site-packages,
+    so we must anchor runtime state to the *target repo*, not the package.
+    """
+    cur = (start or Path.cwd()).resolve()
+    readme_candidate: Path | None = None
+    for p in (cur, *cur.parents):
+        if (p / ".git").is_dir():
+            return p
+        if readme_candidate is None and (p / "README.md").is_file():
+            readme_candidate = p
+    return readme_candidate or cur
+
+
+# Runtime defaults are anchored to the detected target repo root (cwd-based).
+REPO_ROOT = _detect_repo_root()
+
+# Ensure Unicode prompt output works on Windows terminals when running scripts
+# directly (not via the `forge` launcher).
+os.environ.setdefault("PYTHONUTF8", "1")
+try:
+    sys.stdout.reconfigure(encoding="utf-8")
+    sys.stderr.reconfigure(encoding="utf-8")
+except Exception:
+    pass
 RUNTIME_ROOT_PARTS = (".codex", "forge-codex")
 LEGACY_RUNTIME_DIRNAME = ".forge"
 EVALUATE_STATE_FILENAME = ".evaluate-state.json"
@@ -39,7 +66,7 @@ def runtime_root(search_dir: Path | None = None) -> Path:
     legacy `.forge` runtime when `.codex` is blocked by a file or symlink-like
     non-directory entry in the repo root.
     """
-    base_dir = search_dir or REPO_ROOT
+    base_dir = search_dir or _detect_repo_root()
     if _blocked_runtime_anchor(base_dir):
         return base_dir / LEGACY_RUNTIME_DIRNAME
     return base_dir.joinpath(*RUNTIME_ROOT_PARTS)
@@ -47,7 +74,7 @@ def runtime_root(search_dir: Path | None = None) -> Path:
 
 def legacy_runtime_root(search_dir: Path | None = None) -> Path:
     """Return the legacy runtime root used by the original copied workflow."""
-    base_dir = search_dir or REPO_ROOT
+    base_dir = search_dir or _detect_repo_root()
     return base_dir / LEGACY_RUNTIME_DIRNAME
 
 
@@ -453,7 +480,7 @@ def detect_active_sessions(search_dir: Path | None = None) -> list[dict]:
 
     Only returns sessions that are NOT completed (completed_at is None).
     """
-    cwd = search_dir or REPO_ROOT
+    cwd = search_dir or _detect_repo_root()
     sessions: list[dict] = []
     candidate_dirs = [
         runtime_state_dir(cwd),
@@ -572,7 +599,7 @@ def validate_state_path(state_file: str, skill_name: str) -> Path | None:
     ignored (doesn't exist, outside project).
     """
     sp = Path(state_file).resolve()
-    repo_root = REPO_ROOT.resolve()
+    repo_root = _detect_repo_root().resolve()
 
     # Reject paths outside the repository directory
     try:
@@ -830,7 +857,14 @@ def build_next_command(script_path: Path, step: int, max_step: int, **extra_args
     """Build the command string for the next step."""
     if step >= max_step:
         return ""
-    cmd = f"python3 {shlex.quote(str(script_path))} --step {step + 1}"
+    if os.environ.get("FORGE_USE_LAUNCHER") == "1":
+        # Build a `forge <skill> --step N` continuation command.
+        # Skill name is derived from the script's parent directory, e.g.:
+        # scripts/plan/plan.py -> plan
+        skill = script_path.parent.name
+        cmd = f"forge {shlex.quote(skill)} --step {step + 1}"
+    else:
+        cmd = f"python3 {shlex.quote(str(script_path))} --step {step + 1}"
     for key, val in extra_args.items():
         cmd += f" --{key} {shlex.quote(val)}"
     return cmd

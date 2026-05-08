@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
@@ -256,7 +257,10 @@ def _next_command(step: int, state_path: str = "", mode: str | None = None) -> s
     max_step = _max_step_for_mode(mode)
     if step >= max_step:
         return ""
-    cmd = f"python3 {SCRIPT_DIR / 'evaluate.py'} --step {step + 1}"
+    if os.environ.get("FORGE_USE_LAUNCHER") == "1":
+        cmd = f"forge evaluate --step {step + 1}"
+    else:
+        cmd = f"python3 {SCRIPT_DIR / 'evaluate.py'} --step {step + 1}"
     if state_path:
         cmd += f" --state '{state_path}'"
     return cmd
@@ -369,7 +373,7 @@ def handle_step_1(args: argparse.Namespace) -> None:
     # Print state path so user/Codex knows where it is
     print(f"STATE FILE: {sp}\n", file=sys.stderr)
 
-    template = load_template("shared/plan_parsing", PROMPTS_DIR)
+    template = load_template("shared/plan_parsing")
     variables = _build_variables(state, plan_content)
     body = render_template(template, variables)
 
@@ -410,7 +414,7 @@ def handle_step_1_review(args: argparse.Namespace) -> None:
 
     print(f"STATE FILE: {sp}\n", file=sys.stderr)
 
-    template = load_template("review/team_dispatch", PROMPTS_DIR)
+    template = load_template("review/team_dispatch")
     variables = _build_variables(state, "(review mode — no plan)")
     body = render_template(template, variables)
 
@@ -500,7 +504,7 @@ def handle_step_n(step: int, state_file: str | None = None) -> None:
 
     # Load template before mutating state — a missing template must not leave
     # state half-written.
-    template = load_template(template_name, PROMPTS_DIR)
+    template = load_template(template_name)
     variables = _build_variables(state, plan_content, state_dir=sp.parent, step=step)
     body = render_template(template, variables)
 

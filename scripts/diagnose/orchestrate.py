@@ -287,7 +287,7 @@ def handle_step_1(args) -> None:
 
     print(f"STATE FILE: {sp}\n", file=sys.stderr)
 
-    template = load_template(PHASE_TEMPLATES[1], PROMPTS_DIR)
+    template = load_template(PHASE_TEMPLATES[1])
     variables = _build_variables(state)
     body = render_template(template, variables)
 
@@ -326,7 +326,7 @@ def handle_step_n(step: int, state_file: str | None = None, mode: str | None = N
         print(f"ERROR: No template for step {step}")
         sys.exit(1)
 
-    template = load_template(template_name, PROMPTS_DIR)
+    template = load_template(template_name)
     variables = _build_variables(state)
     body = render_template(template, variables)
 

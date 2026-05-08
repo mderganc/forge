@@ -1,4 +1,4 @@
-# forge-codex
+# forge
 
 A Codex-native agent toolkit for structured software delivery: investigation, planning, implementation, review, testing, diagnostics, and workflow continuity across sessions.
 
@@ -10,12 +10,31 @@ Mock Flows + Numbered Handoff Menu (2026-05-07):
 
 State-lifecycle and authoring fixes (2026-05-07):
 - The `plan` skill now materializes a section-marker skeleton at step 1 (sourced from `templates/writing-plans.md`) and refuses to mark step 6 complete while any `<!-- FORGE_SKELETON: ... -->` markers remain.
-- `python3 scripts/shared/resume.py --cleanup` lists state files eligible for cleanup (dry-run by default). Add `--force` to delete; `--all-stale --force` for migration mode (clears every state file regardless of age).
+- `forge resume --cleanup` lists state files eligible for cleanup (dry-run by default). Add `--force` to delete; `--all-stale --force` for migration mode (clears every state file regardless of age).
 - Re-running step 1 of any skill now aborts when an in-progress same-skill session exists. To resume, use the `--state <path>` flag or run `resume.py`.
 - Over-cap `--step` invocations (e.g., `--step 9` on an 8-step skill) now print a friendly "skill complete" message and exit 0 instead of erroring.
 - A `failure_count` field tracks consecutive same-step retries; after two failures, `resume.py` emits an "inspect logs" hint instead of producing a third retry command.
 
-## Quick Start
+## Install (pipx) — run in any repo
+
+This repo ships a global `forge` launcher so you can install once and run
+workflows from any target repository (without copying `scripts/` into each repo).
+
+```bash
+pipx install forge-codex
+```
+
+Then, from any target repo:
+
+```bash
+forge evaluate --step 1 --mode review
+forge plan --step 1
+forge status
+```
+
+Use `--repo <path>` to target a different repository root.
+
+## Quick Start (dev / contributors)
 
 ```bash
 # Clone the repo

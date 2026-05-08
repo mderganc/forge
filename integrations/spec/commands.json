@@ -1,0 +1,102 @@
+{
+  "version": 1,
+  "cli": {
+    "binary": "forge",
+    "package": "forge-codex"
+  },
+  "commands": [
+    {
+      "id": "forge:evaluate",
+      "cli_subcommand": "evaluate",
+      "description": "Plan review / implementation audit (pre/post/review modes).",
+      "examples": [
+        "forge evaluate --step 1 --mode review",
+        "forge evaluate --step 1 --mode pre --plan \"<plan keywords or path>\"",
+        "forge evaluate --repo \"<path>\" --step 1 --mode post --plan \"<plan>\""
+      ]
+    },
+    {
+      "id": "forge:develop",
+      "cli_subcommand": "develop",
+      "description": "Investigate and propose solution options.",
+      "examples": [
+        "forge develop --step 1",
+        "forge develop --step 1 --quick"
+      ]
+    },
+    {
+      "id": "forge:plan",
+      "cli_subcommand": "plan",
+      "description": "Create an implementation plan.",
+      "examples": [
+        "forge plan --step 1",
+        "forge plan --repo \"<path>\" --step 1 --quick"
+      ]
+    },
+    {
+      "id": "forge:implement",
+      "cli_subcommand": "implement",
+      "description": "Execute an implementation plan in waves.",
+      "examples": [
+        "forge implement --step 1",
+        "forge implement --step 3 --state \"<state path>\""
+      ]
+    },
+    {
+      "id": "forge:code-review",
+      "cli_subcommand": "code-review",
+      "description": "Run structured code review workflows.",
+      "examples": [
+        "forge code-review --step 1",
+        "forge code-review --step 1 --quick"
+      ]
+    },
+    {
+      "id": "forge:test",
+      "cli_subcommand": "test",
+      "description": "Run tests or author mock flows (run/flows modes).",
+      "examples": [
+        "forge test --step 1",
+        "forge test --mode flows --step 1"
+      ]
+    },
+    {
+      "id": "forge:diagnose",
+      "cli_subcommand": "diagnose",
+      "description": "Deep diagnosis workflow for bugs/regressions.",
+      "examples": [
+        "forge diagnose --step 1",
+        "forge diagnose --step 1 --quick"
+      ]
+    },
+    {
+      "id": "forge:resume",
+      "cli_subcommand": "resume",
+      "description": "Resume in-progress workflows and manage state cleanup.",
+      "examples": [
+        "forge resume",
+        "forge resume --cleanup",
+        "forge resume --cleanup --force"
+      ]
+    },
+    {
+      "id": "forge:status",
+      "cli_subcommand": "status",
+      "description": "Show a lightweight workflow dashboard for a repo.",
+      "examples": [
+        "forge status",
+        "forge status --repo \"<path>\""
+      ]
+    },
+    {
+      "id": "forge:doctor",
+      "cli_subcommand": "doctor",
+      "description": "Diagnose installation/PATH/encoding/runtime-root issues.",
+      "examples": [
+        "forge doctor",
+        "forge doctor --repo \"<path>\""
+      ]
+    }
+  ]
+}
+

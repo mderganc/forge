@@ -744,7 +744,7 @@ def build_skill_todos(
 
 def format_continuation_block(next_cmd: str) -> str:
     """Render the strong continuation directive replacing the old NEXT STEP block."""
-    bar = "━" * 60
+    bar = ("-" * 60) if os.environ.get("FORGE_ASCII") == "1" else ("━" * 60)
     return (
         f"\n\n{bar}\n"
         f"CONTINUATION — IMMEDIATE ACTION REQUIRED\n"
@@ -768,7 +768,7 @@ def format_workflow_transition(cross_skill_next: str) -> str:
     `cross_skill_next` is a skill name like "plan". If the user chooses to
     proceed, invoke that skill so its orchestrator can start at step 1.
     """
-    bar = "═" * 60
+    bar = ("=" * 60) if os.environ.get("FORGE_ASCII") == "1" else ("═" * 60)
     return (
         f"\n\n{bar}\n"
         f"WORKFLOW TRANSITION — SKILL BOUNDARY\n"

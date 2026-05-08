@@ -1,0 +1,13 @@
+{
+  "name": "forge",
+  "version": "0.1.0",
+  "description": "Forge workflow commands for Cursor. Requires the `forge` CLI on PATH (pipx install forge-codex).",
+  "components": {
+    "commands": {
+      "include": [
+        "commands/**/*.md"
+      ]
+    }
+  }
+}
+

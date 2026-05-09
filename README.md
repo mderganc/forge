@@ -272,6 +272,8 @@ Orchestration lives in `scripts/shared/` (`orchestrator.py`, `skill_chain.py`, `
 
 **Versions:** Any change that affects the PyPI package or editor integrations must bump semver in **[`pyproject.toml`](pyproject.toml)** (and the Cursor plugin [`plugin.json`](integrations/cursor-plugin/.cursor-plugin/plugin.json) when that bundle changes). Follow **[Versioning](AGENTS.md#versioning)** in [AGENTS.md](AGENTS.md): use **patch** for narrow fixes, **minor** for additive behavior, **major** for breaking contracts.
 
+**PyPI:** If you bump **`project.version`**, **[build and upload to PyPI](AGENTS.md#pypi)** the same release (`python -m build`, `twine`; or **`scripts/release/publish_pypi.sh`**). Users installing via **`pipx install forge-next`** must see the new version on PyPI.
+
 Tests:
 
 - `python -m pytest`

@@ -52,6 +52,21 @@ Pick the digit by **magnitude of change**:
 
 If several artifacts change together (CLI + Cursor plugin + Claude pack), align semver intent: a **minor** CLI feature usually pairs with a **minor** plugin bump when that feature surfaces in the plugin.
 
+### PyPI
+
+Whenever **`pyproject.toml`** `project.version` changes for a release users should consume via **`pipx install forge-next`** / **`pip install forge-next`**, **build and publish that version to PyPI** as part of the same release (do not leave main bumped ahead of PyPI).
+
+From the repo root, after installing tooling once (`pip install build twine` or equivalent):
+
+1. Remove stale artifacts: `rm -rf dist/`
+2. `python -m build`
+3. `twine check dist/*`
+4. Upload with credentials for the **forge-next** project, for example:
+   - **API token (recommended):** set `TWINE_USERNAME=__token__` and `TWINE_PASSWORD` to your [PyPI API token](https://pypi.org/manage/account/token/), then `twine upload dist/*`
+   - Or configure `~/.pypirc` and run `twine upload dist/*`
+
+The helper script **[`scripts/release/publish_pypi.sh`](scripts/release/publish_pypi.sh)** runs build + `twine check` + `twine upload` (requires `build`, `twine`, and auth env vars or `pypirc`). Skip PyPI only when you intentionally did **not** bump `project.version` (e.g. docs-only or repo-only integration edits pulled exclusively from GitHub via `forge install --repo-url`).
+
 ## Documentation
 
 When editing this repo's user-facing documentation, keep the role names aligned with the current agent set. Use `doc-writer`, not the legacy `tech-writer`.

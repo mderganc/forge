@@ -5,10 +5,7 @@ description: Run `forge evaluate` (pre/post/review).
 
 Run the Forge CLI from the current workspace repo.
 
-1) Verify `forge` is installed:
-- Run: `forge doctor`
-
-2) Start evaluate (examples):
+Start evaluate (examples):
 - Review current branch (no plan): `forge evaluate --step 1 --mode review`
 - Pre-implementation: `forge evaluate --step 1 --mode pre --plan "<plan keywords or path>"`
 - Post-implementation: `forge evaluate --step 1 --mode post --plan "<plan keywords or path>"`

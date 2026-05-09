@@ -29,15 +29,16 @@ Expected:
 
 ## 4) Claude command pack
 
-- Install the command pack in your Claude Code environment.
-- Run:
+- Run `forge install --claude` (copies `integrations/claude/commands/` to `~/.claude/commands/forge/` on macOS/Linux/WSL, or `%USERPROFILE%\.claude\commands\forge\` on Windows), then restart Claude Code.
+- Each command file must be Markdown with `---` YAML frontmatter and a non-empty body (validated by `pytest tests/test_integration_install_layout.py`).
+- Exercise at least:
+  - `forge:doctor`
   - `forge:status`
   - `forge:evaluate`
 
 ## 5) Codex skill pack
 
-- Add skills from `integrations/codex/skills/`.
-- Invoke:
-  - `evaluate`
-  - `plan`
+- Install with `forge install --codex` (copies `integrations/codex/skills/` under `~/.codex/skills/forge/`), then restart Codex.
+- Skills appear as `forge-plan`, `forge-evaluate`, `forge-resume`, `forge-status` (each is a folder with `SKILL.md`).
+- Invoke via `/use forge-plan` (etc.) or implicit matching on the skill description.
 

@@ -9,3 +9,7 @@ dist/
 build/
 .venv/
 .DS_Store
+
+# PyPI upload secrets (never commit)
+.pypirc
+pypi-token.env

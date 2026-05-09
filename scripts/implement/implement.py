@@ -45,10 +45,18 @@ from scripts.shared.orchestrator import (
     write_handoff,
 )
 from scripts.evaluate.template_engine import load_template, render_template
+from scripts.implement.plan_waves import (
+    format_wave_tasks_from_custom,
+    resolve_plan_path,
+    sync_waves_from_plan_file,
+    wave_rows_to_custom,
+)
 
 # ---------------------------------------------------------------------------
 # Constants
 # ---------------------------------------------------------------------------
+
+DEFAULT_BRANCH_PREFIX = "feat"
 
 SKILL_NAME = "implement"
 MAX_STEP = 8
@@ -156,11 +164,36 @@ def _init_state(quick: bool = False) -> SkillState:
     state.custom = {
         "plan_path": "",
         "feature_branch": "",
+        "branch_prefix": DEFAULT_BRANCH_PREFIX,
         "current_wave": 0,
         "total_waves": 0,
         "waves_completed": 0,
+        "wave_rows": [],
+        "plan_waves_parsed": False,
     }
     return state
+
+
+def _sync_waves_from_plan(state: SkillState) -> None:
+    """Populate total_waves and wave_rows from the plan's parallelization table."""
+    plan_path = (state.custom.get("plan_path") or "").strip()
+    if not plan_path:
+        state.custom["wave_rows"] = []
+        state.custom["plan_waves_parsed"] = False
+        return
+    try:
+        path = resolve_plan_path(plan_path, Path.cwd())
+        total, rows = sync_waves_from_plan_file(path)
+        state.custom["total_waves"] = total
+        state.custom["wave_rows"] = wave_rows_to_custom(rows)
+        state.custom["plan_waves_parsed"] = bool(rows)
+    except OSError:
+        state.custom["plan_waves_parsed"] = False
+
+
+def _feature_branch_placeholder(state: SkillState) -> str:
+    pfx = state.custom.get("branch_prefix") or DEFAULT_BRANCH_PREFIX
+    return f"{pfx}/[short-description]"
 
 
 def _load_or_init_state(state_file: str | None, quick: bool = False) -> tuple[SkillState, Path]:
@@ -208,8 +241,12 @@ def _build_step1_variables(state: SkillState) -> dict[str, str]:
 
 def _build_step2_variables(state: SkillState) -> dict[str, str]:
     """Build template variables for step 2 (branch setup)."""
+    pfx = state.custom.get("branch_prefix") or DEFAULT_BRANCH_PREFIX
     return {
         "PLAN_PATH": state.custom.get("plan_path", "(not yet detected)"),
+        "BRANCH_PREFIX": pfx,
+        "FEATURE_BRANCH_PATTERN": f"{pfx}/<short-slug>",
+        "TASK_BRANCH_PATTERN": f"{pfx}/<short-slug>/task-<n>-<short-slug>",
     }
 
 
@@ -219,16 +256,40 @@ def _build_wave_variables(state: SkillState) -> dict[str, str]:
     total_waves = state.custom.get("total_waves", 0)
     waves_completed = state.custom.get("waves_completed", 0)
 
-    # Placeholder text for wave tasks and agent list -- the PM fills these
-    # from the plan when executing the prompt
-    wave_tasks = (
-        f"Read `.codex/forge-codex/memory/project.md` for the Wave {current_wave} task list.\n"
-        f"Each task includes: title, assigned agent, file paths, acceptance criteria."
-    )
-    agent_list = (
-        f"Read `.codex/forge-codex/memory/project.md` for the agent assignments for Wave {current_wave}.\n"
-        f"Dispatch each agent per `templates/parallel-dispatch.md`."
-    )
+    wave_rows: list[dict[str, object]] = state.custom.get("wave_rows") or []
+    if wave_rows:
+        wave_tasks = format_wave_tasks_from_custom(wave_rows, current_wave)
+        def _row_wave(rd: dict[str, object]) -> int:
+            try:
+                return int(rd.get("wave", 0) or 0)
+            except (TypeError, ValueError):
+                return 0
+
+        agents_here = sorted(
+            {
+                str(r.get("agent", "")).strip()
+                for r in wave_rows
+                if _row_wave(r) == current_wave and str(r.get("agent", "")).strip()
+            }
+        )
+        if agents_here:
+            agent_list = "Agents for this wave: " + ", ".join(agents_here)
+        else:
+            agent_list = "See task list above for agent assignments."
+        wave_tasks += (
+            "\n\n_(Parsed from the plan parallelization table. "
+            "If this looks wrong, fix the table and re-run step 2.)_"
+        )
+    else:
+        wave_tasks = (
+            f"No parallelization table parsed yet. Read the plan file at `{state.custom.get('plan_path', '')}` "
+            f"and `.codex/forge-codex/memory/project.md` for the Wave {current_wave} task list.\n"
+            f"Each task includes: title, assigned agent, file paths, acceptance criteria."
+        )
+        agent_list = (
+            f"Read `.codex/forge-codex/memory/project.md` for the agent assignments for Wave {current_wave}.\n"
+            f"Dispatch each agent per `templates/parallel-dispatch.md`."
+        )
 
     # Quick mode note
     if state.quick_mode:
@@ -249,6 +310,8 @@ def _build_wave_variables(state: SkillState) -> dict[str, str]:
             "This is the final wave. After completion, proceed to the Documentation phase."
         )
 
+    pfx = state.custom.get("branch_prefix") or DEFAULT_BRANCH_PREFIX
+
     return {
         "CURRENT_WAVE": str(current_wave),
         "TOTAL_WAVES": str(total_waves) if total_waves > 0 else "(to be determined)",
@@ -257,6 +320,9 @@ def _build_wave_variables(state: SkillState) -> dict[str, str]:
         "WAVES_COMPLETED": str(waves_completed),
         "QUICK_MODE_NOTE": quick_note,
         "NEXT_WAVE_OR_PROCEED": next_wave_or_proceed,
+        "BRANCH_PREFIX": pfx,
+        "FEATURE_BRANCH_PATTERN": f"{pfx}/<short-slug>",
+        "TASK_BRANCH_PATTERN": f"{pfx}/<short-slug>/task-<n>-<short-slug>",
     }
 
 
@@ -276,8 +342,12 @@ def _build_doc_variables(state: SkillState) -> dict[str, str]:
 
 def _build_handoff_variables(state: SkillState) -> dict[str, str]:
     """Build template variables for step 7 (handoff)."""
+    fb = (state.custom.get("feature_branch") or "").strip()
+    if not fb:
+        fb = _feature_branch_placeholder(state)
     return {
-        "FEATURE_BRANCH": state.custom.get("feature_branch", "forge/[feature-name]"),
+        "FEATURE_BRANCH": fb,
+        "BRANCH_PREFIX": state.custom.get("branch_prefix") or DEFAULT_BRANCH_PREFIX,
         "WAVES_COMPLETED": str(state.custom.get("waves_completed", 0)),
         "TOTAL_WAVES": str(state.custom.get("total_waves", 0)),
     }
@@ -298,7 +368,7 @@ def _wave_scoped_todos(step: int, wave: int | None) -> list[dict]:
 
 
 def _next_command(current_step: int, quick: bool = False, target_step: int | None = None) -> str:
-    """Build the next-step command, bounded by MAX_STEP.
+    """Build agent-facing continuation for the next step, bounded by MAX_STEP.
 
     Returns "" when the requested next step would exceed MAX_STEP. Use
     `target_step` to override the default `current_step + 1` (wave loops in
@@ -307,10 +377,21 @@ def _next_command(current_step: int, quick: bool = False, target_step: int | Non
     nxt = target_step if target_step is not None else current_step + 1
     if nxt > MAX_STEP:
         return ""
-    cmd = f"python3 {SCRIPT_DIR / 'implement.py'} --step {nxt}"
-    if quick:
-        cmd += " --quick"
-    return cmd
+    fl = ("quick",) if quick else ()
+    if target_step is not None:
+        return build_next_command(
+            SCRIPT_DIR / "implement.py",
+            current_step,
+            MAX_STEP,
+            next_step=target_step,
+            flags=fl,
+        )
+    return build_next_command(
+        SCRIPT_DIR / "implement.py",
+        current_step,
+        MAX_STEP,
+        flags=fl,
+    )
 
 
 def _emit(step: int, body: str, next_cmd: str | None,
@@ -356,6 +437,11 @@ def handle_step_1(args) -> None:
     if args.plan:
         state.custom["plan_path"] = args.plan
 
+    if getattr(args, "branch_prefix", None):
+        state.custom["branch_prefix"] = args.branch_prefix
+
+    _sync_waves_from_plan(state)
+
     save_state(state, sp)
     print(f"STATE FILE: {sp}\n", file=sys.stderr)
 
@@ -373,6 +459,8 @@ def handle_step_1(args) -> None:
 
 def handle_step_2(state: SkillState, sp: Path) -> None:
     """Step 2: Branch setup and wave identification."""
+    _sync_waves_from_plan(state)
+
     template = load_template(TEMPLATE_NAMES[2])
     variables = _build_step2_variables(state)
     body = render_template(template, variables)
@@ -521,7 +609,7 @@ def handle_step_8(state: SkillState, sp: Path) -> None:
 
     # Write the handoff file
     context = {
-        "Feature branch": state.custom.get("feature_branch", "forge/[feature-name]"),
+        "Feature branch": state.custom.get("feature_branch") or _feature_branch_placeholder(state),
         "Waves completed": str(state.custom.get("waves_completed", 0)),
         "Total waves": str(state.custom.get("total_waves", 0)),
         "Plan path": state.custom.get("plan_path", ""),
@@ -546,6 +634,16 @@ def main():
     parser.add_argument(
         "--plan", type=str, default=None,
         help="Path to plan file (step 1 only; auto-detected from handoff if omitted)"
+    )
+    parser.add_argument(
+        "--branch-prefix",
+        type=str,
+        choices=("feat", "fix", "chore", "refactor", "docs", "hotfix"),
+        default=None,
+        help=(
+            "Git branch prefix for feature/task branches (default: feat). "
+            "Stored in state on step 1 when passed."
+        ),
     )
     args = parser.parse_args()
 
@@ -581,6 +679,9 @@ def main():
         # Apply quick mode if passed on any step
         if args.quick:
             state.quick_mode = True
+
+        if getattr(args, "branch_prefix", None):
+            state.custom["branch_prefix"] = args.branch_prefix
 
         handlers = {
             2: handle_step_2,

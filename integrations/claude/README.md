@@ -1,6 +1,6 @@
 # Forge + Claude Code integration (v1)
 
-This is a **command pack** for Claude Code-style environments. It provides thin wrapper commands that run the global `forge` CLI.
+This is a **command pack** for Claude Code. Commands are **Markdown files with YAML frontmatter** (`---` … `---`) and a **body that instructs Claude** what to do (same shape as `integrations/cursor-plugin/commands/`). Invalid YAML-only stubs without frontmatter delimiters are **not** loaded as slash commands.
 
 ## Prerequisite
 
@@ -18,24 +18,32 @@ forge doctor
 
 ## Install
 
-The exact install location/mechanism depends on your Claude Code environment.
-This pack is intentionally simple: each command definition just runs `forge …`.
+### Default location (via `forge install`)
 
-- Command definitions: `integrations/claude/commands/`
-
-### Default install location (via `forge install`)
-
-By default, `forge install --claude` installs to:
+By default, `forge install --claude` copies this folder to:
 
 - Windows: `%USERPROFILE%\.claude\commands\forge\`
 - macOS/Linux/WSL: `~/.claude/commands/forge/`
 
 Override with `forge install --claude-dir <path>`.
 
+Restart Claude Code after installing so `/help` picks up new commands.
+
 ## Commands
 
-- `forge:evaluate` → `forge evaluate ...`
-- `forge:plan` → `forge plan ...`
-- `forge:status` → `forge status`
-- `forge:resume` → `forge resume`
+Definitions live in `integrations/claude/commands/` as `forge-<subcommand>.md`. They align with `integrations/spec/commands.json`:
 
+| Slash command (frontmatter `name`) | Runs |
+| --- | --- |
+| `forge:develop` | `forge develop …` |
+| `forge:evaluate` | `forge evaluate …` |
+| `forge:plan` | `forge plan …` |
+| `forge:implement` | `forge implement …` |
+| `forge:code-review` | `forge code-review …` |
+| `forge:test` | `forge test …` |
+| `forge:diagnose` | `forge diagnose …` |
+| `forge:resume` | `forge resume …` |
+| `forge:status` | `forge status …` |
+| `forge:doctor` | `forge doctor …` |
+
+How Claude surfaces these depends on version/UI (often under a `forge` namespace from the install directory). If a command does not appear, confirm files are under `~/.claude/commands/forge/` and each file begins with `---` frontmatter plus a non-empty markdown body.

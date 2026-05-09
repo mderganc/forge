@@ -8,11 +8,11 @@ When a skill completes its final step, instead of printing a single hardcoded ne
 ```
 WORKFLOW HANDOFF — <skill> complete
 ==================================
-Default next: forge:<skill> <args>
+Default next: `$forge:<skill>` <optional-args>
 
 Reply "yes" or "1" to continue with the default. Or pick a number:
-  1. forge:<default-skill> <args>    (default — description)
-  2. forge:<alt-1> <args>           (rationale)
+  1. `$forge:<default>` <args>    (default — description)
+  2. `$forge:<alt>` <args>        (rationale)
   3. ...
   N. (stop)                         (exit the workflow here)
 

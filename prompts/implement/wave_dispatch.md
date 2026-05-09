@@ -25,8 +25,8 @@ Follow `templates/parallel-dispatch.md` for dispatch protocol.
 
 For each task in this wave:
 ```
-git checkout forge/[feature-name]
-git checkout -b forge/[feature-name]/[task-name]
+git checkout {{FEATURE_BRANCH_PATTERN}}
+git checkout -b {{TASK_BRANCH_PATTERN}}
 ```
 
 ## Agents to Dispatch

@@ -1,0 +1,86 @@
+"""Integration layout: Cursor/Claude commands and Codex skills match install expectations."""
+
+from __future__ import annotations
+
+import json
+from pathlib import Path
+
+import pytest
+
+REPO_ROOT = Path(__file__).resolve().parent.parent
+
+
+def _split_yaml_frontmatter(text: str) -> tuple[str | None, str]:
+    """Return (frontmatter_block, body) for markdown with --- delimiters, or (None, full text)."""
+    normalized = text.replace("\r\n", "\n").lstrip("\ufeff")
+    if not normalized.startswith("---\n"):
+        return None, text
+    parts = normalized.split("---", 2)
+    if len(parts) < 3:
+        return None, text
+    return parts[1].strip(), parts[2]
+
+
+def _frontmatter_has_keys(fm: str, *keys: str) -> bool:
+    return all(f"{k}:" in fm for k in keys)
+
+
+@pytest.fixture(scope="module")
+def spec_commands() -> dict:
+    path = REPO_ROOT / "integrations" / "spec" / "commands.json"
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
+def test_spec_commands_have_matching_cursor_and_claude_files(spec_commands: dict):
+    missing_cursor: list[str] = []
+    missing_claude: list[str] = []
+    for cmd in spec_commands["commands"]:
+        sub = cmd["cli_subcommand"]
+        name = f"forge-{sub}.md"
+        cpath = REPO_ROOT / "integrations" / "cursor-plugin" / "commands" / name
+        lpath = REPO_ROOT / "integrations" / "claude" / "commands" / name
+        if not cpath.is_file():
+            missing_cursor.append(str(cpath.relative_to(REPO_ROOT)))
+        if not lpath.is_file():
+            missing_claude.append(str(lpath.relative_to(REPO_ROOT)))
+    assert not missing_cursor, f"Missing Cursor command files: {missing_cursor}"
+    assert not missing_claude, f"Missing Claude command files: {missing_claude}"
+
+
+@pytest.mark.parametrize(
+    "cmd_dir",
+    [
+        REPO_ROOT / "integrations" / "cursor-plugin" / "commands",
+        REPO_ROOT / "integrations" / "claude" / "commands",
+    ],
+)
+def test_slash_command_markdown_files_have_valid_frontmatter(cmd_dir: Path):
+    for path in sorted(cmd_dir.glob("*.md")):
+        text = path.read_text(encoding="utf-8")
+        fm, body = _split_yaml_frontmatter(text)
+        assert fm is not None, f"{path.relative_to(REPO_ROOT)} must start with --- YAML frontmatter"
+        assert _frontmatter_has_keys(fm, "description"), f"{path} frontmatter needs description:"
+        assert body.strip(), f"{path} must have non-empty markdown body after frontmatter"
+
+
+def test_codex_skills_use_skill_md_layout():
+    skills_root = REPO_ROOT / "integrations" / "codex" / "skills"
+    dirs = [p for p in skills_root.iterdir() if p.is_dir()]
+    assert dirs, "Expected at least one Codex skill directory"
+    for d in dirs:
+        skill = d / "SKILL.md"
+        assert skill.is_file(), f"Missing {skill.relative_to(REPO_ROOT)}"
+        text = skill.read_text(encoding="utf-8")
+        fm, body = _split_yaml_frontmatter(text)
+        assert fm is not None, f"{skill.relative_to(REPO_ROOT)} must use --- frontmatter"
+        assert _frontmatter_has_keys(fm, "name", "description"), (
+            f"{skill.relative_to(REPO_ROOT)} frontmatter needs name: and description:"
+        )
+        assert body.strip(), f"{skill.relative_to(REPO_ROOT)} needs a non-empty body"
+
+
+def test_codex_skill_pack_expected_count():
+    """v1 ships four thin Codex skills; additional workflows use the forge CLI."""
+    skills_root = REPO_ROOT / "integrations" / "codex" / "skills"
+    dirs = sorted(p.name for p in skills_root.iterdir() if p.is_dir())
+    assert dirs == ["forge-evaluate", "forge-plan", "forge-resume", "forge-status"]

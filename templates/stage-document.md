@@ -51,7 +51,7 @@ If ANY source file edited (including inline comments):
 
 **All autonomy levels pause here.** PM asks:
 
-Feature branch forge/[feature-name] is ready. How to integrate?
+Feature branch feat/<short-slug> is ready. How to integrate?
 
   1. Merge to main (squash)
   2. Merge to main (merge commit)

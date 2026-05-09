@@ -23,3 +23,5 @@ forge doctor
 - `claude/`: Claude Code command pack (v1).
 - `codex/`: Codex skill pack (v1).
 
+Layout for Cursor/Claude slash commands and Codex skills is enforced by `pytest tests/test_integration_install_layout.py` (matching files under `cursor-plugin/commands/` and `claude/commands/` to `spec/commands.json`, and Codex `SKILL.md` folders).
+

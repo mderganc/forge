@@ -1,288 +1,276 @@
-# forge
+# Forge
 
-A Codex-native agent toolkit for structured software delivery: investigation, planning, implementation, review, testing, diagnostics, and workflow continuity across sessions.
+Forge runs **multi-step, resumable workflows** for AI-assisted delivery: investigation, planning, plan and implementation review, implementation, code review, testing (including mock-flow authoring), and diagnostics.
 
-## Recent Changes
+The same install targets **Cursor**, **Claude Code**, and **OpenAI Codex**. Cursor and Claude Code use slash commands (for example `/forge:plan` and `/forge:doctor`). Codex uses `$forge:…` commands (for example `$forge:plan`). All of them call the `forge` binary from the `forge-next` package, so behavior and state line up no matter which editor you pick.
 
-Mock Flows + Numbered Handoff Menu (2026-05-07):
-- `forge:test --mode flows` authors end-to-end mock flows in 4 styles (scenario / BDD / HTTP-replay / workflow-dry-run). The skill detects your project layout, recommends the best-fit flow type with a confidence score, and progressively gates 8 quality criteria across scaffold → author → execute → report phases. Run with `--flow-type <type>` to override the recommendation, or `--framework`/`--entry-point`/`--roles` to fine-tune detection. Reference `templates/mock-flow-types.md` for per-type details.
-- Every skill's final step now presents a numbered handoff menu instead of a single hardcoded next-skill string. Reply with "yes" / "1" / "default" or pick a numbered alternative to steer the workflow. Use `scripts/smoke.py` as a CI-eligible end-to-end harness for the new flows mode.
+Install once with `pipx install forge-next`, then run `forge install` to add the Cursor plugin, Claude command pack, and Codex skill pack. Use `--cursor`, `--claude`, or `--codex` if you only want one or two. Most of the time you stay in the app; use the terminal for `forge doctor`, CI hooks, or cleanup when that is easier.
 
-State-lifecycle and authoring fixes (2026-05-07):
-- The `plan` skill now materializes a section-marker skeleton at step 1 (sourced from `templates/writing-plans.md`) and refuses to mark step 6 complete while any `<!-- FORGE_SKELETON: ... -->` markers remain.
-- `forge resume --cleanup` lists state files eligible for cleanup (dry-run by default). Add `--force` to delete; `--all-stale --force` for migration mode (clears every state file regardless of age).
-- Re-running step 1 of any skill now aborts when an in-progress same-skill session exists. To resume, use the `--state <path>` flag or run `resume.py`.
-- Over-cap `--step` invocations (e.g., `--step 9` on an 8-step skill) now print a friendly "skill complete" message and exit 0 instead of erroring.
-- A `failure_count` field tracks consecutive same-step retries; after two failures, `resume.py` emits an "inspect logs" hint instead of producing a third retry command.
+This repository is the **source tree** for prompts, templates, agent briefs, and orchestrators bundled with that package.
 
-## Install (pipx) — run in any repo
+---
 
-This repo ships a global `forge` launcher so you can install once and run
-workflows from any target repository (without copying `scripts/` into each repo).
+## Command notation 
+
+| Product | Form | Example |
+|---------|------|---------|
+| Cursor | `/forge:…` | `/forge:code-review` |
+| Claude Code | `/forge:…` | `/forge:code-review` |
+| Codex | `$forge:…` | `$forge:code-review` |
+
+**Terminal / CI** uses a space, not a colon: `forge plan`, `forge diagnose` (see [Advanced](#advanced-terminal-and-ci)).
+
+**Note** - for quick access, starting to type `$diagn...` or `/diagn...` will usually find the skill faster without having to type `forge` each time.
+
+---
+
+## Overview
+
+- **App-first:** Cursor and Claude Code use `/forge:…`; Codex uses `$forge:…`. The `forge` binary runs underneath.
+- **Session-safe:** State lives under `.codex/forge:codex/` by default, with a `.forge/` fallback if `.codex` cannot be a directory. Stop anytime; continue with `/forge:resume` or `$forge:resume`.
+- **Handoffs:** On the last step, the numbered menu may show `forge: …` labels in the transcript. Reply `yes`, `1`, or `default`, or pick an option, then run the next step as `/forge:…` or `$forge:…`, not `forge: …`.
+- **Integrations:** `forge install` and `forge uninstall` lay down Cursor, Claude, and Codex wrappers.
+
+---
+
+## Optional: Beads (issue tracking)
+
+Workflows can hook **[Beads](https://github.com/steveyegge/beads)** (`bd` CLI) so epics, findings, tasks, and dependencies stay in sync with Forge memory and handoffs. It is **optional**: if Beads is not available, prompts fall back to memory files and sequential IDs (see `templates/beads-integration.md`).
+
+- **Canonical guide:** `templates/beads-integration.md` (epic layout, `bd` examples, degraded mode).
+- **Cross-references:** `templates/memory-protocol.md`, `templates/handoff-protocol.md` (Beads section in status handoffs).
+- **Runtime:** develop startup checks Beads (`prompts/develop/startup.md`). Skill state includes a `beads_available` flag in `scripts/shared/orchestrator.py`, but whether Beads is used is driven by prompts and `project.md` (“beads: available/unavailable”), not by automatic detection in the orchestrator.
+
+---
+
+## Requirements
+
+- Python **3.10+** (required by `forge-next`)
+- **pipx** recommended so `forge` is on your PATH — [pipx documentation](https://pipx.pypa.io/) (Windows: `py -m pip install --user pipx` then `pipx ensurepath` if needed)
+- A **project** that is a git repo or contains `README.md` (the launcher uses that to find the target root)
+
+---
+
+## Installation
+
+### 1. Install the launcher (once per machine)
 
 ```bash
 pipx install forge-next
 ```
 
-Then, from any target repo:
+### 2. Install app integrations
 
 ```bash
-forge evaluate --step 1 --mode review
-forge plan --step 1
-forge status
+forge install
 ```
 
-Use `--repo <path>` to target a different repository root.
-
-## Quick Start (dev / contributors)
+Or only what you use:
 
 ```bash
-# Clone the repo
-git clone https://github.com/your-org/forge-codex.git /path/to/forge-codex
-
-# Enter the project
-cd /path/to/forge-codex
+forge install --cursor
+forge install --claude
+forge install --codex
 ```
 
-Then use the repo as the home for Codex-oriented workflow assets, skills, prompts, and orchestrators.
+Options (defaults are usually fine): `--ref`, `--repo-url`, `--cursor-dir`, `--claude-dir`, `--codex-dir`.
 
-## Codex Config
+**Note:** Running from Windows will install in the Windows Cursor/Claude/Codex locations, while WSL will use the WSL locations.
 
-If you want local Codex sessions to treat Forge skill invocation as implicit
-permission to use Forge agents, add a `developer_instructions` block to
-`~/.codex/config.toml`:
+### 3. First run in the app (not in a terminal)
 
-```toml
-developer_instructions = """
-Invoking any `forge:*` skill implicitly authorizes the agent dispatch required by that workflow. Do not require the user to separately ask for delegation, sub-agents, or parallel agent work after invoking a Forge skill.
+1. Check setup: `/forge:doctor` (Cursor/Claude) or `$forge:doctor` (Codex).
+2. Start a workflow: `/forge:plan` or `$forge:plan`.
+3. Follow the printed steps. Re-run the same `/forge:…` or `$forge:…` for step 2, 3, and so on. If the transcript shows `forge: …`, treat it as a label and use the matching `/forge:…` or `$forge:…`.
 
-At the start of a fresh interactive session, begin the first user-visible response with exactly: Ready Player 1?
-"""
-```
+Work in another folder than the editor root only when your integration documents it (some flows pass a repo path through the launcher).
 
-You can verify the injected developer prompt with:
+---
+
+## Commands in your apps
+
+| Workflow | Cursor / Claude | Codex |
+|----------|-----------------|-------|
+| Investigation before plan | `/forge:develop` | `$forge:develop` |
+| Check install / environment | `/forge:doctor` | `$forge:doctor` |
+| Implementation plan | `/forge:plan` | `$forge:plan` |
+| Plan / implementation review | `/forge:evaluate` | `$forge:evaluate` |
+| Execute plan in waves | `/forge:implement` | `$forge:implement` |
+| Structured code review | `/forge:code-review` | `$forge:code-review` |
+| Tests or mock-flow authoring | `/forge:test` | `$forge:test` |
+| Root-cause / incident analysis | `/forge:diagnose` | `$forge:diagnose` |
+| Dashboard | `/forge:status` | `$forge:status` |
+| Resume or cleanup | `/forge:resume` | `$forge:resume` |
+
+---
+
+## Uninstallation
+
+**Integrations (Cursor / Claude / Codex):**
 
 ```bash
-codex debug prompt-input
+forge uninstall
 ```
 
-If a higher-priority launcher or hosted integration injects its own developer
-instructions, those may still override or compete with your local config.
+(or `--cursor`, `--claude`, `--codex`)
 
-## Goals
+**Launcher:**
 
-- Turn a structured multi-skill workflow model into a Codex-first environment
-- Support multi-step, resumable engineering workflows instead of one-shot prompts
-- Separate skill orchestration from reusable methodology templates
-- Preserve handoff context between phases and between sessions
-- Make review, verification, and diagnostics first-class parts of the workflow
-
-## Planned Skills
-
-| Skill | Purpose | Typical Invocation |
-|-------|---------|--------------------|
-| **develop** | Investigate a problem space and shape solution options | `develop <problem or feature>` |
-| **plan** | Convert an approved direction into an implementation plan | `plan` |
-| **evaluate** | Review a plan before or after implementation | `evaluate <plan>` |
-| **implement** | Execute a plan in ordered or parallel waves | `implement` |
-| **code-review** | Run structured review modes against code changes | `code-review <target>` |
-| **test** | Execute tests, analyze failures, and identify coverage gaps | `test` |
-| **diagnose** | Perform root-cause analysis on bugs and regressions | `diagnose <issue>` |
-| **status** | Show workflow position, open findings, and next action | `status` |
-| **resume** | Continue the active workflow from persisted state | `resume` |
-
-## Forge Skill Invocation Contract
-
-Invoking a Forge workflow skill is intended to be enough to authorize the agent team that skill needs.
-
-- `forge:develop`, `forge:plan`, `forge:implement`, `forge:code-review`, `forge:test`, and `forge:diagnose` should auto-dispatch the relevant Forge agents when their workflow calls for it.
-- `forge:evaluate` should auto-dispatch the review team when team/review mode is active.
-- Users should not need to separately ask for "sub-agents", "delegation", or "parallel agent work" after invoking a Forge skill.
-- If the surrounding Codex session policy blocks agent spawning, that should be surfaced as an environment limitation rather than treated as normal Forge behavior.
-- Every spawned agent must be closed (`close_agent`) once it reports back or is no longer useful. Forge skills never leave agents open across wave / step / phase boundaries — Codex caps concurrent agents and leaked sessions eventually block further dispatch. See `templates/codex-runtime.md` for the lifecycle pattern.
-- At the end of each skill's workflow, a numbered handoff menu replaces the previous single next-skill prompt. Users can reply "yes", "1", "default", or a literal command; the menu makes workflow alternatives explicit.
-
-## Workflow Model
-
-```text
-develop -> plan -> evaluate (pre) -> implement -> code-review -> test -> diagnose (if needed)
-
-At any point:
-- evaluate can run as a standalone critique workflow
-- diagnose can run as an ad-hoc incident workflow
-- status and resume can inspect or continue the current state
+```bash
+pipx uninstall forge-next
 ```
 
-The intended model is composable rather than monolithic:
+**Project state** (optional): `forge resume --cleanup`, or `/forge:resume` / `$forge:resume` with cleanup if exposed, or delete `.codex/forge:codex/` and `.forge/` in that repo.
 
-- Each skill can run on its own
-- Skills can hand off context to the next skill in the chain
-- State files make interrupted workflows resumable
-- Review loops enforce quality gates before moving downstream
+---
 
-## Agents
+## How skills work (in the apps)
 
-The Codex version is expected to use a small set of specialized roles rather than a single undifferentiated agent.
+1. You pick a command: `/forge:…` (Cursor/Claude) or `$forge:…` (Codex). That authorizes the multi-step flow. See [AGENTS.md](AGENTS.md).
+2. **Steps:** Each run advances phase 1, 2, … Output is the prompt (and sometimes todos) for that phase, plus where state is stored.
+3. **Roles:** Prompts reference architect, planner, implementers, critic, QA, security, doc-writer. Hosts with sub-agents should follow the skill dispatch pattern and close agents when a slice of work is done (especially on Codex).
+4. **Handoff menu:** Last step lists options; transcript text may include `forge: …` labels. Your next command is still `/forge:…` or `$forge:…` (hyphens, not a colon).
+5. **Quick mode:** Where supported, integrations pass `--quick` through to the launcher; see `skills/`.
 
-| Agent | Role |
-|-------|------|
-| **architect** | Investigation lead, solution design, architecture review |
-| **planner** | Implementation planning, sequencing, dependency mapping |
-| **backend-dev** | Backend implementation with tests |
-| **frontend-dev** | Frontend implementation with tests |
-| **critic** | Challenges assumptions, stresses weak logic, finds hidden risks |
-| **qa-reviewer** | Validates behavior, testing quality, and verification depth |
-| **security-reviewer** | Reviews security-sensitive changes and operational risk |
-| **doc-writer** | Produces user-facing and developer-facing documentation and tracks documentation debt |
+---
 
-## Methodology Coverage
+## Workflows (what each one is for)
 
-`forge-codex` is intended to bundle practical engineering methods instead of vague “best practices”.
+**Default linear delivery** (same order everywhere; only `/` vs `$` changes).
 
-**Investigation and diagnostics**
+One nuance from the code: the **handoff menu** and `scripts/shared/skill_chain.py` often recommend using **evaluate** as a quality gate (for example, “evaluate pre” after plan), but the **no-active-sessions** resume helper (`scripts/shared/resume.py`) treats **evaluate as standalone** and does not include it in the hard-coded pipeline order. When in doubt, follow the last handoff menu you saw; use `/forge:resume` / `$forge:resume` to pick up an active session.
 
-- 5 Whys
-- Kepner-Tregoe IS/IS-NOT
-- Fishbone / Ishikawa
-- FMEA
-- MECE decomposition
-- Bayesian evidence updates
-- hypothesis-driven debugging
-- change analysis
-- counterfactual reasoning
-- barrier analysis
+| Step | Cursor / Claude | Codex |
+|------|-----------------|-------|
+| 1 | `/forge:develop` | `$forge:develop` |
+| 2 | `/forge:plan` | `$forge:plan` |
+| 3 or As Needed | `/forge:evaluate` (e.g. --mode pre or --mode post) | `$forge:evaluate` |
+| 4 | `/forge:implement` | `$forge:implement` |
+| 5 | `/forge:code-review` | `$forge:code-review` |
+| 6 | `/forge:test` | `$forge:test` |
+| As Needed | `/forge:diagnose` | `$forge:diagnose` |
 
-**Solution design**
+Evaluate and diagnose also run standalone. 
 
-- divergent and convergent option generation
-- trade-off scoring
-- pre-mortem analysis
-- reversibility checks
-- constraint analysis
+**Status:** `/forge:status` / `$forge:status`. 
 
-**Planning**
+**Resume:** `/forge:resume` / `$forge:resume`.
 
-- phased execution
-- dependency mapping
-- parallelization opportunities
-- rollback planning
-- explicit verification steps
-- documentation-in-the-loop
+### Develop
 
-**Review and testing**
+- **Cursor / Claude:** `/forge:develop`
+- **Codex:** `$forge:develop`
 
-- structured finding severity
-- behavior verification
-- edge-case analysis
-- regression coverage review
-- failure triage
-- operational readiness checks
+Investigate the problem or feature, explore options, converge before plan. Handoff often points to plan (`/forge:plan` / `$forge:plan`) or evaluate (`/forge:evaluate` / `$forge:evaluate`).
 
-## Architecture
+**Methodologies:** evidence-first investigation and git/history context; 5 Whys (`templates/five-why-protocol.md`); systematic debugging for defects (`templates/systematic-debugging.md`); brainstorming phased for requirements and solution families (`templates/brainstorming.md`, `brainstorming-gates.md`); How-Might-We framing; Pugh / weighted scoring and rubrics (`templates/scoring-rubric.md`); cross-review of investigation; user approval gates.
 
-The repo is expected to follow a script-driven orchestration model.
+### Plan
 
-- **Skill orchestrators** drive state progression for each workflow
-- **Prompt templates** provide repeatable phase instructions
-- **Shared templates** hold reusable review and planning patterns
-- **State files** persist current step, completed step, findings, and handoffs
-- **Memory files** carry context between adjacent skills
-- **Reports** provide durable outputs from evaluate, review, and diagnose flows
+- **Cursor / Claude:** `/forge:plan`
+- **Codex:** `$forge:plan`
 
-## State and Continuity
+Turn an approved direction into an implementation plan. Handoff often points to evaluate pre (`/forge:evaluate` / `$forge:evaluate`) or implement (`/forge:implement` / `$forge:implement`).
 
-Cross-session continuity is a core design goal.
+**Methodologies:** architecture overview before task breakdown; INVEST-style tasks; parallelization / wave planning with explicit dependencies; interface contracts between tasks; risk register with mitigations; pre-mortem (`templates/pre-mortem.md`) before risks; concrete rollback steps (not “revert commits” only); plan review loop and skeleton markers through completion gates.
 
-- Each active skill should persist its own state file
-- Resume logic should distinguish between a true conflict and an unrelated active session
-- Standalone skills should not pause just because another non-conflicting workflow exists
-- Handoff files should summarize completed work and recommend the next step
-- Status tooling should surface active sessions, findings, and next actions without requiring manual inspection
+### Evaluate
 
-## Design Principles
+- **Cursor / Claude:** `/forge:evaluate`
+- **Codex:** `$forge:evaluate`
 
-- **Codex-first**: optimize for Codex workflows, not a direct port of another assistant’s toolkit model
-- **Actionable outputs**: produce plans, findings, commands, and reports that can be used immediately
-- **Resumable by default**: interrupted work should be recoverable
-- **Verification over narration**: claims should be tied to code, tests, or runtime evidence
-- **Composable workflows**: users should be able to run a single skill or the full chain
-- **Minimal hidden state**: the workflow should be inspectable from files in the repo
+Structured review: --mode pre (before implementation), --mode post (after), or review. 
 
-## Current Project Structure
+**Methodologies:** feasibility and step-level FEASIBLE/RISKY/BLOCKED rating; codebase alignment and risk/dependency surfacing; completeness audit (plan vs code: COMPLETE/PARTIAL/MISSING/EXTRA); correctness, code quality, performance, operational readiness lenses; structured findings JSON sidecars; team dispatch and remediation loops where enabled.
 
-```text
-forge-codex/
-├── README.md
-├── agents/
-├── prompts/
-│   ├── develop/
-│   ├── plan/
-│   ├── evaluate/
-│   ├── implement/
-│   ├── code-review/
-│   ├── test/
-│   └── diagnose/
-├── templates/
-│   ├── review/
-│   ├── planning/
-│   ├── reporting/
-│   └── handoff/
-├── scripts/
-│   ├── shared/
-│   ├── develop/
-│   ├── plan/
-│   ├── evaluate/
-│   ├── implement/
-│   ├── code-review/
-│   ├── test/
-│   └── diagnose/
-├── skills/
-│   ├── develop/
-│   ├── plan/
-│   ├── evaluate/
-│   ├── implement/
-│   ├── code-review/
-│   ├── test/
-│   ├── diagnose/
-│   ├── status/
-│   └── resume/
-└── templates/
-```
+### Implement
 
-## Initial Roadmap
+- **Cursor / Claude:** `/forge:implement`
+- **Codex:** `$forge:implement`
 
-### Phase 1: Skeleton
+Execute the plan in waves; hands off toward code-review (`/forge:code-review` / `$forge:code-review`).
 
-- define repository layout
-- add shared orchestration primitives
-- add `status` and `resume` foundations
-- document the state model
+**Methodologies:** branch/setup and plan detection; wave dispatch with TDD expectations; per-task review loop (self-review, cross-review QA, critic, PM validation) per `templates/review-loop.md`; mutation-testing mental audit; performance and backward-compatibility checks; integration and documentation passes; handoff to review.
 
-### Phase 2: Core Skills
+### Code review
 
-- implement `evaluate`
-- implement `diagnose`
-- implement `develop`
-- add report generation and state cleanup rules
+- **Cursor / Claude:** `/forge:code-review`
+- **Codex:** `$forge:code-review`
 
-### Phase 3: Delivery Flow
+Deep, structured review; often feeds test (`/forge:test` / `$forge:test`).
 
-- implement `plan`
-- implement `implement`
-- implement `code-review`
-- implement `test`
+**Methodologies:** mode selection (PR vs deep vs architecture): diff-centric, trace/deep-dive, or SOLID/coupling/cohesion; diff analysis; architecture and security passes; structured discussion and report with severities.
 
-### Phase 4: Hardening
+### Test
 
-- add regression tests for state handling
-- verify conflict detection logic
-- tighten workflow transitions
-- document extension points for future agents and skills
+- **Cursor / Claude:** `/forge:test`
+- **Codex:** `$forge:test`
 
-## Current Status
+Default run mode; flows mode for end-to-end mock flows. Handoff may push diagnose (`/forge:diagnose` / `$forge:diagnose`).
 
-This repository now contains the copied Codex workflow assets, reorganized into a Codex-first layout. Assistant-specific packaging has been removed, and the top-level structure has been normalized around `agents/`, `skills/`, `scripts/`, `prompts/`, and `templates/`.
+**Methodologies:** run mode — suite discovery (unit/integration/e2e/perf/property), coverage tooling, execution plan, failure analysis, coverage gaps, reporting. Flows mode — scored recommendation across flow types (scenario, BDD, HTTP-replay, workflow-dry-run); eight progressive quality criteria (realistic journeys, data packs, roles matrix, entry-point ladder, outcome validation, minimal mocking, failure paths, repeatable/double-run); scope, scaffold, author, execute, report phases.
 
-## License
+### Diagnose
 
-MIT
+- **Cursor / Claude:** `/forge:diagnose`
+- **Codex:** `$forge:diagnose`
+
+Evidence-led root-cause analysis and reporting.
+
+**Methodologies:** IS/IS-NOT matrix; Cynefin classification; change analysis (last known good, deltas); MECE cause tree; software fishbone (CODE/CONFIG/DATA/INFRA/DEPS/ENV); 5 Whys; FMEA RPN scoring; hypothesis test cycles; counterfactual (“but-for”) checks; Pareto; git hotspots and log patterns where applicable; solution options and structured report.
+
+### Status
+
+- **Cursor / Claude:** `/forge:status`
+- **Codex:** `$forge:status`
+
+Dashboard of handoffs and active sessions.
+
+**Methodologies:** follows `skills/status/SKILL.md` — composite view from `memory/` handoffs, `state/` files, and findings; suggests next workflow from pipeline position (inspection-only).
+
+### Resume
+
+- **Cursor / Claude:** `/forge:resume`
+- **Codex:** `$forge:resume`
+
+Next step command(s) and cleanup; mirrors terminal `forge resume` when you need flags not exposed in the app.
+
+**Methodologies:** active-session detection, conflict vs non-conflicting workflows, step inference from state, cleanup dry-run vs forced delete; operational, not domain-method heavy.
+
+---
+
+## OpenAI Codex
+
+In Codex chat, use `$forge:…` (e.g. `$forge:plan`, `$forge:doctor`). When output shows `forge: …`, that is handoff copy from the orchestrator; your next action should be the matching `$forge:…` command.
+
+Optional `~/.codex/config.toml`: set `developer_instructions` so `$forge:…` invocations count as permission to dispatch the Forge agent team, including `spawn_agent` / `close_agent` lifecycle. Copy the full contract from [AGENTS.md](AGENTS.md) and `templates/codex-runtime.md`, not a one-line summary.
+
+Evaluate note: the evaluate workflow persists a local `.evaluate-state.json` and step findings sidecars (`.evaluate-findings-step*.json`). Details live in [AGENTS.md](AGENTS.md).
+
+---
+
+## This repository vs PyPI
+
+- `forge-next` on PyPI installs terminal `forge` and bundled orchestrators.
+- This repo is the source for `skills/`, `prompts/`, `templates/`, `agents/`, `scripts/`.
+
+PyPI: [pypi.org/project/forge:next](https://pypi.org/project/forge:next/)
+
+Source: https://github.com/mderganc/forge:codex.git
+
+---
+
+## Advanced: terminal and CI
+
+Hooks and automation call `forge <subcommand>` with a space (e.g. `forge plan --step 1`). That is the same engine as `/forge:plan` and `$forge:plan`. `forge --help` lists flags.
+
+---
+
+## Contributing
+
+Orchestration lives in `scripts/shared/` (`orchestrator.py`, `skill_chain.py`, `resume.py`). Keep [AGENTS.md](AGENTS.md) and `skills/` aligned with behavior.
+
+Tests:
+
+- `python -m pytest`
+- `python scripts/smoke.py`

@@ -10,7 +10,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import os
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
@@ -29,13 +28,15 @@ from scripts.evaluate.plan_resolver import resolve_plan, extract_title
 from scripts.evaluate.mode_detector import extract_file_references, detect_mode
 from scripts.evaluate.template_engine import load_template, render_template
 from scripts.shared.orchestrator import (
+    build_next_command,
     build_skill_handoff_menu,
     build_skill_todos,
     detect_active_sessions,
     format_active_session_warning,
-    format_continuation_block,
     format_phase_todos,
+    format_same_skill_continuation,
     get_conflicting_sessions,
+    parse_continuation_command,
     validate_step_or_complete,
 )
 
@@ -253,17 +254,12 @@ def _max_step_for_mode(mode: str | None) -> int:
 
 
 def _next_command(step: int, state_path: str = "", mode: str | None = None) -> str:
-    """Build the command for the next step."""
+    """Build agent-facing continuation for the next step (``$forge-evaluate`` / slash)."""
     max_step = _max_step_for_mode(mode)
-    if step >= max_step:
-        return ""
-    if os.environ.get("FORGE_USE_LAUNCHER") == "1":
-        cmd = f"forge evaluate --step {step + 1}"
-    else:
-        cmd = f"python3 {SCRIPT_DIR / 'evaluate.py'} --step {step + 1}"
+    extra = {}
     if state_path:
-        cmd += f" --state '{state_path}'"
-    return cmd
+        extra["state"] = state_path
+    return build_next_command(SCRIPT_DIR / "evaluate.py", step, max_step, **extra)
 
 
 def _mode_phase_todos(mode: str) -> dict[int, list[dict]]:
@@ -306,7 +302,12 @@ def _format_output(
     if handoff_menu:
         return output + handoff_menu
     elif next_cmd:
-        return output + format_continuation_block(next_cmd)
+        ns, sp_ = parse_continuation_command(next_cmd)
+        if ns is None and step is not None:
+            ns = step + 1
+        elif ns is None:
+            ns = 2
+        return output + format_same_skill_continuation(ns, sp_)
     else:
         return output + "\n\nWORKFLOW COMPLETE — return the report location to the user."
 
@@ -343,7 +344,10 @@ def handle_step_1(args: argparse.Namespace) -> None:
         for i, p in enumerate(result, 1):
             title = extract_title(p)
             print(f"  {i}. {p} — {title}")
-        print(f"\nThen re-run: python3 {SCRIPT_DIR / 'evaluate.py'} --step 1 --plan '<chosen path>'")
+        print(
+            "\nThen ask which plan to use and continue with "
+            "`$forge:evaluate --step 1 --plan '<chosen path>'`."
+        )
         return
 
     plan_path = result[0] if isinstance(result, list) else result

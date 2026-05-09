@@ -1,4 +1,4 @@
-"""Shared orchestrator base for all forge-codex skill scripts.
+"""Shared orchestrator base for all Forge skill scripts.
 
 Provides common patterns for state management, step progression,
 review loop enforcement, agent dispatch tracking, beads state,
@@ -48,28 +48,37 @@ try:
     sys.stderr.reconfigure(encoding="utf-8")
 except Exception:
     pass
-RUNTIME_ROOT_PARTS = (".codex", "forge-codex")
+# Canonical on-disk layout under the target repo (matches the `forge` CLI / forge-next package).
+CANONICAL_RUNTIME_PARTS = (".codex", "forge")
+# Older checkouts used this name; still honored if present and canonical is absent.
+LEGACY_FORGE_CODEX_RUNTIME_PARTS = (".codex", "forge-codex")
 LEGACY_RUNTIME_DIRNAME = ".forge"
 EVALUATE_STATE_FILENAME = ".evaluate-state.json"
 
 
 def _blocked_runtime_anchor(base_dir: Path) -> bool:
     """True when the canonical `.codex` anchor exists but is not a directory."""
-    anchor = base_dir / RUNTIME_ROOT_PARTS[0]
+    anchor = base_dir / CANONICAL_RUNTIME_PARTS[0]
     return anchor.exists() and not anchor.is_dir()
 
 
 def runtime_root(search_dir: Path | None = None) -> Path:
-    """Return the runtime root for forge-codex artifacts.
+    """Return the runtime root for Forge artifacts under the target repo.
 
-    Prefer the canonical `.codex/forge-codex` layout, but fall back to the
-    legacy `.forge` runtime when `.codex` is blocked by a file or symlink-like
-    non-directory entry in the repo root.
+    Resolution order:
+    1) If `.codex` exists but is not a directory, use legacy `.forge/` (single-dir layout).
+    2) Else if `.codex/forge-codex/` exists as a directory and `.codex/forge/` does not,
+       use the old path (backward compatibility).
+    3) Else use canonical `.codex/forge/`.
     """
     base_dir = search_dir or _detect_repo_root()
     if _blocked_runtime_anchor(base_dir):
         return base_dir / LEGACY_RUNTIME_DIRNAME
-    return base_dir.joinpath(*RUNTIME_ROOT_PARTS)
+    canonical = base_dir.joinpath(*CANONICAL_RUNTIME_PARTS)
+    legacy_fc = base_dir.joinpath(*LEGACY_FORGE_CODEX_RUNTIME_PARTS)
+    if legacy_fc.is_dir() and not canonical.exists():
+        return legacy_fc
+    return canonical
 
 
 def legacy_runtime_root(search_dir: Path | None = None) -> Path:
@@ -742,45 +751,85 @@ def build_skill_todos(
     return todos
 
 
-def format_continuation_block(next_cmd: str) -> str:
-    """Render the strong continuation directive replacing the old NEXT STEP block."""
+def skill_token_from_script(script_path: Path) -> str:
+    """Parent dir under scripts/ as a hyphenated CLI token (code_review → code-review)."""
+    return script_path.parent.name.replace("_", "-")
+
+
+def chain_command_to_agent_invocation(chain_cmd: str) -> str:
+    """Map SKILL_CHAIN entries like 'evaluate --mode pre' to '$forge:evaluate --mode pre'."""
+    chain_cmd = chain_cmd.strip()
+    if not chain_cmd:
+        return chain_cmd
+    skill, sep, tail = chain_cmd.partition(" ")
+    skill_h = skill.replace("_", "-")
+    inv = f"$forge:{skill_h}"
+    return f"{inv}{sep}{tail}" if sep else inv
+
+
+def parse_continuation_command(cmd: str) -> tuple[int | None, str | None]:
+    """Extract ``--step`` and ``--state`` from a line emitted by ``build_next_command``."""
+    if not cmd.strip():
+        return None, None
+    try:
+        parts = shlex.split(cmd)
+    except ValueError:
+        return None, None
+    next_step: int | None = None
+    state_path: str | None = None
+    i = 0
+    while i < len(parts):
+        if parts[i] == "--step" and i + 1 < len(parts):
+            try:
+                next_step = int(parts[i + 1])
+            except ValueError:
+                pass
+            i += 2
+            continue
+        if parts[i] == "--state" and i + 1 < len(parts):
+            state_path = parts[i + 1]
+            i += 2
+            continue
+        i += 1
+    return next_step, state_path
+
+
+def format_same_skill_continuation(
+    next_step: int,
+    state_path: str | None = None,
+) -> str:
+    """Ask plainly whether to advance to the next step within the current Forge skill."""
     bar = ("-" * 60) if os.environ.get("FORGE_ASCII") == "1" else ("━" * 60)
-    return (
-        f"\n\n{bar}\n"
-        f"CONTINUATION — IMMEDIATE ACTION REQUIRED\n"
-        f"{bar}\n"
-        f"This phase is complete. To continue the workflow:\n"
-        f"\n"
-        f"  1. Mark the current phase todo as `completed` in your Codex plan tracking.\n"
-        f"  2. Execute the next command:\n"
-        f"\n"
-        f"     {next_cmd}\n"
-        f"\n"
-        f"DO NOT STOP. DO NOT SUMMARIZE. Execute the next command now\n"
-        f"to advance to the next phase. If the user has asked you to\n"
-        f"pause, confirm with them and report the state file location."
-    )
+    lines = [
+        f"\n\n{bar}",
+        "CONTINUATION",
+        bar,
+        "",
+        f"This phase is complete. **Should I continue into step {next_step}?**",
+        "",
+        "Reply yes to move on, or say no / pause if you want to stop here.",
+    ]
+    if state_path:
+        lines.extend(["", f"Resume context is saved at `{state_path}`."])
+    return "\n".join(lines)
 
 
 def format_workflow_transition(cross_skill_next: str) -> str:
-    """Render a Codex-friendly cross-skill transition prompt.
+    """Render a short cross-skill transition prompt.
 
-    `cross_skill_next` is a skill name like "plan". If the user chooses to
-    proceed, invoke that skill so its orchestrator can start at step 1.
+    `cross_skill_next` is a skill name like "plan". Suggested invocation uses
+    ``$forge:<skill>`` for IDE/agent routing.
     """
     bar = ("=" * 60) if os.environ.get("FORGE_ASCII") == "1" else ("═" * 60)
+    slug = cross_skill_next.strip().replace("_", "-")
+    suggestion = f"$forge:{slug}"
     return (
         f"\n\n{bar}\n"
-        f"WORKFLOW TRANSITION — SKILL BOUNDARY\n"
+        f"WORKFLOW TRANSITION\n"
         f"{bar}\n"
-        f"This skill is complete. The next skill in the pipeline is:\n"
+        f"This skill is finished. **Suggested next:** `{suggestion}` (starts at step 1).\n"
         f"\n"
-        f"    {cross_skill_next}\n"
-        f"\n"
-        f"**PAUSE HERE.** Do not automatically advance to the next skill.\n"
-        f"Ask the user directly whether to proceed to `{cross_skill_next}`, pause here, or run a different skill.\n"
-        f"\n"
-        f'If the user chooses to proceed, invoke the `{cross_skill_next}` skill so its orchestrator starts at step 1.\n'
+        f"Pause here unless the user asks to continue — confirm before switching skills.\n"
     )
 
 
@@ -843,7 +892,10 @@ def format_step_output(
     if handoff_menu:
         output += "\n\n" + handoff_menu
     elif next_cmd:
-        output += format_continuation_block(next_cmd)
+        ns, sp_ = parse_continuation_command(next_cmd)
+        if ns is None:
+            ns = step + 1
+        output += format_same_skill_continuation(ns, sp_)
     elif cross_skill_next:
         output += "\n\nWORKFLOW COMPLETE — this skill has finished."
         output += format_workflow_transition(cross_skill_next)
@@ -853,21 +905,32 @@ def format_step_output(
     return output
 
 
-def build_next_command(script_path: Path, step: int, max_step: int, **extra_args: str) -> str:
-    """Build the command string for the next step."""
+def build_next_command(
+    script_path: Path,
+    step: int,
+    max_step: int,
+    *,
+    next_step: int | None = None,
+    flags: tuple[str, ...] = (),
+    **extra_args: str,
+) -> str:
+    """Build a compact continuation token line (``$forge:<skill> --step N …``).
+
+    Shown to tooling parsers; same-step prompts use plain language via
+    ``format_same_skill_continuation`` instead of echoing this string to users.
+    """
     if step >= max_step:
         return ""
-    if os.environ.get("FORGE_USE_LAUNCHER") == "1":
-        # Build a `forge <skill> --step N` continuation command.
-        # Skill name is derived from the script's parent directory, e.g.:
-        # scripts/plan/plan.py -> plan
-        skill = script_path.parent.name
-        cmd = f"forge {shlex.quote(skill)} --step {step + 1}"
-    else:
-        cmd = f"python3 {shlex.quote(str(script_path))} --step {step + 1}"
+    target_step = next_step if next_step is not None else step + 1
+    if target_step > max_step:
+        return ""
+    token = skill_token_from_script(script_path)
+    parts: list[str] = [f"$forge:{token}", f"--step {target_step}"]
+    for flag in flags:
+        parts.append(f"--{flag}")
     for key, val in extra_args.items():
-        cmd += f" --{key} {shlex.quote(val)}"
-    return cmd
+        parts.append(f"--{key} {shlex.quote(val)}")
+    return " ".join(parts)
 
 
 # ---------------------------------------------------------------------------
@@ -989,8 +1052,9 @@ def build_skill_handoff_menu(
     if default_cmd:
         desc = COMMAND_DESCRIPTIONS.get(default_cmd, "")
         desc_text = f" ({desc})" if desc else ""
+        inv = chain_command_to_agent_invocation(default_cmd)
         lines.append(f'**Default (reply "yes" or "1"):**')
-        lines.append(f"1. forge: {default_cmd}{desc_text}")
+        lines.append(f"1. `{inv}`{desc_text}")
         option_num = 2
     else:
         lines.append("**(none — workflow terminates here)**")
@@ -1001,7 +1065,8 @@ def build_skill_handoff_menu(
         for alt_cmd in alternatives:
             desc = COMMAND_DESCRIPTIONS.get(alt_cmd, "")
             desc_text = f" ({desc})" if desc else ""
-            lines.append(f"{option_num}. forge: {alt_cmd}{desc_text}")
+            inv_a = chain_command_to_agent_invocation(alt_cmd)
+            lines.append(f"{option_num}. `{inv_a}`{desc_text}")
             option_num += 1
 
     lines.append("")
@@ -1029,7 +1094,7 @@ def render_dashboard(state: SkillState) -> str:
         agents.add(name)
 
     lines = [
-        "## forge-codex — Skill Summary",
+        "## forge — Skill Summary",
         f"**Skill:** {state.skill_name}",
         f"**Status:** {'COMPLETE' if state.completed_at else 'IN_PROGRESS'}",
         f"**Started:** {state.started_at or 'N/A'}",
@@ -1049,7 +1114,7 @@ def render_dashboard(state: SkillState) -> str:
 def build_base_parser(skill_name: str, max_step: int) -> argparse.ArgumentParser:
     """Build the base argument parser for a skill orchestrator."""
     parser = argparse.ArgumentParser(
-        description=f"forge-codex {skill_name} skill orchestrator"
+        description=f"forge {skill_name} skill orchestrator"
     )
     parser.add_argument(
         "--step", type=int, required=True,

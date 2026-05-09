@@ -35,11 +35,11 @@ Send to Architect:
 
 The plan MUST define:
 
-Feature branch: forge/[feature-name]
+Feature branch: feat/<short-slug>
   ← Created from: main (or user-specified base)
 
 Task branches (parallel tasks):
-  forge/[feature-name]/[task-name]
+  feat/<short-slug>/[task-branch]
   ← Created from feature branch
   ← Merged back after Stage 6 review
 
@@ -72,7 +72,7 @@ For each implementation task:
 bd create "[task title]" -t task --parent [epic-id] -l "implementation,stage-4,agent:[role]"
 bd dep add [task-id] [solution-id] --type blocks
 bd dep add [task-2] [task-1] --type blocks  (inter-task deps)
-bd comments add [task-id] "branch: forge/[feature]/[task]"
+bd comments add [task-id] "branch: feat/<short-slug>/[task-branch]"
 
 ### 6. Stage Gate
 

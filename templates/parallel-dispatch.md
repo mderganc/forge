@@ -37,8 +37,8 @@ Create a sub-branch for each task in the current wave:
 
 ```bash
 # From the feature branch
-git checkout forge/[feature-name]
-git checkout -b forge/[feature-name]/task-[N]
+git checkout feat/<short-slug>
+git checkout -b feat/<short-slug>/task-[N]
 ```
 
 Each agent works exclusively on its sub-branch. No two agents commit to the same branch.
@@ -58,7 +58,7 @@ For each task in the wave, send to the assigned agent:
 
 Read the plan file (path from handoff), section: Task [N].
 
-**Your branch:** forge/[feature-name]/task-[N]
+**Your branch:** feat/<short-slug>/task-[N]
 **Files to modify:** [exact file paths from plan]
 **Dependencies available:** [list of completed tasks and their branches, or "none — Wave 1"]
 **Interface contract:** [contract definition from plan, if this task has upstream deps]
@@ -113,10 +113,10 @@ A wave is complete when **all** tasks in the wave have passed their review loops
 Merge completed sub-branches back to the feature branch in dependency order:
 
 ```bash
-git checkout forge/[feature-name]
+git checkout feat/<short-slug>
 
 # Merge in dependency order
-git merge forge/[feature-name]/task-[N] --no-ff
+git merge feat/<short-slug>/task-[N] --no-ff
 # Run full test suite after each merge
 [test command]
 # If tests fail, stop and resolve before next merge

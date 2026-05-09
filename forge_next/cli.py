@@ -105,6 +105,14 @@ def build_parser() -> argparse.ArgumentParser:
     im.add_argument("--step", type=int, required=True)
     im.add_argument("--state", type=str)
     im.add_argument("--quick", action="store_true")
+    im.add_argument("--plan", type=str, default=None, help="Path to plan file (implement step 1)")
+    im.add_argument(
+        "--branch-prefix",
+        type=str,
+        choices=("feat", "fix", "chore", "refactor", "docs", "hotfix"),
+        default=None,
+        help="Git branch prefix for feature/task branches (default: feat; stored in state on step 1)",
+    )
 
     # code-review
     cr = sub.add_parser("code-review", help="Run the code-review orchestrator")
@@ -263,6 +271,7 @@ def main(argv: list[str] | None = None) -> None:
     passthrough: list[str] = []
     add_flag(passthrough, "--step", getattr(args, "step", None))
     add_flag(passthrough, "--plan", getattr(args, "plan", None))
+    add_flag(passthrough, "--branch-prefix", getattr(args, "branch_prefix", None))
     add_flag(passthrough, "--state", getattr(args, "state", None))
     add_flag(passthrough, "--mode", getattr(args, "mode", None))
     add_flag(passthrough, "--team", getattr(args, "team", None))
@@ -436,7 +445,14 @@ def _summarize_orchestrator_output(repo_root: Path, command: str, human_output: 
     # Next command appears on a line by itself, typically indented.
     for line in reversed(human_output.splitlines()):
         stripped = line.strip()
-        if stripped.startswith("forge ") and "--step" in stripped:
+        if "--step" not in stripped:
+            continue
+        if (
+            stripped.startswith("forge ")
+            or stripped.startswith("$forge-")
+            or stripped.startswith("/forge-")
+            or stripped.startswith("$forge:")
+        ):
             next_cmd = stripped
             break
 

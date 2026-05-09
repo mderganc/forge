@@ -18,7 +18,9 @@ forge doctor
 
 ## Skills
 
-Skill definitions live in `integrations/codex/skills/` and invoke `forge ...`.
+Skill definitions live in `integrations/codex/skills/<skill-name>/SKILL.md` (OpenAI Codex layout: each skill is a folder with `SKILL.md` containing `name` and `description` in YAML frontmatter). They invoke `forge ...`.
+
+This pack ships four skills: `forge-plan`, `forge-evaluate`, `forge-resume`, and `forge-status`. Other Forge workflows are available via the global `forge` CLI and Cursor/Claude integrations, not as Codex skills in v1.
 
 ### Default install location (via `forge install`)
 

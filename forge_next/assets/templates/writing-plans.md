@@ -25,12 +25,14 @@ A concise description of the architectural approach. Include:
 
 ## 2. Branch Strategy
 
+Use a Conventional-Branch-style prefix: **`feat/`** (default), or **`fix/`**, **`chore/`**, **`refactor/`**, **`docs/`**, **`hotfix/`** as appropriate. The implement orchestrator stores the prefix from `forge implement --branch-prefix` (default **feat**).
+
 ```
 main
- └─ forge/[feature-name]           ← feature branch (created by PM)
-     ├─ forge/[feature]/task-1     ← sub-branch per task (created by assigned agent)
-     ├─ forge/[feature]/task-2
-     └─ forge/[feature]/task-3
+ └─ feat/<short-slug>              ← feature branch (created by PM)
+     ├─ feat/<short-slug>/task-1   ← sub-branch per task (created by assigned agent)
+     ├─ feat/<short-slug>/task-2
+     └─ feat/<short-slug>/task-3
 ```
 
 - Feature branch is created from main before any work begins.
@@ -46,7 +48,7 @@ Each task is a discrete unit of work assigned to one agent. Every task must incl
 ```
 ### Task [N]: [Title]
 **Agent:** [Architect | Dev-1 | Dev-2 | QA | ...]
-**Branch:** forge/[feature]/task-[N]
+**Branch:** feat/<short-slug>/task-[N]
 **Files:** [Exact file paths to create or modify — no wildcards, no "and related files"]
 **Dependencies:** [Task IDs this depends on, or "none"]
 

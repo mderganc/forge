@@ -14,8 +14,8 @@ Full-team review of integrated implementation, remediation loops until clean, an
 ### 1. Merge Sub-Branches
 
 For each completed sub-branch (in dependency order):
-git checkout forge/[feature-name]
-git merge forge/[feature-name]/[task-name]
+git checkout feat/<short-slug>
+git merge feat/<short-slug>/[task-branch]
 
 After each merge:
 - Run full test suite

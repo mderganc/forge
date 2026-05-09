@@ -47,8 +47,8 @@ Create the implementation plan following `templates/writing-plans.md`. Produce t
 [How solutions fit together — sourced from architect's design]
 
 ### Branch Strategy
-**Feature branch:** forge/[feature-name]
-**Task branches:** forge/[feature-name]/[task-name] (parallel tasks)
+**Feature branch:** feat/<short-slug> (or `fix/`, `chore/`, `refactor/`, etc. — set via `forge implement --branch-prefix`)
+**Task branches:** feat/<short-slug>/[task-branch] (parallel tasks)
 **Merge order:** [sequence respecting dependencies]
 
 ### Task Breakdown

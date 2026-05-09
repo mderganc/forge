@@ -34,6 +34,7 @@ if str(REPO_ROOT) not in sys.path:
 from scripts.shared.orchestrator import (
     SkillState,
     build_base_parser,
+    build_next_command,
     build_skill_handoff_menu,
     clear_state_file,
     detect_active_sessions,
@@ -167,13 +168,11 @@ def _build_variables(state: SkillState) -> dict[str, str]:
 
 
 def _next_command(step: int, state_path: str = "") -> str:
-    """Build the command for the next step."""
-    if step >= MAX_STEP:
-        return ""
-    cmd = f"python3 {SCRIPT_DIR / 'develop.py'} --step {step + 1}"
+    """Build agent-facing continuation for the next step."""
+    extra = {}
     if state_path:
-        cmd += f" --state '{state_path}'"
-    return cmd
+        extra["state"] = state_path
+    return build_next_command(SCRIPT_DIR / "develop.py", step, MAX_STEP, **extra)
 
 
 def _format(step: int, body: str, next_cmd: str | None = None, cross_skill_next: str | None = None, handoff_menu: str | None = None) -> str:

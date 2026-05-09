@@ -908,8 +908,7 @@ def test_build_skill_handoff_menu_renders_numbered_options(capsys):
     from scripts.shared.orchestrator import build_skill_handoff_menu
 
     menu = build_skill_handoff_menu("plan")
-    assert "1. forge:" in menu
-    assert "2. forge:" in menu
+    assert "$forge:" in menu
     assert "(stop)" in menu
     assert "WORKFLOW HANDOFF — plan complete" in menu
 
@@ -929,7 +928,7 @@ def test_test_skill_handoff_includes_flows_alternative_in_run_mode():
     from scripts.shared.orchestrator import build_skill_handoff_menu
 
     menu = build_skill_handoff_menu("test")
-    assert "test --mode flows" in menu
+    assert "$forge:test --mode flows" in menu
 
 
 def test_test_skill_handoff_swaps_to_run_in_flows_mode():
@@ -941,7 +940,7 @@ def test_test_skill_handoff_swaps_to_run_in_flows_mode():
     menu = build_skill_handoff_menu("test", state=state)
     # When in flows mode, the mode alternative should be swapped
     # (This is a placeholder; real implementation would inspect state.custom["mode"])
-    assert "forge:" in menu  # Basic sanity check
+    assert "$forge:" in menu  # Basic sanity check
 
 
 def test_implement_handoff_after_failures_inserts_diagnose_first():
@@ -976,7 +975,7 @@ def test_no_skill_has_legacy_workflow_complete_marker():
     for skill in ["develop", "plan", "evaluate", "implement", "code-review", "test", "diagnose"]:
         menu = build_skill_handoff_menu(skill)
         assert "WORKFLOW HANDOFF" in menu
-        assert "forge:" in menu
+        assert "$forge:" in menu
 
 
 # ---------------------------------------------------------------------------

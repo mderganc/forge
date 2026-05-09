@@ -14,7 +14,7 @@ Dispatch developer agents in parallel waves to implement the approved plan, with
 
 ### 1. Create Feature Branch
 
-git checkout -b forge/[feature-name]
+git checkout -b feat/<short-slug>
 
 ### 2. Identify Waves
 
@@ -29,7 +29,7 @@ For each task in the wave, send to the assigned agent:
 
 > **Task: [title from plan] [beads-id]**
 >
-> **Branch:** git checkout -b [sub-branch] from forge/[feature-name]
+> **Branch:** git checkout -b [sub-branch] from feat/<short-slug>
 > **Plan:** Read the plan file (path from handoff), section for Task [N]
 > **Beads:** Update status: bd update [id] --status in_progress --claim
 > **Memory:** Write progress to `.codex/forge-codex/memory/[role]-dev.md`

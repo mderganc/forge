@@ -31,6 +31,18 @@ def spec_commands() -> dict:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
+def test_spec_commands_have_matching_codex_skill_dirs(spec_commands: dict):
+    missing: list[str] = []
+    for cmd in spec_commands["commands"]:
+        sub = cmd["cli_subcommand"]
+        skill_md = (
+            REPO_ROOT / "integrations" / "codex" / "skills" / f"forge-{sub}" / "SKILL.md"
+        )
+        if not skill_md.is_file():
+            missing.append(str(skill_md.relative_to(REPO_ROOT)))
+    assert not missing, f"Missing Codex SKILL.md for spec command: {missing}"
+
+
 def test_spec_commands_have_matching_cursor_and_claude_files(spec_commands: dict):
     missing_cursor: list[str] = []
     missing_claude: list[str] = []
@@ -78,9 +90,3 @@ def test_codex_skills_use_skill_md_layout():
         )
         assert body.strip(), f"{skill.relative_to(REPO_ROOT)} needs a non-empty body"
 
-
-def test_codex_skill_pack_expected_count():
-    """v1 ships four thin Codex skills; additional workflows use the forge CLI."""
-    skills_root = REPO_ROOT / "integrations" / "codex" / "skills"
-    dirs = sorted(p.name for p in skills_root.iterdir() if p.is_dir())
-    assert dirs == ["forge-evaluate", "forge-plan", "forge-resume", "forge-status"]

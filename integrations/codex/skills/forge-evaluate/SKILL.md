@@ -1,5 +1,5 @@
 ---
-name: forge-evaluate
+name: forge:evaluate
 description: Run Forge evaluate (pre/post/review) via the global forge CLI. Use when evaluating work against a plan or running Forge evaluation steps.
 ---
 

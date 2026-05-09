@@ -306,6 +306,7 @@ def test_resume_cleanup_dry_run_does_not_delete(fresh_state_dir):
         cwd=fresh_state_dir,
         capture_output=True,
         text=True,
+        encoding="utf-8",
     )
     assert result.returncode == 0
     assert "Would delete" in (result.stderr + result.stdout)
@@ -328,6 +329,7 @@ def test_resume_cleanup_force_deletes(fresh_state_dir):
         cwd=fresh_state_dir,
         capture_output=True,
         text=True,
+        encoding="utf-8",
     )
     assert result.returncode == 0
     assert not target.exists()
@@ -344,6 +346,7 @@ def test_plan_over_cap_step_exits_zero_with_friendly_msg(fresh_state_dir):
         cwd=fresh_state_dir,
         capture_output=True,
         text=True,
+        encoding="utf-8",
     )
     assert result.returncode == 0
     assert "ends at step 6" in result.stderr or "ends at step 6" in result.stdout
@@ -494,6 +497,7 @@ def test_test_skill_default_mode_is_run(fresh_state_dir, monkeypatch):
         cwd=str(fresh_state_dir),
         capture_output=True,
         text=True,
+        encoding="utf-8",
     )
     assert result.returncode == 0, f"Unexpected error: {result.stderr}"
 
@@ -516,6 +520,7 @@ def test_test_skill_flows_mode_sets_max_step_7(fresh_state_dir):
         cwd=str(fresh_state_dir),
         capture_output=True,
         text=True,
+        encoding="utf-8",
     )
     assert result.returncode == 0, f"Unexpected error: {result.stderr}"
 
@@ -542,6 +547,7 @@ def test_test_skill_flows_atomic_check_aborts_when_prompt_missing(fresh_state_di
             cwd=str(fresh_state_dir),
             capture_output=True,
             text=True,
+            encoding="utf-8",
         )
         assert result.returncode == 1
         assert "flows mode not yet available" in result.stderr
@@ -566,6 +572,7 @@ def test_test_skill_resume_conflict_aborts_when_mode_differs(fresh_state_dir, mo
         cwd=str(fresh_state_dir),
         capture_output=True,
         text=True,
+        encoding="utf-8",
     )
     assert result1.returncode == 0
     state_file = ""
@@ -582,6 +589,7 @@ def test_test_skill_resume_conflict_aborts_when_mode_differs(fresh_state_dir, mo
         cwd=str(fresh_state_dir),
         capture_output=True,
         text=True,
+        encoding="utf-8",
     )
     assert result2.returncode == 1
     assert "Cannot resume" in result2.stderr
@@ -615,6 +623,7 @@ def test_test_skill_role_override_via_cli(fresh_state_dir, monkeypatch):
         cwd=str(fresh_state_dir),
         capture_output=True,
         text=True,
+        encoding="utf-8",
     )
     assert result.returncode == 0
 
@@ -635,6 +644,7 @@ def test_test_skill_no_db_override(fresh_state_dir, monkeypatch):
         cwd=str(fresh_state_dir),
         capture_output=True,
         text=True,
+        encoding="utf-8",
     )
     assert result.returncode == 0
 
@@ -1169,6 +1179,7 @@ def test_flow_type_override_writes_sidecar_pre_prompt(fresh_state_dir):
         cwd=str(fresh_state_dir),
         capture_output=True,
         text=True,
+        encoding="utf-8",
     )
     assert result.returncode == 0, f"step 1 failed: {result.stderr}"
 
@@ -1277,6 +1288,7 @@ def test_flows_step_8_over_cap_friendly(fresh_state_dir):
         cwd=str(fresh_state_dir),
         capture_output=True,
         text=True,
+        encoding="utf-8",
     )
     assert result1.returncode == 0
 
@@ -1287,6 +1299,7 @@ def test_flows_step_8_over_cap_friendly(fresh_state_dir):
         cwd=str(fresh_state_dir),
         capture_output=True,
         text=True,
+        encoding="utf-8",
     )
     assert result2.returncode == 0, f"step 8 should exit 0, got {result2.returncode}"
 

@@ -1,6 +1,8 @@
-# Forge + Codex integration (v1)
+# Forge + Codex integration
 
-This is a **skill pack** for Codex-style environments. Skills are thin wrappers that run the global `forge` CLI.
+This is a **skill pack** for Codex-style environments. Skills are thin wrappers that run the global **`forge` CLI**. Layout follows OpenAI Codex agent skills: each skill is a directory **`forge-<cli-subcommand>/`** containing **`SKILL.md`** with **`name`** and **`description`** in YAML frontmatter.
+
+The set of skills matches **[`integrations/spec/commands.json`](../spec/commands.json)** (same coverage as the Cursor plugin and Claude command pack).
 
 ## Prerequisite
 
@@ -16,13 +18,22 @@ Verify:
 forge doctor
 ```
 
-## Skills
+## Skills (installed)
 
-Skill definitions live in `integrations/codex/skills/<skill-name>/SKILL.md` (OpenAI Codex layout: each skill is a folder with `SKILL.md` containing `name` and `description` in YAML frontmatter). They invoke `forge ...`.
+| Skill folder | CLI entry |
+|--------------|-----------|
+| `forge-develop` | `forge develop` |
+| `forge-plan` | `forge plan` |
+| `forge-evaluate` | `forge evaluate` |
+| `forge-implement` | `forge implement` |
+| `forge-code-review` | `forge code-review` |
+| `forge-test` | `forge test` |
+| `forge-diagnose` | `forge diagnose` |
+| `forge-resume` | `forge resume` |
+| `forge-status` | `forge status` |
+| `forge-doctor` | `forge doctor` |
 
-This pack ships four skills: `forge-plan`, `forge-evaluate`, `forge-resume`, and `forge-status`. Other Forge workflows are available via the global `forge` CLI and Cursor/Claude integrations, not as Codex skills in v1.
-
-### Default install location (via `forge install`)
+## Default install location (via `forge install`)
 
 By default, `forge install --codex` installs to:
 
@@ -31,3 +42,4 @@ By default, `forge install --codex` installs to:
 
 Override with `forge install --codex-dir <path>`.
 
+Restart Codex after installing so skills appear in the picker.

@@ -39,6 +39,6 @@ Expected:
 ## 5) Codex skill pack
 
 - Install with `forge install --codex` (copies `integrations/codex/skills/` under `~/.codex/skills/forge/`), then restart Codex.
-- Skills appear as `forge-plan`, `forge-evaluate`, `forge-resume`, `forge-status` (each is a folder with `SKILL.md`).
+- Expect **10** skill folders (`forge-develop`, `forge-plan`, … — same list as [`integrations/spec/commands.json`](integrations/spec/commands.json)); each contains `SKILL.md`.
 - Invoke via `/use forge-plan` (etc.) or implicit matching on the skill description.
 

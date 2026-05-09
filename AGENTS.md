@@ -60,12 +60,14 @@ From the repo root, after installing tooling once (`pip install build twine` or 
 
 1. Remove stale artifacts: `rm -rf dist/`
 2. `python -m build`
-3. `twine check dist/*`
+3. `python -m twine check dist/*`
 4. Upload with credentials for the **forge-next** project, for example:
-   - **API token (recommended):** set `TWINE_USERNAME=__token__` and `TWINE_PASSWORD` to your [PyPI API token](https://pypi.org/manage/account/token/), then `twine upload dist/*`
-   - Or configure `~/.pypirc` and run `twine upload dist/*`
+   - **API token (recommended):** set `TWINE_USERNAME=__token__` and `TWINE_PASSWORD` to your [PyPI API token](https://pypi.org/manage/account/token/), then `python -m twine upload dist/*`
+   - Or configure `~/.pypirc` and run `python -m twine upload dist/*`
 
-The helper script **[`scripts/release/publish_pypi.sh`](scripts/release/publish_pypi.sh)** runs build + `twine check` + `twine upload` (requires `build`, `twine`, and auth env vars or `pypirc`). Skip PyPI only when you intentionally did **not** bump `project.version` (e.g. docs-only or repo-only integration edits pulled exclusively from GitHub via `forge install --repo-url`).
+Use **`python -m twine`** so upload works when the `twine` executable is not on `PATH` (common on Windows).
+
+The helper script **[`scripts/release/publish_pypi.sh`](scripts/release/publish_pypi.sh)** runs build + `twine check` + upload via **`python -m twine`**. Skip PyPI only when you intentionally did **not** bump `project.version` (e.g. docs-only or repo-only integration edits pulled exclusively from GitHub via `forge install --repo-url`).
 
 ## Documentation
 

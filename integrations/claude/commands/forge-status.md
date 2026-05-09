@@ -1,8 +1,19 @@
 ---
 name: forge:status
-description: Show workflow dashboard for this repo.
+description: Dashboard of Forge workflows and handoffs for this repo.
 ---
 
-Run: `forge status`
+## What to tell the user first
 
-If you need a different repo: `forge status --repo "<path>"`
+- **Status** summarizes active sessions, handoffs, and suggested next moves—good for orientation before picking a workflow.
+
+Describe what they’ll see conceptually first.
+
+## What you run (agent)
+
+Run `forge status` from the repo root; use `--repo` only if they pointed at another root. Present the dashboard highlights in prose.
+
+## Exact CLI (reference)
+
+- This repo: `forge status`
+- Other repo: `forge status --repo "<path>"`

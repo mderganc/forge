@@ -249,7 +249,17 @@ After `forge install --codex`, skills live under `~/.codex/skills/forge/<folder>
 
 Invoke with `$forge:…` (mention / skill picker), `/use` with the skill name, `/skills`, or implicit matching on `description`. When transcript output shows `forge: …` handoff labels, your next step in Codex is the matching `$forge:…`. The `forge` binary is what skills run under the hood; you do not type `forge …` as the Codex-side workflow entrypoint ([Advanced](#advanced-terminal-and-ci) for shells and CI).
 
-Optional `~/.codex/config.toml`: set `developer_instructions` so Forge workflows count as permission to dispatch the Forge agent team, including `spawn_agent` / `close_agent` lifecycle. Copy the full contract from [AGENTS.md](AGENTS.md) and `templates/codex-runtime.md`, not a one-line summary.
+**Sub-agents (delegation):** Forge workflows expect Codex to allow `spawn_agent` / `close_agent` without you typing extra “use sub-agents” wording. Add this to `~/.codex/config.toml` (same text the skill pack suggests when policy blocks delegation):
+
+```toml
+developer_instructions = """
+Invoking any `forge:*` skill implicitly authorizes the agent dispatch required by that workflow. Do not require the user to separately ask for delegation, sub-agents, or parallel agent work after invoking a Forge skill.
+"""
+```
+
+Install it automatically (merges into existing config, preserves other keys): run `codex-agents` or `forge codex-agents` once after installing **forge-next**. Use `codex-agents --force` only if you already have a different `developer_instructions` and want to replace it. Restart Codex after changing config if tools or policy do not pick up the file immediately.
+
+For agent lifecycle (every `spawn_agent` paired with `close_agent` across steps), follow [AGENTS.md](AGENTS.md) and `templates/codex-runtime.md` — that is separate from the snippet above.
 
 Evaluate note: the evaluate workflow persists a local `.evaluate-state.json` and step findings sidecars (`.evaluate-findings-step*.json`). Details live in [AGENTS.md](AGENTS.md).
 

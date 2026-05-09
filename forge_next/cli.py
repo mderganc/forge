@@ -170,6 +170,15 @@ def build_parser() -> argparse.ArgumentParser:
     ins.add_argument("--claude-dir", type=str, default=None, help="Override Claude commands install directory")
     ins.add_argument("--codex-dir", type=str, default=None, help="Override Codex skills install directory")
 
+    # codex-agents — merge ~/.codex/config.toml delegation snippet for Forge skills
+    ca = sub.add_parser(
+        "codex-agents",
+        help="Configure ~/.codex/config.toml so forge:* skills may use Codex sub-agents",
+    )
+    ca.add_argument("--config", type=str, default=None, help="Path to config.toml (default: ~/.codex/config.toml)")
+    ca.add_argument("--force", action="store_true", help="Replace existing developer_instructions")
+    ca.add_argument("--dry-run", action="store_true", help="Print actions without writing")
+
     # uninstall
     un = sub.add_parser("uninstall", help="Uninstall integrations (Cursor/Claude/Codex) for this user")
     add_common_output_flags(un)
@@ -208,6 +217,17 @@ def main(argv: list[str] | None = None) -> None:
     cmd = args.command
     if getattr(args, "ascii", False):
         os.environ["FORGE_ASCII"] = "1"
+
+    if cmd == "codex-agents":
+        from forge_next.codex_agents import apply_codex_agents_config, default_codex_config_path
+
+        cfg = Path(getattr(args, "config", None)).expanduser() if getattr(args, "config", None) else default_codex_config_path()
+        rc = apply_codex_agents_config(
+            cfg,
+            force=bool(getattr(args, "force", False)),
+            dry_run=bool(getattr(args, "dry_run", False)),
+        )
+        raise SystemExit(rc)
 
     if cmd == "install":
         _run_install(

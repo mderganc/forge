@@ -4,15 +4,20 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "forge-next"
-version = "0.2.1"
+version = "0.3.0"
 description = "Forge Codex: install-once workflow orchestrators for Cursor/Codex"
 readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "MIT" }
 authors = [{ name = "Forge Codex" }]
 
+dependencies = [
+    "tomlkit>=0.12,<2",
+]
+
 [project.scripts]
 forge = "forge_next.cli:main"
+codex-agents = "forge_next.codex_agents:main"
 
 [tool.setuptools]
 include-package-data = true

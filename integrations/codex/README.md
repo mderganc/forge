@@ -43,3 +43,7 @@ By default, `forge install --codex` installs to:
 Override with `forge install --codex-dir <path>`.
 
 Restart Codex after installing so skills appear in the picker.
+
+## Delegation (sub-agents)
+
+Run `codex-agents` or `forge codex-agents` once so `~/.codex/config.toml` includes the Forge `developer_instructions` snippet that permits agent dispatch for `$forge:…` skills. Exact wording is in the repository **[README.md](../../README.md)** under **OpenAI Codex**.

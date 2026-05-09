@@ -23,6 +23,14 @@ Your scaffold must create the correct directory and file structure for {{FLOW_TY
    - Data-pack READMEs: describe the variant (e.g., "clean: well-formed data, control baseline")
    - Conftest/harness: fixture definitions (empty for now; authoring step fills them)
 
+## Pytest Scaffold Best Practices (Required)
+
+- Prefer `function`-scoped fixtures by default for isolation; widen scope only for immutable expensive setup.
+- Use `@pytest.fixture` + `yield` teardown for any fixture that creates files, env vars, DB state, or network stubs.
+- Use `tmp_path` for temp files/cassettes generated during tests; never write mutable artifacts to tracked source paths.
+- Keep `autouse` fixtures minimal and transparent (for global safety toggles only).
+- Ensure flow tests are selectable without a full sweep (for example via file path, `-k` expression, or dedicated marker).
+
 4. **Gate Check:** After creation, the next invocation of step 4 will verify:
    - {{#if SCAFFOLD_GATE_FAILURES}}
      **Previous attempt had issues:**

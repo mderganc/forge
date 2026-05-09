@@ -32,6 +32,35 @@ def test_parse_parallelization_table_empty_when_no_wave_column():
     assert rows == []
 
 
+def test_parse_parallelization_table_narrative_waves_with_bullets():
+    md = """
+## Implementation Waves
+Wave 1:
+- Task 1: build parser (agent: Backend)
+- Task 2: add tests (agent: QA; depends on: Task 1)
+
+Wave 2:
+- Task 3: docs
+"""
+    total, rows = parse_parallelization_table(md)
+    assert total == 2
+    assert len(rows) == 3
+    assert [r.wave for r in rows] == [1, 1, 2]
+    assert rows[1].depends_on.lower() == "task 1"
+
+
+def test_parse_parallelization_table_narrative_inline_wave_map():
+    md = """
+## Parallelization Map
+Wave 1: Task 1, Task 2
+Wave 2: Task 3
+"""
+    total, rows = parse_parallelization_table(md)
+    assert total == 2
+    assert len(rows) == 3
+    assert [r.task for r in rows] == ["Task 1", "Task 2", "Task 3"]
+
+
 def test_sync_waves_from_plan_file_reads_repo_template(tmp_path: Path):
     repo_root = Path(__file__).resolve().parents[1]
     sample = tmp_path / "plan.md"

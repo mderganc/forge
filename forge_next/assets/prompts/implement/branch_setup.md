@@ -1,6 +1,6 @@
 # Phase 2: Branch Setup
 
-Create the feature branch and identify implementation waves.
+Set up branch context and identify implementation waves.
 
 ## Parsed plan metadata
 
@@ -45,10 +45,13 @@ Before proceeding, verify:
 - [ ] No circular dependencies exist
 - [ ] Every dependency references a task that exists in the plan
 
-## Create Feature Branch
+## Create or Reuse Feature Branch
 
-```
-git checkout -b {{FEATURE_BRANCH_PATTERN}}
-```
+1. Check current branch:
+   - `git branch --show-current`
+2. If already on the intended feature branch for this work (for example `{{BRANCH_PREFIX}}/...`), **reuse it**.
+3. Only create a new branch when still on `main` (or other base branch):
+   - `git checkout -b {{FEATURE_BRANCH_PATTERN}}`
+4. **Never create branches with `forge/` prefix.** Valid prefixes are only: `feat/`, `fix/`, `chore/`, `refactor/`, `docs/`, `hotfix/`.
 
 Record branch name in `.codex/forge-codex/memory/project.md`.

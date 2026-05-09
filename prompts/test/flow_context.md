@@ -1,4 +1,4 @@
-# Phase 1: Flow Context Detection — implementation pending (Fix 3)
+# Phase 1: Flow Context Detection â€” implementation pending (Fix 3)
 
 FRAMEWORK: {{FRAMEWORK}}
 ENTRY_POINT: {{ENTRY_POINT}}

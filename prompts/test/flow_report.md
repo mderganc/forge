@@ -75,6 +75,16 @@ Role: viewer
 
 **Codex command:** Parse the test file(s) to extract assertion statements per role.
 
+### 2.5 Pytest Reliability Audit
+
+Confirm and document these best-practice checks:
+
+- Fixtures that mutate state use `yield` teardown and default to function scope unless widening is justified.
+- Temporary artifacts use `tmp_path` (or equivalent isolated temp dirs), not shared tracked paths.
+- Parametrized role cases use readable IDs so failures map to role/scenario quickly.
+- Tests avoid nondeterministic sources (`time`, `random`, UUID) unless explicitly stabilized.
+- Any expected-failure marks are intentional and reviewed (no silent flaky masking).
+
 ### 3. Update Project Memory
 
 Append to `.codex/forge-codex/memory/test-report.md`:

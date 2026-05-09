@@ -50,10 +50,13 @@ from scripts.shared.orchestrator import (
     validate_step_or_complete,
     write_handoff,
 )
-from scripts.evaluate.template_engine import load_template, render_template
+from scripts.evaluate.template_engine import (
+    default_prompts_root,
+    load_template,
+    render_template,
+)
 from scripts.test.test_layout import detect_test_layout  # pyright: ignore[reportMissingImports]
 
-PROMPTS_DIR = REPO_ROOT / "prompts"
 SKILL_NAME = "test"
 MAX_STEP = 6
 
@@ -718,13 +721,16 @@ def main():
             "flow_context", "flow_recommendation", "flow_scope",
             "flow_scaffold", "flow_author", "flow_execute", "flow_report",
         ]
-        missing = [
-            p for p in required_prompts
-            if not (PROMPTS_DIR / "test" / f"{p}.md").exists()
-        ]
+        missing = []
+        for p in required_prompts:
+            try:
+                load_template(f"test/{p}")
+            except FileNotFoundError:
+                missing.append(p)
         if missing:
+            prompts_root = default_prompts_root()
             print(
-                f"ERROR: flows mode not yet available in this build — missing prompts: {missing}",
+                f"ERROR: flows mode unavailable — missing prompts in active template root ({prompts_root}): {missing}",
                 file=sys.stderr
             )
             sys.exit(1)

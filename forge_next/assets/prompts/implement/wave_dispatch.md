@@ -29,6 +29,11 @@ git checkout {{FEATURE_BRANCH_PATTERN}}
 git checkout -b {{TASK_BRANCH_PATTERN}}
 ```
 
+Branch guardrails:
+- Keep all implementation/task branches under the selected conventional prefix (`{{BRANCH_PREFIX}}/...`).
+- Do not invent or infer `forge/*` branch names.
+- If a task sub-branch already exists, `git checkout` it instead of recreating.
+
 ## Agents to Dispatch
 
 {{AGENT_LIST}}

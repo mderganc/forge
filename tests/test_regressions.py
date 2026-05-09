@@ -539,6 +539,10 @@ def test_test_skill_flows_atomic_check_aborts_when_prompt_missing(fresh_state_di
     # Delete one of the 7 flow prompts
     prompt_path = REPO_ROOT / "prompts" / "test" / "flow_context.md"
     assert prompt_path.exists()
+    try:
+        original = prompt_path.read_text(encoding="utf-8")
+    except UnicodeDecodeError:
+        original = prompt_path.read_text(encoding="cp1252")
     prompt_path.unlink()
 
     try:
@@ -550,16 +554,12 @@ def test_test_skill_flows_atomic_check_aborts_when_prompt_missing(fresh_state_di
             encoding="utf-8",
         )
         assert result.returncode == 1
-        assert "flows mode not yet available" in result.stderr
+        assert "flows mode unavailable" in result.stderr
+        assert "active template root" in result.stderr
         assert "flow_context" in result.stderr
     finally:
         # Restore the prompt
-        prompt_path.write_text(
-            "# Phase 1: Flow Context Detection — implementation pending (Fix 3)\n\n"
-            "FRAMEWORK: {{FRAMEWORK}}\nENTRY_POINT: {{ENTRY_POINT}}\n"
-            "TEST_DB: {{TEST_DB}}\nROLES: {{ROLES}}\n{{LAYOUT_CONFIDENCE_WARNING}}\n\n"
-            "Placeholder for Fix 3 implementation.\n"
-        )
+        prompt_path.write_text(original, encoding="utf-8")
 
 
 def test_test_skill_resume_conflict_aborts_when_mode_differs(fresh_state_dir, monkeypatch):

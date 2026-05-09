@@ -12,7 +12,7 @@ Execute the test suite using the verification protocol:
 
 ```
 cd /path/to/project
-python -m pytest tests/<scenarios|features|cassettes|orchestration>/test_<scope>.py -v --tb=short
+python -m pytest tests/<scenarios|features|cassettes|orchestration>/test_<scope>.py -v --tb=short --maxfail=1 --strict-markers
 ```
 
 **Expected:** PASS (all test cases green).
@@ -81,13 +81,19 @@ If the test fails:
 
 Once green, advance to step 7 (Report).
 
+## Fast Feedback (No Full Sweep Required)
+
+- First validate the seam with a targeted run (`test_<scope>.py`, optional `-k "<journey>"`).
+- Use `pytest --lf` after a failure to iterate quickly on the same failing case.
+- Run full-suite/regression only after the targeted seam is stable and deterministic.
+
 ## Codex Runtime Instructions
 
 1. **Read the scope and files:** Understand what's being tested and where the test files live.
 
 2. **Run the test:** Execute pytest with verbose output and short traceback:
    ```
-   exec_command cd /path/to/project && python -m pytest tests/.../test_<scope>.py -v --tb=short
+   exec_command cd /path/to/project && python -m pytest tests/.../test_<scope>.py -v --tb=short --maxfail=1 --strict-markers
    ```
 
 3. **Parse the output:** Extract:

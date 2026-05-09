@@ -58,6 +58,97 @@ def _wave_cell_to_int(cell: str) -> int | None:
     return int(m.group(1))
 
 
+def _looks_like_wave_heading(line: str) -> re.Match[str] | None:
+    return re.match(
+        r"^\s{0,3}(?:[-*]\s*)?(?:#{1,6}\s*)?(?:\*\*)?\s*wave\s*(\d+)\b(?:\*\*)?\s*:?\s*(.*)$",
+        line.strip(),
+        flags=re.IGNORECASE,
+    )
+
+
+def _extract_agent(text: str) -> str:
+    m = re.search(r"\bagent\s*:\s*([^,;|)]+)", text, flags=re.IGNORECASE)
+    return (m.group(1).strip() if m else "")
+
+
+def _extract_depends_on(text: str) -> str:
+    m = re.search(r"\bdepends(?:\s+on)?\s*:\s*([^;|)]+)", text, flags=re.IGNORECASE)
+    return (m.group(1).strip() if m else "")
+
+
+def _clean_task_text(text: str) -> str:
+    cleaned = re.sub(r"^\s*(?:[-*]\s+|\d+\.\s+)", "", text).strip()
+    cleaned = re.sub(r"`([^`]+)`", r"\1", cleaned)
+    cleaned = re.sub(r"\*\*([^*]+)\*\*", r"\1", cleaned)
+    cleaned = re.sub(r"\b(agent|depends(?:\s+on)?)\s*:\s*[^;|)]+", "", cleaned, flags=re.IGNORECASE)
+    cleaned = re.sub(r"\s*\(\s*\)", "", cleaned)
+    cleaned = re.sub(r"\s{2,}", " ", cleaned).strip(" -;,:")
+    return cleaned
+
+
+def _looks_like_task_label(text: str) -> bool:
+    return bool(re.search(r"\btask\s*(?:#?\d+|[A-Za-z_-]+)\b", text, flags=re.IGNORECASE))
+
+
+def _parse_narrative_wave_rows(markdown: str) -> list[WaveRow]:
+    """Best-effort parser for narrative wave maps (non-table formats)."""
+    lines = markdown.splitlines()
+    rows: list[WaveRow] = []
+    current_wave: int | None = None
+
+    for line in lines:
+        wave_match = _looks_like_wave_heading(line)
+        if wave_match:
+            current_wave = int(wave_match.group(1))
+            inline = wave_match.group(2).strip()
+            if inline and _looks_like_task_label(inline):
+                chunks = [c.strip() for c in re.split(r"\s*(?:,|;|\|)\s*", inline) if c.strip()]
+                for chunk in chunks:
+                    if not _looks_like_task_label(chunk):
+                        continue
+                    rows.append(
+                        WaveRow(
+                            task=_clean_task_text(chunk),
+                            agent=_extract_agent(chunk),
+                            depends_on=_extract_depends_on(chunk),
+                            wave=current_wave,
+                            parallel_with="",
+                            raw={"source": "narrative-inline"},
+                        )
+                    )
+            continue
+
+        if current_wave is None:
+            continue
+
+        stripped = line.strip()
+        if not stripped:
+            continue
+        if stripped.startswith("```"):
+            continue
+
+        if _looks_like_wave_heading(stripped):
+            continue
+
+        # Bullet/numbered task lines under a "Wave N" heading.
+        if re.match(r"^\s*(?:[-*]|\d+\.)\s+", line):
+            task = _clean_task_text(stripped)
+            if not task:
+                continue
+            rows.append(
+                WaveRow(
+                    task=task,
+                    agent=_extract_agent(stripped),
+                    depends_on=_extract_depends_on(stripped),
+                    wave=current_wave,
+                    parallel_with="",
+                    raw={"source": "narrative-bullet"},
+                )
+            )
+
+    return rows
+
+
 def parse_parallelization_table(markdown: str) -> tuple[int, list[WaveRow]]:
     """Parse the parallelization map table; return max wave number and rows.
 
@@ -80,12 +171,18 @@ def parse_parallelization_table(markdown: str) -> tuple[int, list[WaveRow]]:
             break
 
     if header_idx is None:
-        return 0, []
+        narrative_rows = _parse_narrative_wave_rows(markdown)
+        if not narrative_rows:
+            return 0, []
+        return max(r.wave for r in narrative_rows), narrative_rows
 
     try:
         wave_col = next(j for j, n in enumerate(headers_norm) if n == "wave" or n.startswith("wave "))
     except StopIteration:
-        return 0, []
+        narrative_rows = _parse_narrative_wave_rows(markdown)
+        if not narrative_rows:
+            return 0, []
+        return max(r.wave for r in narrative_rows), narrative_rows
 
     # Optional columns (best-effort names from writing-plans template)
     def col_idx(*names: str) -> int | None:

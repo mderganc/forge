@@ -12,6 +12,8 @@ For each task sub-branch (in dependency order):
 4. If conflict: assign to owning agent, critic reviews resolution
 5. If tests fail: assign to responsible agent, fix before next merge
 
+Branch guardrail: merge only branches that match the configured conventional prefix; never create or merge `forge/*` branches.
+
 ## Wave Status
 
 Waves completed: {{WAVES_COMPLETED}} of {{TOTAL_WAVES}}

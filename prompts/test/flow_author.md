@@ -44,7 +44,7 @@ Each pack should include a README.md describing the variant (see examples above)
 If your flow tests multiple roles:
 
 - **Conftest fixture or BDD steps:** Define fixtures or step definitions that parameterize by role (e.g., fixture `authenticated_client` returns a TestClient with role-specific auth headers).
-- **Per-role assertion sets:** Role `admin` may assert `status == 200`; role `member` may assert `status == 403`. Use `@pytest.mark.parametrize` or BDD scenario outlines.
+- **Per-role assertion sets:** Role `admin` may assert `status == 200`; role `member` may assert `status == 403`. Use `@pytest.mark.parametrize`/BDD scenario outlines with explicit IDs (`pytest.param(..., id="admin_success")`) so failures are diagnosable.
 - **Assertion surfaces:** Each role should make assertions on \u2265 2 surfaces. Examples:
   - Response status + response body + DB state
   - CLI return code + stdout + file created
@@ -103,13 +103,15 @@ def test_upload_flow_success(mock_email):
     assert mock_email[0]["subject"] == "Upload Complete"
 ```
 
+Prefer `monkeypatch.context()` for tightly scoped patching when a test needs temporary overrides in one branch only.
+
 ### 6. Run the Test (RED Phase)
 
 Once authoring is complete, run the test:
 
 ```
 cd /path/to/project
-python -m pytest tests/<scenarios|features|cassettes|orchestration>/test_<scope>.py -v
+python -m pytest tests/<scenarios|features|cassettes|orchestration>/test_<scope>.py -v --maxfail=1 --strict-markers
 ```
 
 Expected: **FAIL**. You've written the test first; it should fail because the app logic doesn't exist yet (or isn't wired to the test harness).
@@ -119,6 +121,12 @@ If the test passes immediately, either:
 - The test is too permissive (fix it)
 
 **Important:** Do NOT implement the app feature yet. Authoring stops here. The next step (Execution) will run the test against the actual feature code.
+
+## Determinism Rules (Required)
+
+- No live randomness/time in assertions: patch or fix random, time, and UUID sources.
+- Keep fixture inputs deterministic and sort unordered collections before asserting.
+- Prefer specific business assertions (status/code/message/state) over broad truthy checks.
 
 ## Gate Check (Before Advancing)
 
@@ -149,7 +157,7 @@ If any check fails, step 5 will re-prompt with a corrective message.
 
 5. **Run the test locally:** Once you've written the failing test, verify it fails as expected:
    ```
-   exec_command cd /path/to/project && python -m pytest tests/.../test_<scope>.py -v --tb=short
+   exec_command cd /path/to/project && python -m pytest tests/.../test_<scope>.py -v --tb=short --maxfail=1 --strict-markers
    ```
 
 6. **Verify outcome surfaces:** For each test, ensure assertions touch \u2265 2 surfaces:

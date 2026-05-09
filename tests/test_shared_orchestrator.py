@@ -6,9 +6,19 @@ from scripts.shared import orchestrator
 def test_runtime_root_uses_canonical_layout_when_dot_codex_is_directory(tmp_path: Path):
     (tmp_path / ".codex").mkdir()
 
-    expected = tmp_path / ".codex" / "forge-codex"
+    expected = tmp_path / ".codex" / "forge"
     assert orchestrator.runtime_root(tmp_path) == expected
     assert orchestrator.runtime_state_path("develop", tmp_path) == expected / "state" / "develop.json"
+
+
+def test_runtime_root_prefers_legacy_forge_codex_when_canonical_missing(tmp_path: Path):
+    """Older repos may only have `.codex/forge-codex/` until migrated."""
+    codex = tmp_path / ".codex"
+    codex.mkdir()
+    legacy = codex / "forge-codex"
+    legacy.mkdir()
+
+    assert orchestrator.runtime_root(tmp_path) == legacy
 
 
 def test_runtime_root_falls_back_to_legacy_when_dot_codex_is_not_directory(tmp_path: Path):

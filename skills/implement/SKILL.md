@@ -52,6 +52,10 @@ From the target repo (or with `--repo`), run:
 | `--step` | Yes | Current phase (1-8) |
 | `--plan` | Step 1 only | Path to plan file (auto-detected from handoff if omitted) |
 | `--quick` | No | Quick mode: minimal reviews, lead agents only |
+| `--allow-docs-incomplete` | Step 8 only | Bypass strict documentation gate (requires override fields) |
+| `--docs-override-reason` | With `--allow-docs-incomplete` | Recorded in handoff |
+| `--docs-override-follow-up` | With `--allow-docs-incomplete` | Required tracked follow-up item |
+| `--docs-override-requested-by` | Optional | Who requested the override |
 
 After step 1, `--plan` is not needed — stored in `.codex/forge-codex/state/implement.json`.
 
@@ -62,8 +66,8 @@ After step 1, `--plan` is not needed — stored in `.codex/forge-codex/state/imp
 4. Wave review — per-task review loop including performance, mutation testing audit, backward compatibility, operational readiness, and risk checks (loops per wave)
 5. Wave completion — merge and decide next wave (loops per wave)
 6. Integration verification — cross-wave dependency impact analysis, interface verification, architectural fitness, regression sweep (runs once after all waves)
-7. Documentation
-8. Handoff
+7. Documentation — updates repo docs per plan; writes `.implement-documentation-gate.json`
+8. Handoff — **documentation gate**: plan Documentation skeleton cleared, gate sidecar valid, or explicit override on step 8
 
 ## Subsequent steps
 

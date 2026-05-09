@@ -28,4 +28,16 @@ Use `templates/data-analysis.md` techniques:
 ## Pareto
 Which 20% of causes explain 80% of symptoms?
 
+## Hypothesis ranking tied to principles
+
+For each top hypothesis, state:
+- Which **first-principles invariant** it violates if true.
+- Predictions for evidence (hypothesis-driven loop).
+
+## Technique Coverage Matrix (update)
+
+Extend the matrix from Phase 1 — mark techniques **applied** here with evidence links; **skipped** with cost/benefit; **deferred** with trigger for when to revisit.
+
+See `prompts/diagnose/technique_catalog.md` for the full list of 20 + routing rules.
+
 {{AUTONOMY_GATE}}

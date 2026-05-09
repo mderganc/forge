@@ -5,6 +5,34 @@
 - **Investigator (support):** Provide methodology summary
 - **Architect (support):** Provide architecture recommendations
 
+## Mandatory core quartet (completion checklist)
+
+Confirm explicit artifacts exist for:
+
+1. **First-principles thinking** — invariants, violated principles, causal chain from fundamentals.
+2. **Hypothesis-driven problem solving** — ranked hypotheses with predictions vs results.
+3. **5 Whys** — documented chain(s) on primary causal branch(es).
+4. **MECE issue tree** — tree or structured outline covering the failure space without overlap/gaps.
+
+If any item is thin, document why with severity-scaled rationale (small incidents may compress — still acknowledge).
+
+## Technique Coverage Matrix (final)
+
+Complete the matrix for **all 20 techniques** in `prompts/diagnose/technique_catalog.md`:
+
+| technique | applied / skipped / deferred | evidence or rationale |
+|-----------|------------------------------|------------------------|
+
+- **applied:** link or pointer to where the technique appears (memory file, log excerpt, chart).
+- **skipped:** why cost/signal trade-off justified (respect scalability rules).
+- **deferred:** what would trigger applying it later.
+
+Trace **final root-cause claims** back to violated invariants / hypothesis ranking.
+
+## Preferred routing audit
+
+State which incident-profile buckets matched (`technique_catalog.md` routing map) and whether you followed use-case-first ordering before broader methods.
+
 ## Diagnostic Output
 Use: python3 {{SCRIPT_DIR}}/diagnostic_report.py --title "..." --severity ... --output ...
 
@@ -20,6 +48,7 @@ Write `.codex/forge-codex/memory/handoff-diagnose.md` with:
 - Root causes identified
 - Fix applied or recommended
 - Validation results
+- Technique coverage summary (matrix pointers)
 - Suggested next: `plan` (if complex fix needed) or "resolved"
 
 ## Dashboard

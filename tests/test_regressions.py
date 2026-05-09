@@ -102,7 +102,7 @@ def test_evalstate_has_failure_count():
 def test_validate_step_or_complete_in_range_returns_false(capsys):
     from scripts.shared.orchestrator import validate_step_or_complete
 
-    assert validate_step_or_complete(3, 6, "plan") is False
+    assert validate_step_or_complete(3, 7, "plan") is False
     captured = capsys.readouterr()
     assert captured.err == ""
 
@@ -110,9 +110,9 @@ def test_validate_step_or_complete_in_range_returns_false(capsys):
 def test_validate_step_or_complete_over_cap_returns_true_with_friendly_msg(capsys):
     from scripts.shared.orchestrator import validate_step_or_complete
 
-    assert validate_step_or_complete(99, 6, "plan") is True
+    assert validate_step_or_complete(99, 7, "plan") is True
     captured = capsys.readouterr()
-    assert "ends at step 6" in captured.err
+    assert "ends at step 7" in captured.err
     assert "nothing left to do" in captured.err
 
 
@@ -120,23 +120,23 @@ def test_validate_step_or_complete_zero_or_negative_hard_errors():
     from scripts.shared.orchestrator import validate_step_or_complete
 
     with pytest.raises(SystemExit):
-        validate_step_or_complete(0, 6, "plan")
+        validate_step_or_complete(0, 7, "plan")
     with pytest.raises(SystemExit):
-        validate_step_or_complete(-1, 6, "plan")
+        validate_step_or_complete(-1, 7, "plan")
 
 
 # ---------------------------------------------------------------------------
 # Fix 2 — Plan skeleton (V3, V5)
 # ---------------------------------------------------------------------------
 
-def test_write_plan_skeleton_creates_seven_canonical_sections(tmp_path: Path):
+def test_write_plan_skeleton_creates_eight_canonical_sections(tmp_path: Path):
     from scripts.plan.plan import write_plan_skeleton, PLAN_SECTIONS
 
     plan_path = tmp_path / "plan.md"
     write_plan_skeleton(plan_path)
 
     content = plan_path.read_text()
-    assert len(PLAN_SECTIONS) == 7
+    assert len(PLAN_SECTIONS) == 8
     for marker_id, heading in PLAN_SECTIONS:
         assert f"## {heading}" in content
         assert f"<!-- FORGE_SKELETON: {marker_id} -->" in content
@@ -176,7 +176,7 @@ def test_find_unfilled_sections_after_partial_fill(tmp_path: Path):
 
     plan_path = tmp_path / "plan.md"
     write_plan_skeleton(plan_path)
-    assert len(find_unfilled_sections(plan_path)) == 7
+    assert len(find_unfilled_sections(plan_path)) == 8
 
     # Replace one marker
     content = plan_path.read_text()
@@ -187,7 +187,7 @@ def test_find_unfilled_sections_after_partial_fill(tmp_path: Path):
     plan_path.write_text(content)
     unfilled = find_unfilled_sections(plan_path)
     assert "Architecture Overview" not in unfilled
-    assert len(unfilled) == 6
+    assert len(unfilled) == 7
 
 
 # ---------------------------------------------------------------------------
@@ -349,7 +349,7 @@ def test_plan_over_cap_step_exits_zero_with_friendly_msg(fresh_state_dir):
         encoding="utf-8",
     )
     assert result.returncode == 0
-    assert "ends at step 6" in result.stderr or "ends at step 6" in result.stdout
+    assert "ends at step 7" in result.stderr or "ends at step 7" in result.stdout
 
 
 # ---------------------------------------------------------------------------

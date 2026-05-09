@@ -14,4 +14,12 @@ Stop decomposing when a branch is directly actionable.
 ## 5 Whys
 For each leading branch, drill down to root cause.
 
+## Mandatory core quartet progress
+
+This phase must materially advance the **MECE issue tree** and **5 Whys** on leading branches. Cross-link nodes to observations from Phase 2.
+
+## First-principles linkage
+
+For each major branch, note which **invariant** would be violated if that branch were the true root cause.
+
 Write full MECE tree to `.codex/forge-codex/memory/investigator.md`

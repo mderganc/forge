@@ -23,4 +23,13 @@
 ## Barrier Analysis
 What should have caught this? (Tests? Monitoring? Code review?)
 
+## Observations vs assumptions
+
+Maintain two lists:
+
+- **Observations:** timestamps, logs, metrics, repro artifacts — each with source pointer.
+- **Assumptions:** each tied to a falsification test or missing-data flag.
+
+First-principles note: which observations contradict stated system invariants?
+
 {{AUTONOMY_GATE}}

@@ -11,6 +11,7 @@ for each wave in the parallelization map.
 
 from __future__ import annotations
 
+import argparse
 import json
 import sys
 from pathlib import Path
@@ -50,6 +51,13 @@ from scripts.implement.plan_waves import (
     resolve_plan_path,
     sync_waves_from_plan_file,
     wave_rows_to_custom,
+)
+from scripts.implement.docs_gate import (
+    exit_if_gate_fails,
+    gate_sidecar_path,
+    handoff_docs_summary,
+    load_gate_json,
+    validate_documentation_gate,
 )
 
 # ---------------------------------------------------------------------------
@@ -153,6 +161,17 @@ TEAM_ROLES = [
 def _get_state_path() -> Path:
     """Return the canonical state file path in cwd."""
     return runtime_state_path(SKILL_NAME)
+
+
+def _resolve_implement_plan_path(state: SkillState) -> Path | None:
+    """Absolute path to plan file if present and exists."""
+    raw = (state.custom.get("plan_path") or "").strip()
+    if not raw:
+        return None
+    p = Path(raw).expanduser()
+    if not p.is_absolute():
+        p = (Path.cwd() / p).resolve()
+    return p if p.is_file() else None
 
 
 def _init_state(quick: bool = False) -> SkillState:
@@ -326,17 +345,28 @@ def _build_wave_variables(state: SkillState) -> dict[str, str]:
     }
 
 
-def _build_doc_variables(state: SkillState) -> dict[str, str]:
-    """Build template variables for step 6 (documentation)."""
+def _build_doc_variables(state: SkillState, state_path: Path | None = None) -> dict[str, str]:
+    """Build template variables for step 7 (documentation)."""
+    state_dir = (
+        str(state_path.resolve().parent)
+        if state_path is not None
+        else "(directory containing your implement --state file)"
+    )
     if state.quick_mode:
         quick_note = (
-            "**QUICK MODE active.** Produce minimal documentation: "
-            "changelog entry and inline comments only. Skip full user/dev docs."
+            "**QUICK MODE active.** Still satisfy the documentation gate: "
+            "write `.implement-documentation-gate.json`, clear the plan "
+            "`DOCUMENTATION` skeleton marker, and capture evidence for each "
+            "applicable audience row."
         )
     else:
-        quick_note = "Standard mode: produce full documentation suite."
+        quick_note = (
+            "Standard mode: full documentation pass aligned with the plan "
+            "Documentation section."
+        )
     return {
         "QUICK_MODE_NOTE": quick_note,
+        "STATE_DIR": state_dir,
     }
 
 
@@ -584,7 +614,7 @@ def handle_step_6(state: SkillState, sp: Path) -> None:
 def handle_step_7(state: SkillState, sp: Path) -> None:
     """Step 7: Documentation dispatch."""
     template = load_template(TEMPLATE_NAMES[7])
-    variables = _build_doc_variables(state)
+    variables = _build_doc_variables(state, sp)
     body = render_template(template, variables)
 
     state.current_step = 7
@@ -596,8 +626,22 @@ def handle_step_7(state: SkillState, sp: Path) -> None:
     _emit(7, body, _next_command(7, quick=state.quick_mode))
 
 
-def handle_step_8(state: SkillState, sp: Path) -> None:
+def handle_step_8(state: SkillState, sp: Path, args: argparse.Namespace | None = None) -> None:
     """Step 8: Handoff and dashboard."""
+    ns = args or argparse.Namespace()
+    plan_p = _resolve_implement_plan_path(state)
+    ts = now_iso()
+    ok, msg = validate_documentation_gate(
+        sp,
+        plan_p,
+        allow_incomplete=bool(getattr(ns, "allow_docs_incomplete", False)),
+        override_reason=str(getattr(ns, "docs_override_reason", "") or ""),
+        override_requested_by=str(getattr(ns, "docs_override_requested_by", "") or ""),
+        override_follow_up=str(getattr(ns, "docs_override_follow_up", "") or ""),
+        override_timestamp=ts,
+    )
+    exit_if_gate_fails(ok, msg)
+
     template = load_template(TEMPLATE_NAMES[8])
     variables = _build_handoff_variables(state)
     body = render_template(template, variables)
@@ -608,11 +652,35 @@ def handle_step_8(state: SkillState, sp: Path) -> None:
     save_state(state, sp)
 
     # Write the handoff file
+    doc_gate = "overridden" if getattr(ns, "allow_docs_incomplete", False) else "passed"
+    gate_data = (
+        None
+        if getattr(ns, "allow_docs_incomplete", False)
+        else load_gate_json(gate_sidecar_path(sp))
+    )
+    doc_summary = handoff_docs_summary(gate_data)
     context = {
         "Feature branch": state.custom.get("feature_branch") or _feature_branch_placeholder(state),
         "Waves completed": str(state.custom.get("waves_completed", 0)),
         "Total waves": str(state.custom.get("total_waves", 0)),
         "Plan path": state.custom.get("plan_path", ""),
+        "Documentation gate": doc_gate,
+        "Docs Completed": doc_summary.get("Docs Completed", ""),
+        "Docs Deferred": (
+            f"override — follow-up: {(getattr(ns, 'docs_override_follow_up', '') or '').strip()}"
+            if getattr(ns, "allow_docs_incomplete", False)
+            else "(none)"
+        ),
+        "External Wiki Evidence": doc_summary.get("External Wiki Evidence", ""),
+        "Override Used (if any)": (
+            "yes — reason: "
+            + (getattr(ns, "docs_override_reason", "") or "").strip()
+            + f"; requested_by={getattr(ns, 'docs_override_requested_by', '') or '(n/a)'}; "
+            f"follow_up={getattr(ns, 'docs_override_follow_up', '') or '(n/a)'}; "
+            f"timestamp={ts}"
+            if getattr(ns, "allow_docs_incomplete", False)
+            else "no"
+        ),
     }
     write_handoff(SKILL_NAME, state, context, "code-review")
     clear_state_file(sp)
@@ -643,6 +711,35 @@ def main():
         help=(
             "Git branch prefix for feature/task branches (default: feat). "
             "Stored in state on step 1 when passed."
+        ),
+    )
+    parser.add_argument(
+        "--allow-docs-incomplete",
+        action="store_true",
+        help=(
+            "Bypass strict documentation completion gate on step 8. "
+            "Requires --docs-override-reason."
+        ),
+    )
+    parser.add_argument(
+        "--docs-override-reason",
+        type=str,
+        default="",
+        help="Required when using --allow-docs-incomplete (recorded in handoff).",
+    )
+    parser.add_argument(
+        "--docs-override-requested-by",
+        type=str,
+        default="",
+        help="Optional identifier for who requested the override.",
+    )
+    parser.add_argument(
+        "--docs-override-follow-up",
+        type=str,
+        default="",
+        help=(
+            "Required with --allow-docs-incomplete: tracked follow-up item "
+            "(recorded in handoff)."
         ),
     )
     args = parser.parse_args()
@@ -683,6 +780,10 @@ def main():
         if getattr(args, "branch_prefix", None):
             state.custom["branch_prefix"] = args.branch_prefix
 
+        if args.step == 8:
+            handle_step_8(state, sp, args)
+            return
+
         handlers = {
             2: handle_step_2,
             3: handle_step_3,
@@ -690,7 +791,6 @@ def main():
             5: handle_step_5,
             6: handle_step_6,
             7: handle_step_7,
-            8: handle_step_8,
         }
 
         handler = handlers.get(args.step)

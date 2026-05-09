@@ -11,7 +11,8 @@ Steps:
   3. Plan Creation Dispatch — Planner creates detailed implementation plan
   4. Plan Review Loop — self -> cross -> critic -> PM review
   5. User Approval — present plan for approval
-  6. Handoff — write handoff file and render dashboard
+  6. Documentation Planning — audience applicability, doc targets, external wiki checklist
+  7. Handoff — write handoff file and render dashboard
 """
 
 from __future__ import annotations
@@ -59,7 +60,7 @@ from scripts.evaluate.template_engine import load_template, render_template
 
 PROMPTS_DIR = REPO_ROOT / "prompts"
 SKILL_NAME = "plan"
-MAX_STEP = 6
+MAX_STEP = 7
 
 PHASE_NAMES = {
     1: "Context Detection",
@@ -67,7 +68,8 @@ PHASE_NAMES = {
     3: "Plan Creation Dispatch",
     4: "Plan Review Loop",
     5: "User Approval",
-    6: "Handoff",
+    6: "Documentation Planning",
+    7: "Handoff",
 }
 
 PHASE_TODOS = {
@@ -102,6 +104,12 @@ PHASE_TODOS = {
          "activeForm": "Presenting plan for approval"},
     ],
     6: [
+        {"content": "Define documentation scope and audience applicability",
+         "activeForm": "Planning documentation"},
+        {"content": "Confirm external wiki and repo doc targets",
+         "activeForm": "Confirming doc targets"},
+    ],
+    7: [
         {"content": "Write handoff file for implement skill",
          "activeForm": "Writing handoff"},
         {"content": "Render dashboard and complete",
@@ -165,6 +173,7 @@ PLAN_SECTIONS = [
     ("INTERFACE-CONTRACTS", "Interface Contracts"),
     ("RISK-REGISTER", "Risk Register"),
     ("ROLLBACK-STRATEGY", "Rollback Strategy"),
+    ("DOCUMENTATION", "Documentation"),
 ]
 
 # Distinctive marker so a plan section that legitimately quotes HTML comments
@@ -195,7 +204,7 @@ def write_plan_skeleton(plan_path: Path, force: bool = False) -> None:
     Sections come from `templates/writing-plans.md` (the single source of
     truth). Each section is followed by a `<!-- FORGE_SKELETON: ID -->`
     marker on its own line — agents replace the marker with their content,
-    and the step-6 completion gate refuses to mark the workflow complete
+    and the step-7 completion gate refuses to mark the workflow complete
     while any markers remain.
 
     Overwrite policy:
@@ -290,10 +299,23 @@ def _build_variables(state: SkillState) -> dict[str, str]:
         "REVIEW_ASSIGNMENTS": review_assignments,
         "FINDINGS": findings_text,
         "QUICK_MODE": "yes" if state.quick_mode else "no",
+        "QUICK_MODE_NOTE": (
+            "**Quick mode:** abbreviate narrative but keep the Documentation "
+            "applicability matrix, DoD table, and external wiki checklist rows "
+            "complete — they gate implement step 8."
+            if state.quick_mode
+            else "**Standard mode:** produce full documentation planning detail."
+        ),
         "SKILL_NAME": SKILL_NAME,
         "PLAN_FILE": plan_file,
         "HANDOFF_FILE": handoff_file,
     }
+
+
+def _upgrade_plan_max_step(state: SkillState) -> None:
+    """Migrate in-progress sessions when MAX_STEP increases."""
+    if state.max_step < MAX_STEP:
+        state.max_step = MAX_STEP
 
 
 def _next_command(step: int, state_path: str = "") -> str:
@@ -399,13 +421,17 @@ def handle_step_n(step: int, state_file: str | None = None) -> None:
         print("Delete the state file and re-run step 1.")
         sys.exit(1)
 
+    _upgrade_plan_max_step(state)
+    save_state(state, sp)
+
     # Map steps to template names
     template_map = {
         2: "plan/architecture",
         3: "plan/creation",
         4: "plan/review_loop",
         5: "plan/approval",
-        6: "plan/handoff",
+        6: "plan/documentation",
+        7: "plan/handoff",
     }
 
     template_name = template_map.get(step)
@@ -442,7 +468,7 @@ def handle_step_n(step: int, state_file: str | None = None) -> None:
                 "markers and need to be filled in before the plan is ready:\n\n"
                 + "\n".join(f"- {s}" for s in unfilled)
                 + f"\n\nFile: `{plan_file}`\n\n"
-                "Fill these sections, then re-run step 6."
+                "Fill these sections, then re-run step 7."
             )
             body += warning
             # Don't set completed_at; don't write handoff; don't clear state.

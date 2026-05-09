@@ -77,8 +77,16 @@ Do NOT analyze or explore first. Run the script and follow its output.
 
 ## Methodology Reference
 
-The Investigator agent carries the full methodology toolkit (20+ RCA methodologies).
-See `agents/investigator.md` for the complete reference.
+Every run completes the **mandatory core quartet**: first-principles thinking,
+hypothesis-driven problem solving, **5 Whys**, and a **MECE issue tree**, then
+records a **Technique Coverage Matrix** for all **20** methods in
+`prompts/diagnose/technique_catalog.md` (applied / skipped / deferred with
+evidence). **Use-case-first routing** picks preferred techniques from the
+catalog’s incident-profile map before expanding breadth; severity and compliance
+rules can override preferences.
+
+The Investigator agent carries supporting methodology detail — see
+`agents/investigator.md` and `prompts/diagnose/technique_catalog.md`.
 
 ## Bundled Scripts
 

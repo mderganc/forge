@@ -6,13 +6,15 @@ Each --step invocation loads state, selects the appropriate prompt template,
 substitutes variables, and prints the prompt for Codex to execute.
 
 7-phase pipeline:
-  1. Define & Classify
-  2. Observe & Gather Evidence
-  3. Decompose (MECE)
-  4. Analyze & Rank
+  1. Define & Classify — incident profile, first-principles baseline, technique routing
+  2. Observe & Gather Evidence — observations vs assumptions
+  3. Decompose (MECE) — MECE tree + 5 Whys on branches (mandatory core quartet)
+  4. Analyze & Rank — hypothesis ranking tied to invariants; update technique matrix
   5. Solution Generation
   6. Implement & Validate (complexity-gated)
-  7. Report & Prevention
+  7. Report & Prevention — full 20-technique coverage matrix + quartet verification
+
+See ``prompts/diagnose/technique_catalog.md`` for toolbox + use-case routing rules.
 """
 
 from __future__ import annotations
@@ -89,22 +91,30 @@ PHASE_TODOS = {
          "activeForm": "Building IS/IS-NOT matrix"},
         {"content": "Classify problem domain via Cynefin framework",
          "activeForm": "Classifying domain"},
+        {"content": "First-principles baseline + incident-profile technique routing",
+         "activeForm": "First-principles + routing"},
     ],
     2: [
         {"content": "Gather evidence via log analyzer and git hotspots",
          "activeForm": "Gathering evidence"},
         {"content": "Collect metrics and establish baseline",
          "activeForm": "Collecting metrics"},
+        {"content": "Separate observations vs assumptions with falsification paths",
+         "activeForm": "Sorting observations"},
     ],
     3: [
         {"content": "Build MECE cause tree (Fishbone categories)",
          "activeForm": "Building cause tree"},
+        {"content": "Advance 5 Whys + MECE quartet on primary branches",
+         "activeForm": "5 Whys + MECE"},
     ],
     4: [
         {"content": "Run FMEA scoring on candidate causes",
          "activeForm": "Running FMEA scoring"},
         {"content": "Apply counterfactual validation (but-for test)",
          "activeForm": "Running counterfactual validation"},
+        {"content": "Rank hypotheses vs violated invariants; update technique matrix",
+         "activeForm": "Hypothesis ranking"},
     ],
     5: [
         {"content": "Generate quick/proper/systemic solutions for top causes",
@@ -119,6 +129,8 @@ PHASE_TODOS = {
          "activeForm": "Validating fix"},
     ],
     7: [
+        {"content": "Finalize Technique Coverage Matrix (all 20 + quartet audit)",
+         "activeForm": "Technique matrix"},
         {"content": "Write diagnostic report with prevention measures",
          "activeForm": "Writing diagnostic report"},
         {"content": "Write handoff and render dashboard",

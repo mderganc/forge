@@ -51,7 +51,7 @@ From the target repo (or with `--repo`), run:
 
 | Argument | Required | Description |
 |----------|----------|-------------|
-| `--step` | Yes | Current phase (1-6) |
+| `--step` | Yes | Current phase (1-7) |
 | `--quick` | No | Quick mode: minimal reviews, lead agents only |
 
 After step 1, state is persisted to `.codex/forge-codex/state/plan.json` and
@@ -67,7 +67,7 @@ Do NOT analyze or explore first. Run the script and follow its output.
 
 ## Workflow Handoff
 
-At the final step (6 — handoff), the orchestrator emits a numbered menu of
+At the final step (7 — handoff), the orchestrator emits a numbered menu of
 next-skill options instead of a single hardcoded suggestion. Reply with `yes`,
 `1`, `default`, or the literal command to take the default (`evaluate --mode pre`).
 Other numbered options route to `implement`, `develop`, `code-review`, or

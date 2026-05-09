@@ -13,6 +13,7 @@ Every plan must contain all of the following sections. Missing sections are a re
 5. Interface Contracts
 6. Risk Register
 7. Rollback Strategy
+8. Documentation *(plan-time documentation scope — feeds implement documentation gate)*
 
 ## 1. Architecture Overview
 
@@ -159,6 +160,58 @@ What to do if the implementation fails after merge.
 **Partial rollback possible:** [yes/no, which tasks are independently revertible]
 **Verify:** [how to confirm rollback succeeded]
 ```
+
+## 8. Documentation
+
+Design documentation **before** implementation. This section is filled during **plan step 6 (Documentation Planning)** and consumed by **implement step 7 (documentation)** and the **step 8 documentation gate**.
+
+### Documentation inventory
+
+List targets you will touch:
+
+- **Tracked markdown/docs:** `README.md`, `docs/**`, `CHANGELOG*`, ADRs, root-level `*.md`.
+- **Wiki mirrors (if present):** `wiki/`, `.wiki/`, `docs/wiki/`.
+- **External wikis:** systems outside the repo (GitHub Wiki, Confluence, Notion, etc.) — tracked only as checklist rows here.
+
+### Audience applicability matrix (required)
+
+Three audiences — **pick applicability per change** (do not assume all three every time):
+
+| audience_level | applicable | justification |
+|----------------|------------|---------------|
+| architect_expert | yes / no | Why docs for architects/experts are in or out of scope |
+| technical_operator | yes / no | Why runbooks/ops/deploy content is in or out of scope |
+| user | yes / no | Why end-user docs are in or out of scope |
+
+Allowed values for `audience_level`: `architect_expert`, `technical_operator`, `user`.
+
+### Documentation Definition of Done (machine-checkable table)
+
+Include one row per documentation target (repo path or external system). Use this schema:
+
+| Field | Meaning |
+|-------|---------|
+| `audience_level` | One of `architect_expert` \| `technical_operator` \| `user` |
+| `applicable` | `true` / `false` — aligns with the applicability matrix |
+| `applicability_reason` | Short rationale when `applicable` is `false`, or “matches matrix” when `true` |
+| `target_path_or_system` | Repo path (`README.md`, `docs/...`) **or** external system label (`GitHub Wiki`, `Confluence/...`) |
+| `change_type` | `create` \| `update` \| `na` |
+| `acceptance_check` | Observable check that docs are correct (command, link, or reviewer assertion) |
+| `owner` | Role or person |
+| `status` | `planned` → becomes `done` during implement documentation phase |
+| `evidence` | PR link, commit, path, or placeholder for external wiki |
+
+During implement, agents record completion in `.implement-documentation-gate.json` beside the implement state file (see `prompts/implement/documentation.md`).
+
+### External wiki checklist (required section — may be empty)
+
+If no external wikis apply, state **“None — N/A”** and one matrix row explaining why.
+
+| system | page/slug | owner | status | evidence_link |
+
+### Done criteria for implement
+
+Implement step 8 refuses to complete until documentation artifacts satisfy the gate unless the user passes **`--allow-docs-incomplete`** with override metadata (see README).
 
 ## Rules
 

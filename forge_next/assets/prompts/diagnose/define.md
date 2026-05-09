@@ -31,4 +31,27 @@ The classification determines diagnostic strategy for subsequent phases.
 - Last known good state?
 - Difference between working and broken?
 
+## First-principles checkpoint (mandatory)
+
+Before narrowing hypotheses:
+
+1. **System invariants** — What must always hold for this system to be “healthy”?
+2. **Expected vs observed** — Which invariants are violated by observations?
+3. **Causal chain from fundamentals** — From physics/architecture/data-flow basics, what must be true upstream for the symptom to appear?
+
+Separate **observations** (logged facts) from **assumptions** (beliefs). Tag each assumption with how it will be validated or falsified.
+
+## Incident profile → technique routing (use-case first)
+
+Summarize the incident in one short paragraph (severity, sudden vs gradual, scope, safety/compliance touchpoints). Then pick **preferred** techniques using `prompts/diagnose/technique_catalog.md` § preferred-use-case routing **before** expanding to the full toolbox.
+
+You must still execute the **mandatory core quartet** (first-principles, hypothesis-driven, 5 Whys, MECE tree) in later phases — this section records the **routing intent**.
+
+## Technique Coverage Matrix (draft)
+
+| technique | status (applied/skip/defer) | rationale |
+|-----------|-----------------------------|-----------|
+
+Populate minimally here; finalize in Phase 7 report.
+
 Write to `.codex/forge-codex/memory/investigator.md`

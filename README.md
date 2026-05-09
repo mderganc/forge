@@ -178,6 +178,8 @@ Turn an approved direction into an implementation plan. Handoff often points to 
 
 **Methodologies:** architecture overview before task breakdown; INVEST-style tasks; parallelization / wave planning with explicit dependencies; interface contracts between tasks; risk register with mitigations; pre-mortem (`templates/pre-mortem.md`) before risks; concrete rollback steps (not “revert commits” only); plan review loop and skeleton markers through completion gates.
 
+**Documentation planning (step 6):** audience applicability (`architect_expert`, `technical_operator`, `user`) with justification per tier — not all three required every time; Documentation Definition of Done table; wiki mirrors (`wiki/`, `.wiki/`, `docs/wiki/`) and external wiki checklist rows. Step 7 handoff is blocked until every `<!-- FORGE_SKELETON: … -->` marker is cleared in the plan file (including Documentation).
+
 ### Evaluate
 
 - **Cursor / Claude:** `/forge:evaluate`
@@ -194,7 +196,9 @@ Structured review: --mode pre (before implementation), --mode post (after), or r
 
 Execute the plan in waves; hands off toward code-review (`/forge:code-review` / `$forge:code-review`).
 
-**Methodologies:** branch/setup and plan detection; wave dispatch with TDD expectations; per-task review loop (self-review, cross-review QA, critic, PM validation) per `templates/review-loop.md`; mutation-testing mental audit; performance and backward-compatibility checks; integration and documentation passes; handoff to review.
+**Methodologies:** branch/setup and plan detection; wave dispatch with TDD expectations; per-task review loop (self-review, cross-review QA, critic, PM validation) per `templates/review-loop.md`; mutation-testing mental audit; performance and backward-compatibility checks; integration verification; documentation phase writes `.implement-documentation-gate.json` beside the implement state file and clears the plan **Documentation** skeleton marker.
+
+**Documentation gate (step 8):** strict by default — validates gate JSON (`complete`, `audience_matrix` with per-tier justification and `delivery_evidence` when applicable, `external_wiki_checklist` array even if empty) and that the plan no longer contains `<!-- FORGE_SKELETON: DOCUMENTATION -->`. Override only with `--allow-docs-incomplete --docs-override-reason … --docs-override-follow-up …` (optional `--docs-override-requested-by`); override metadata is printed to stderr and embedded in `handoff-implement.md`.
 
 ### Code review
 
@@ -221,7 +225,7 @@ Default run mode; flows mode for end-to-end mock flows. Handoff may push diagnos
 
 Evidence-led root-cause analysis and reporting.
 
-**Methodologies:** IS/IS-NOT matrix; Cynefin classification; change analysis (last known good, deltas); MECE cause tree; software fishbone (CODE/CONFIG/DATA/INFRA/DEPS/ENV); 5 Whys; FMEA RPN scoring; hypothesis test cycles; counterfactual (“but-for”) checks; Pareto; git hotspots and log patterns where applicable; solution options and structured report.
+**Methodologies:** IS/IS-NOT matrix; Cynefin classification; change analysis (last known good, deltas); first-principles baseline (invariants vs observations); MECE cause tree; software fishbone (CODE/CONFIG/DATA/INFRA/DEPS/ENV); mandatory core quartet — first-principles, hypothesis-driven solving, 5 Whys, MECE tree — plus **Technique Coverage Matrix** for all 20 methods in `prompts/diagnose/technique_catalog.md` (applied/skipped/deferred with rationale); use-case-first routing from the catalog before arbitrary breadth; FMEA RPN scoring; hypothesis test cycles; counterfactual (“but-for”) checks; Pareto; git hotspots and log patterns where applicable; solution options and structured report.
 
 ### Status
 

@@ -1,6 +1,8 @@
 .codex/
 .forge/
 .forge-*-state.json
+.evaluate-state.json
+**/.evaluate-state.json
 .pytest_cache/
 __pycache__/
 *.py[cod]

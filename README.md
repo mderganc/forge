@@ -270,6 +270,8 @@ Hooks and automation call `forge <subcommand>` with a space (e.g. `forge plan --
 
 Orchestration lives in `scripts/shared/` (`orchestrator.py`, `skill_chain.py`, `resume.py`). Keep [AGENTS.md](AGENTS.md) and `skills/` aligned with behavior.
 
+**Versions:** Any change that affects the PyPI package or editor integrations must bump semver in **[`pyproject.toml`](pyproject.toml)** (and the Cursor plugin [`plugin.json`](integrations/cursor-plugin/.cursor-plugin/plugin.json) when that bundle changes). Follow **[Versioning](AGENTS.md#versioning)** in [AGENTS.md](AGENTS.md): use **patch** for narrow fixes, **minor** for additive behavior, **major** for breaking contracts.
+
 Tests:
 
 - `python -m pytest`

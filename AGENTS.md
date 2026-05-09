@@ -33,6 +33,25 @@ Invoking a Forge workflow skill is itself permission to dispatch the Forge agent
 - If the active Codex session policy still blocks `spawn_agent`, surface that as an environment-policy limitation rather than silently falling back to single-agent execution.
 - **Agent lifecycle is part of the delegation contract.** Every `spawn_agent` must be paired with a `close_agent` as soon as the agent reports its result or is no longer useful. Never carry an open agent across a wave, step, or phase boundary — Codex caps concurrent agents and leaked sessions block later dispatch. See `templates/codex-runtime.md` → *Parallel work* for the required spawn → wait → capture → close pattern.
 
+## Versioning
+
+Shipped artifacts use **semantic versioning** (`MAJOR.MINOR.PATCH`). **Bump versions in the same PR** whenever you change something users install or consume from packages—not after the fact.
+
+Pick the digit by **magnitude of change**:
+
+| Segment | When to bump |
+|--------|----------------|
+| **MAJOR** (`x.0.0`) | Breaking behavior: incompatible CLI contract, state/schema readers cannot load older files, removed subcommands, renamed default paths that break scripts or `forge install` layouts. |
+| **MINOR** (`x.y.0`) | Backward-compatible capability: new `forge` subcommands or flags (old invocations still work), new slash commands / Codex skills / Claude wrappers, new workflow steps that extend—not replace—existing flows. |
+| **PATCH** (`x.y.z`) | Fixes without new capabilities: bugfixes, regressions, prompt/template wording that does not change orchestration contracts, docs-only edits **when** nothing under packaged integrations or PyPI bundle behavior changed. |
+
+**Always update these when you ship the corresponding change:**
+
+- **`pyproject.toml`** → `project.version` (**forge-next** on PyPI).
+- **`integrations/cursor-plugin/.cursor-plugin/plugin.json`** → `version` whenever `integrations/cursor-plugin/` changes in ways visible after `forge install --cursor` (commands, plugin metadata).
+
+If several artifacts change together (CLI + Cursor plugin + Claude pack), align semver intent: a **minor** CLI feature usually pairs with a **minor** plugin bump when that feature surfaces in the plugin.
+
 ## Documentation
 
 When editing this repo's user-facing documentation, keep the role names aligned with the current agent set. Use `doc-writer`, not the legacy `tech-writer`.

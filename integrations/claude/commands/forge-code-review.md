@@ -3,17 +3,17 @@ name: forge:code-review
 description: Structured PR-style code review workflow.
 ---
 
+## Hard rule — what the user sees
+
+**Never show terminal commands** for this workflow.
+
 ## What to tell the user first
 
-- **Code review** runs mode selection and structured passes (diff, deep dive, architecture, security, discussion, report).
-- Ask what they’re reviewing (PR scope, branch, critical paths) and what risk they care about.
-
-Lead with that framing, not the binary invocation.
+- **Code review** selects a mode and runs structured passes through discussion and report.
+- Clarify scope (what changed, what matters most).
 
 ## What you run (agent)
 
-Run `forge code-review --step 1` from the repo root and follow orchestrator next-step commands. Give the user a concise recap after each major phase.
+Run **code-review** from the repo root at step one; recap each major phase without exposing argv.
 
-## Exact CLI (reference)
-
-- Start: `forge code-review --step 1`
+---

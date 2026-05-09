@@ -3,17 +3,16 @@ name: forge:status
 description: Dashboard of Forge workflows and handoffs for this repo.
 ---
 
+## Hard rule — what the user sees
+
+**Never show terminal commands** for this workflow.
+
 ## What to tell the user first
 
-- **Status** summarizes active sessions, handoffs, and suggested next moves—good for orientation before picking a workflow.
-
-Describe what they’ll see conceptually first.
+- **Status** gives an overview of sessions and suggested next moves.
 
 ## What you run (agent)
 
-Run `forge status` from the repo root; use `--repo` only if they pointed at another root. Present the dashboard highlights in prose.
+Invoke **status** via the launcher for this workspace (or another root only if they named one). Present highlights in prose—no argv.
 
-## Exact CLI (reference)
-
-- This repo: `forge status`
-- Other repo: `forge status --repo "<path>"`
+---

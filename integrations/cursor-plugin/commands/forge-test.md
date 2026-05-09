@@ -3,18 +3,16 @@ name: forge:test
 description: Run or author tests (including flows mode).
 ---
 
+## Hard rule — what the user sees
+
+**Never show terminal commands** for this workflow.
+
 ## What to tell the user first
 
-- **Test** can **run** the suite or, in **flows** mode, scaffold and author end-to-end flows.
-- Ask whether they want **default run** coverage work or **flows** authoring, and what failures or areas matter most.
-
-Summarize the strategy before any command dump.
+- **Test** supports default suite runs or flows-style authoring—confirm which they need and what’s failing or risky.
 
 ## What you run (agent)
 
-Run `forge test --step 1` from the repo root; use `--mode flows` when they want scenario/flow work. Continue with orchestrator next-step commands; translate results into plain language.
+Run **test** from the repo root at step one; select flows mode only when requested through the launcher. Report results in ordinary language.
 
-## Exact CLI (reference)
-
-- Run mode: `forge test --step 1`
-- Flows mode: `forge test --mode flows --step 1`
+---

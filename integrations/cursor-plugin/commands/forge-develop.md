@@ -3,18 +3,17 @@ name: forge:develop
 description: Investigate the problem space before planning.
 ---
 
+## Hard rule — what the user sees
+
+**Never show terminal commands** for this workflow.
+
 ## What to tell the user first
 
-- **Develop** explores the problem, options, and evidence before a formal plan.
-- Ask what outcome they want (bug understanding, feature direction, tradeoffs) and whether **quick mode** is OK for a lighter pass.
-
-Lead with goals and questions, not the shell line.
+- **Develop** explores problems, options, and evidence before formal planning.
+- Clarify goals and whether they want a lighter pacing option.
 
 ## What you run (agent)
 
-Run `forge develop --step 1` from the repo root; add `--quick` when requested. Follow printed next-step commands and summarize each phase for the user.
+Run **develop** from the repo root at step one; honor pacing preferences via the launcher only. Summarize each phase without quoting invocation lines.
 
-## Exact CLI (reference)
-
-- Start: `forge develop --step 1`
-- Quick: `forge develop --step 1 --quick`
+---

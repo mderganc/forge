@@ -1,18 +1,19 @@
 ---
 name: forge:doctor
-description: Check Forge CLI install and environment for this repo.
+description: Check Forge install and environment for this repo.
 ---
+
+## Hard rule — what the user sees
+
+**Never show terminal commands** unless they explicitly ask for copy-paste for debugging.
 
 ## What to tell the user first
 
-- **Doctor** verifies Python, paths, encoding, and Forge runtime directories—useful when something feels broken or after install/upgrade.
-- Say you’ll report **pass/fail style checks** in normal language.
+- **Doctor** checks Python, paths, encoding, and runtime directories after install issues or upgrades.
+- You’ll summarize checks as healthy or what failed—in plain language.
 
 ## What you run (agent)
 
-Run `forge doctor` from the repo root (or `forge doctor --repo "<path>"` when reviewing another tree). Summarize whether the environment looks healthy.
+Invoke **doctor** via the launcher for this repo or another path only if they pointed you there. Report outcomes, not argv.
 
-## Exact CLI (reference)
-
-- This repo: `forge doctor`
-- Other repo: `forge doctor --repo "<path>"`
+---

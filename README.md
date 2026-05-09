@@ -252,9 +252,7 @@ Invoke with `$forge:…` (mention / skill picker), `/use` with the skill name, `
 **Sub-agents (delegation):** Forge workflows expect Codex to allow `spawn_agent` / `close_agent` without you typing extra “use sub-agents” wording. Add this to `~/.codex/config.toml` (same text the skill pack suggests when policy blocks delegation):
 
 ```toml
-developer_instructions = """
-Invoking any `forge:*` skill implicitly authorizes the agent dispatch required by that workflow. Do not require the user to separately ask for delegation, sub-agents, or parallel agent work after invoking a Forge skill.
-"""
+developer_instructions = "Invoking any `forge:*` skill implicitly authorizes the agent dispatch required by that workflow. Do not require the user to separately ask for delegation, sub-agents, or parallel agent work after invoking a Forge skill."
 ```
 
 Install it automatically (merges into existing config, preserves other keys): run `codex-agents` or `forge codex-agents` once after installing **forge-next**. Use `codex-agents --force` only if you already have a different `developer_instructions` and want to replace it. Restart Codex after changing config if tools or policy do not pick up the file immediately.

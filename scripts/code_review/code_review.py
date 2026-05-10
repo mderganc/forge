@@ -27,13 +27,21 @@ REPO_ROOT = SCRIPT_DIR.parent.parent  # scripts/code-review/ -> scripts/ -> repo
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
+from scripts.evaluate.plan_resolver import (
+    AmbiguousPlanError,
+    extract_title,
+    format_native_plan_hints,
+    resolve_plan_file,
+)
 from scripts.shared.orchestrator import (
     SkillState,
+    append_skill_run_memory,
     build_base_parser,
     build_next_command,
     build_skill_handoff_menu,
     check_same_skill_clobber,
     clear_state_file,
+    _detect_repo_root,
     detect_active_sessions,
     find_state_file,
     format_active_session_warning,
@@ -41,7 +49,7 @@ from scripts.shared.orchestrator import (
     get_conflicting_sessions,
     load_state,
     now_iso,
-    read_handoff,
+    consume_handoff,
     read_memory_file,
     render_dashboard,
     runtime_state_path,
@@ -158,6 +166,16 @@ def _build_variables(state: SkillState) -> dict[str, str]:
     mode = state.custom.get("mode", "pr")
     target = state.custom.get("target", "(auto-detected)")
     handoff_content = state.custom.get("handoff_content", "")
+    plan_path = (state.custom.get("plan_path") or "").strip()
+    repo_root = _detect_repo_root(Path.cwd())
+    native_plan_hints = format_native_plan_hints(repo_root)
+    if plan_path:
+        plan_link_section = (
+            "## Plan reference\n\n"
+            f"Compare the review target against this plan (intent vs code): `{plan_path}`\n"
+        )
+    else:
+        plan_link_section = ""
 
     # Build handoff section
     if handoff_content:
@@ -223,6 +241,9 @@ def _build_variables(state: SkillState) -> dict[str, str]:
         "TEAM_ASSIGNMENTS": team_section,
         "QUICK_MODE": "yes" if state.quick_mode else "no",
         "SKILL_NAME": SKILL_NAME,
+        "PLAN_PATH": plan_path or "(none)",
+        "PLAN_LINK_SECTION": plan_link_section,
+        "NATIVE_PLAN_HINTS": native_plan_hints,
     }
 
 
@@ -252,7 +273,22 @@ def handle_step_1(args) -> None:
         print(format_active_session_warning(conflicting_sessions, SKILL_NAME), file=sys.stderr)
 
     # Read handoff from implement
-    handoff_content = read_handoff("implement")
+    handoff_content = consume_handoff("implement")
+
+    # Optional plan: path or keywords (includes native Cursor/Claude/Codex plan dirs)
+    plan_path = ""
+    plan_arg = (getattr(args, "plan", None) or "").strip()
+    if plan_arg:
+        try:
+            plan_path = str(resolve_plan_file(plan_arg, Path.cwd()))
+        except AmbiguousPlanError as e:
+            print("Multiple plans matched. Choose one:\n", file=sys.stderr)
+            for i, p in enumerate(e.matches, 1):
+                print(f"  {i}. {p} — {extract_title(p)}", file=sys.stderr)
+            sys.exit(1)
+        except FileNotFoundError as e:
+            print(f"ERROR: {e}", file=sys.stderr)
+            sys.exit(1)
 
     # Determine target
     target = getattr(args, "target", None) or ""
@@ -269,6 +305,7 @@ def handle_step_1(args) -> None:
     state.custom["mode"] = mode
     state.custom["target"] = target
     state.custom["handoff_content"] = handoff_content
+    state.custom["plan_path"] = plan_path
 
     sp = _state_path()
     save_state(state, sp)
@@ -282,6 +319,14 @@ def handle_step_1(args) -> None:
 
     state.mark_step_complete(1)
     save_state(state, sp)
+    append_skill_run_memory(
+        SKILL_NAME,
+        1,
+        PHASE_NAMES[1],
+        "Initialized code-review session and detected target/mode.",
+        state=state,
+        state_path=sp,
+    )
 
     phase_name = PHASE_NAMES[1]
     next_cmd = _next_command(1, state_path=str(sp))
@@ -341,6 +386,8 @@ def handle_step_n(step: int, state_file: str | None = None) -> None:
 
     # Step 6: mark completion and write handoff
     handoff_menu = None
+    handoff_path: Path | None = None
+    run_summary = f"Completed step {step} ({PHASE_NAMES.get(step, f'Step {step}')})."
     if step == MAX_STEP:
         state.mark_step_complete(step)
         state.completed_at = now_iso()
@@ -368,10 +415,21 @@ def handle_step_n(step: int, state_file: str | None = None) -> None:
         body += f"\n\nHandoff written to: {handoff_path}"
         handoff_menu = build_skill_handoff_menu(SKILL_NAME, state, sp)
         clear_state_file(sp)
+        run_summary = "Completed code-review workflow, wrote handoff, and closed session state."
 
     if step != MAX_STEP:
         state.mark_step_complete(step)
         save_state(state, sp)
+
+    append_skill_run_memory(
+        SKILL_NAME,
+        step,
+        PHASE_NAMES.get(step, f"Step {step}"),
+        run_summary,
+        state=state,
+        state_path=sp,
+        handoff_path=handoff_path,
+    )
 
     phase_name = PHASE_NAMES.get(step, f"Step {step}")
     next_cmd = _next_command(step, state_path=str(sp)) if step < MAX_STEP else None
@@ -399,6 +457,10 @@ def main():
     parser.add_argument(
         "--target", type=str, default=None,
         help="PR number, branch name, or file paths to review"
+    )
+    parser.add_argument(
+        "--plan", type=str, default=None,
+        help="Optional plan file path or keywords (searches repo + native .cursor/.claude/.codex plans)",
     )
     args = parser.parse_args()
 

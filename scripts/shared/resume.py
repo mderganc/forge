@@ -31,6 +31,7 @@ from scripts.shared.orchestrator import (
     KNOWN_SKILLS,
     PIPELINE_FLOW,
     detect_active_sessions,
+    is_state_effectively_complete,
     legacy_memory_dir,
     legacy_state_dir,
     legacy_state_filename,
@@ -56,6 +57,7 @@ def _script_for(skill: str) -> str:
         "test": "scripts/test/test.py",
         "diagnose": "scripts/diagnose/orchestrate.py",
         "evaluate": "scripts/evaluate/evaluate.py",
+        "iterate": "scripts/iterate/iterate.py",
     }
     rel = script_map.get(skill)
     if rel:
@@ -393,8 +395,13 @@ def _cleanup_candidates(all_stale: bool) -> list[tuple[dict, str]]:
 
         try:
             state = load_state(path)
-            if state.completed_at:
-                candidates.append((info, "completed_at is set"))
+            if is_state_effectively_complete(state):
+                reason = (
+                    "completed_at is set"
+                    if state.completed_at
+                    else "state reached max_step without completed_at"
+                )
+                candidates.append((info, reason))
                 continue
         except Exception:
             # Corrupt state — also cleanup-eligible.

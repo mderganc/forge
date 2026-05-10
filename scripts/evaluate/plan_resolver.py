@@ -2,14 +2,24 @@
 
 Supports three modes:
 1. Exact file path — validated and returned directly.
-2. Keyword search — scores all .md files under docs/ by filename and title match.
-3. No argument — lists recent .md files by modification time.
+2. Keyword search — scores markdown files under the repo tree plus native IDE plan
+   folders (Cursor / Claude / Codex under `.cursor/plans`, `.claude/plans`, `.codex/plans`,
+   and the same under the user home directory).
+3. No argument — lists recent .md files by modification time from those sources.
 """
 
 from __future__ import annotations
 
 import re
 from pathlib import Path
+
+
+class AmbiguousPlanError(Exception):
+    """More than one plan matched a keyword query."""
+
+    def __init__(self, matches: list[Path]):
+        self.matches = matches
+        super().__init__(f"ambiguous plan query: {len(matches)} matches")
 
 
 def extract_title(path: Path) -> str:
@@ -49,24 +59,101 @@ def score_file(path: Path, keywords: list[str], title: str) -> int:
 _SKIP_DIRS = {".git", "node_modules", "__pycache__", ".venv", ".env", ".tox", ".mypy_cache"}
 
 
-def _find_md_files(search_root: Path) -> list[Path]:
-    """Find all .md files under search_root, sorted by mtime descending.
+def native_plan_directories(repo_root: Path) -> list[Path]:
+    """Return existing native IDE plan directories (repo + user home).
 
-    Skips hidden directories and common noise directories.
-    Handles broken symlinks and permission errors gracefully.
+    These folders are scanned in addition to the normal repo tree so keyword search
+    finds Cursor / Claude / Codex plans that live under dot-directories.
+    """
+    home = Path.home()
+    candidates = [
+        repo_root / ".cursor" / "plans",
+        repo_root / ".claude" / "plans",
+        repo_root / ".codex" / "plans",
+        home / ".cursor" / "plans",
+        home / ".claude" / "plans",
+        home / ".codex" / "plans",
+    ]
+    out: list[Path] = []
+    seen: set[Path] = set()
+    for c in candidates:
+        try:
+            r = c.resolve()
+        except OSError:
+            continue
+        if r.is_dir() and r not in seen:
+            seen.add(r)
+            out.append(r)
+    return out
+
+
+def _rglob_md_under(root: Path) -> dict[Path, float]:
+    """Collect *.md under root with mtimes (no hidden-dir skipping)."""
+    mtime_cache: dict[Path, float] = {}
+    try:
+        for p in root.rglob("*.md"):
+            try:
+                mtime_cache[p] = p.stat().st_mtime
+            except OSError:
+                continue
+    except OSError:
+        pass
+    return mtime_cache
+
+
+def _find_md_files(search_root: Path) -> list[Path]:
+    """Find markdown files for keyword search, sorted by mtime descending.
+
+    Includes:
+    - Normal repo scan (skips hidden segments except allowlisted noise dirs)
+    - All ``*.md`` under each path from :func:`native_plan_directories`
     """
     mtime_cache: dict[Path, float] = {}
+
     for p in search_root.rglob("*.md"):
-        # Skip files inside ignored directories
-        if any(part in _SKIP_DIRS or part.startswith(".") for part in p.relative_to(search_root).parts[:-1]):
+        rel = p.relative_to(search_root)
+        if any(part in _SKIP_DIRS for part in rel.parts[:-1]):
+            continue
+        if any(part.startswith(".") for part in rel.parts[:-1]):
             continue
         try:
             mtime_cache[p] = p.stat().st_mtime
         except OSError:
             continue
+
+    for native_root in native_plan_directories(search_root):
+        mtime_cache.update(_rglob_md_under(native_root))
+
     files = list(mtime_cache.keys())
     files.sort(key=lambda p: mtime_cache[p], reverse=True)
     return files
+
+
+def list_native_plan_files(repo_root: Path, *, limit: int = 40) -> list[Path]:
+    """Recent markdown files from native IDE plan directories (newest first)."""
+    scored: list[tuple[float, Path]] = []
+    for d in native_plan_directories(repo_root):
+        for p, mtime in _rglob_md_under(d).items():
+            scored.append((mtime, p))
+    scored.sort(key=lambda x: -x[0])
+    return [p for _, p in scored[:limit]]
+
+
+def format_native_plan_hints(repo_root: Path, *, limit: int = 25) -> str:
+    """Markdown block listing native plan files for review/evaluate prompts."""
+    files = list_native_plan_files(repo_root, limit=limit)
+    if not files:
+        return (
+            "*Native IDE plans:* none found under `.cursor/plans`, `.claude/plans`, `.codex/plans` "
+            "(or `~/.cursor/plans`, etc.)."
+        )
+    lines = [
+        "*Native IDE plans* (Cursor / Claude / Codex — compare intent vs implementation):",
+        "",
+    ]
+    for p in files:
+        lines.append(f"- `{p}`")
+    return "\n".join(lines)
 
 
 def resolve_plan(
@@ -125,3 +212,27 @@ def resolve_plan(
 
     matches = [path for _, path in scored[:max_results]]
     return matches if return_matches else matches[0]
+
+
+def resolve_plan_file(query: str, search_root: Path) -> Path:
+    """Resolve a plan path or keyword query to exactly one file.
+
+    Used by implement and optional code-review ``--plan`` when a unique match is required.
+
+    Raises:
+        AmbiguousPlanError: Multiple keyword matches.
+        FileNotFoundError: No match.
+    """
+    query = query.strip()
+    candidate = Path(query).expanduser()
+    if candidate.is_file():
+        return candidate.resolve()
+    rel = search_root / query
+    if rel.is_file():
+        return rel.resolve()
+
+    result = resolve_plan(query, search_root, return_matches=True)
+    paths = result if isinstance(result, list) else [result]
+    if len(paths) > 1:
+        raise AmbiguousPlanError(paths)
+    return paths[0].resolve()

@@ -26,6 +26,7 @@ if str(REPO_ROOT) not in sys.path:
 
 from scripts.shared.orchestrator import (
     SkillState,
+    append_skill_run_memory,
     build_base_parser,
     build_next_command,
     build_skill_handoff_menu,
@@ -46,9 +47,9 @@ from scripts.shared.orchestrator import (
     write_handoff,
 )
 from scripts.evaluate.template_engine import load_template, render_template
+from scripts.evaluate.plan_resolver import AmbiguousPlanError, resolve_plan_file
 from scripts.implement.plan_waves import (
     format_wave_tasks_from_custom,
-    resolve_plan_path,
     sync_waves_from_plan_file,
     wave_rows_to_custom,
 )
@@ -168,10 +169,13 @@ def _resolve_implement_plan_path(state: SkillState) -> Path | None:
     raw = (state.custom.get("plan_path") or "").strip()
     if not raw:
         return None
-    p = Path(raw).expanduser()
-    if not p.is_absolute():
-        p = (Path.cwd() / p).resolve()
-    return p if p.is_file() else None
+    p = Path(raw)
+    if p.is_file():
+        return p.resolve()
+    try:
+        return resolve_plan_file(raw, Path.cwd())
+    except (FileNotFoundError, AmbiguousPlanError):
+        return None
 
 
 def _init_state(quick: bool = False) -> SkillState:
@@ -201,12 +205,12 @@ def _sync_waves_from_plan(state: SkillState) -> None:
         state.custom["plan_waves_parsed"] = False
         return
     try:
-        path = resolve_plan_path(plan_path, Path.cwd())
+        path = resolve_plan_file(plan_path, Path.cwd())
         total, rows = sync_waves_from_plan_file(path)
         state.custom["total_waves"] = total
         state.custom["wave_rows"] = wave_rows_to_custom(rows)
         state.custom["plan_waves_parsed"] = bool(rows)
-    except OSError:
+    except (OSError, AmbiguousPlanError, FileNotFoundError):
         state.custom["plan_waves_parsed"] = False
 
 
@@ -428,9 +432,23 @@ def _emit(step: int, body: str, next_cmd: str | None,
           cross_skill_next: str | None = None,
           handoff_menu: str | None = None,
           phase_label: str | None = None,
-          wave: int | None = None) -> None:
+          wave: int | None = None,
+          state: SkillState | None = None,
+          state_path: Path | None = None,
+          handoff_path: Path | None = None,
+          summary: str | None = None) -> None:
     """Shared output helper that injects PHASE_TODOS and continuation blocks."""
     label = phase_label or PHASE_NAMES.get(step, f"Step {step}")
+    if state is not None and state_path is not None:
+        append_skill_run_memory(
+            SKILL_NAME,
+            step,
+            label,
+            summary or f"Completed step {step} ({label}).",
+            state=state,
+            state_path=state_path,
+            handoff_path=handoff_path,
+        )
     print(format_step_output(
         SKILL_NAME, step, MAX_STEP, label, body,
         next_cmd=next_cmd,
@@ -463,9 +481,18 @@ def handle_step_1(args) -> None:
 
     state.current_step = 1
 
-    # Record plan path if provided via CLI
+    # Record plan path if provided via CLI (path, keywords, or native IDE plan locations)
     if args.plan:
-        state.custom["plan_path"] = args.plan
+        try:
+            state.custom["plan_path"] = str(resolve_plan_file(args.plan, Path.cwd()))
+        except AmbiguousPlanError as e:
+            print("Multiple plans matched. Choose one:\n", file=sys.stderr)
+            for i, p in enumerate(e.matches, 1):
+                print(f"  {i}. {p}", file=sys.stderr)
+            sys.exit(1)
+        except FileNotFoundError as e:
+            print(f"ERROR: {e}", file=sys.stderr)
+            sys.exit(1)
 
     if getattr(args, "branch_prefix", None):
         state.custom["branch_prefix"] = args.branch_prefix
@@ -484,7 +511,7 @@ def handle_step_1(args) -> None:
     state.mark_step_complete(1)
     save_state(state, sp)
 
-    _emit(1, body, _next_command(1, quick=args.quick))
+    _emit(1, body, _next_command(1, quick=args.quick), state=state, state_path=sp)
 
 
 def handle_step_2(state: SkillState, sp: Path) -> None:
@@ -501,7 +528,7 @@ def handle_step_2(state: SkillState, sp: Path) -> None:
     state.mark_step_complete(2)
     save_state(state, sp)
 
-    _emit(2, body, _next_command(2, quick=state.quick_mode))
+    _emit(2, body, _next_command(2, quick=state.quick_mode), state=state, state_path=sp)
 
 
 def handle_step_3(state: SkillState, sp: Path) -> None:
@@ -525,8 +552,15 @@ def handle_step_3(state: SkillState, sp: Path) -> None:
             "**No waves defined for this plan.** Skipping wave dispatch and review; "
             "proceeding directly to integration verification (step 6)."
         )
-        _emit(3, body, _next_command(3, quick=state.quick_mode, target_step=6),
-              wave=None)
+        _emit(
+            3,
+            body,
+            _next_command(3, quick=state.quick_mode, target_step=6),
+            wave=None,
+            state=state,
+            state_path=sp,
+            summary="No waves parsed; skipped wave loop and advanced to integration verification.",
+        )
         return
 
     variables = _build_wave_variables(state)
@@ -538,7 +572,7 @@ def handle_step_3(state: SkillState, sp: Path) -> None:
     state.mark_step_complete(3)
     save_state(state, sp)
 
-    _emit(3, body, _next_command(3, quick=state.quick_mode), wave=current_wave)
+    _emit(3, body, _next_command(3, quick=state.quick_mode), wave=current_wave, state=state, state_path=sp)
 
 
 def handle_step_4(state: SkillState, sp: Path) -> None:
@@ -554,7 +588,7 @@ def handle_step_4(state: SkillState, sp: Path) -> None:
     state.mark_step_complete(4)
     save_state(state, sp)
 
-    _emit(4, body, _next_command(4, quick=state.quick_mode), wave=current_wave)
+    _emit(4, body, _next_command(4, quick=state.quick_mode), wave=current_wave, state=state, state_path=sp)
 
 
 def handle_step_5(state: SkillState, sp: Path) -> None:
@@ -593,7 +627,7 @@ def handle_step_5(state: SkillState, sp: Path) -> None:
     state.mark_step_complete(5)
     save_state(state, sp)
 
-    _emit(5, body, next_cmd, phase_label=phase_label, wave=current_wave)
+    _emit(5, body, next_cmd, phase_label=phase_label, wave=current_wave, state=state, state_path=sp)
 
 
 def handle_step_6(state: SkillState, sp: Path) -> None:
@@ -608,7 +642,7 @@ def handle_step_6(state: SkillState, sp: Path) -> None:
     state.mark_step_complete(6)
     save_state(state, sp)
 
-    _emit(6, body, _next_command(6, quick=state.quick_mode))
+    _emit(6, body, _next_command(6, quick=state.quick_mode), state=state, state_path=sp)
 
 
 def handle_step_7(state: SkillState, sp: Path) -> None:
@@ -623,7 +657,7 @@ def handle_step_7(state: SkillState, sp: Path) -> None:
     state.mark_step_complete(7)
     save_state(state, sp)
 
-    _emit(7, body, _next_command(7, quick=state.quick_mode))
+    _emit(7, body, _next_command(7, quick=state.quick_mode), state=state, state_path=sp)
 
 
 def handle_step_8(state: SkillState, sp: Path, args: argparse.Namespace | None = None) -> None:
@@ -682,7 +716,7 @@ def handle_step_8(state: SkillState, sp: Path, args: argparse.Namespace | None =
             else "no"
         ),
     }
-    write_handoff(SKILL_NAME, state, context, "code-review")
+    handoff_path = write_handoff(SKILL_NAME, state, context, "code-review")
     clear_state_file(sp)
 
     # Append dashboard to body
@@ -690,7 +724,16 @@ def handle_step_8(state: SkillState, sp: Path, args: argparse.Namespace | None =
     body += f"\n\n---\n\n{dashboard}"
 
     handoff_menu = build_skill_handoff_menu(SKILL_NAME, state, sp)
-    _emit(8, body, None, handoff_menu=handoff_menu)
+    _emit(
+        8,
+        body,
+        None,
+        handoff_menu=handoff_menu,
+        state=state,
+        state_path=sp,
+        handoff_path=handoff_path,
+        summary="Completed implement workflow, wrote handoff, and cleared implement state.",
+    )
 
 
 # ---------------------------------------------------------------------------

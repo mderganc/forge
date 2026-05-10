@@ -4,7 +4,7 @@ Detect and load the implementation plan.
 
 ## Detection Order
 
-1. If `--plan` argument provided, use that path
+1. If `--plan` argument provided, resolve it (file path, repo-relative path, keywords, or a match under native IDE plan dirs: `.cursor/plans`, `.claude/plans`, `.codex/plans`, and `~/.cursor/plans`, etc.)
 2. If `.codex/forge-codex/memory/handoff-plan.md` exists, read plan path from it
 3. If `.codex/forge-codex/memory/plans/` exists, use the most recent plan file (sorted by filename)
 4. Otherwise, ask the user for the plan location

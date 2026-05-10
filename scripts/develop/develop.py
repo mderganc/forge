@@ -33,6 +33,7 @@ if str(REPO_ROOT) not in sys.path:
 
 from scripts.shared.orchestrator import (
     SkillState,
+    append_skill_run_memory,
     build_base_parser,
     build_next_command,
     build_skill_handoff_menu,
@@ -245,6 +246,14 @@ def handle_step_1(args: argparse.Namespace) -> None:
     # Mark step 1 fully completed
     state.mark_step_complete(1)
     save_state(state, sp)
+    append_skill_run_memory(
+        SKILL_NAME,
+        1,
+        PHASE_NAMES[1],
+        "Initialized develop session and startup context.",
+        state=state,
+        state_path=sp,
+    )
 
     next_cmd = _next_command(1, state_path=str(sp))
     print(_format(1, body, next_cmd))
@@ -310,6 +319,8 @@ def handle_step_n(step: int, state_file: str | None = None) -> None:
 
     # Mark completion on final step
     handoff_menu = None
+    handoff_path: Path | None = None
+    run_summary = f"Completed step {step} ({PHASE_NAMES.get(step, f'Step {step}')})."
     if step == MAX_STEP:
         state.mark_step_complete(step)
         state.completed_at = now_iso()
@@ -333,10 +344,21 @@ def handle_step_n(step: int, state_file: str | None = None) -> None:
         body += f"\n\nHandoff written to: {handoff_path}"
         handoff_menu = build_skill_handoff_menu(SKILL_NAME, state, sp)
         clear_state_file(sp)
+        run_summary = "Completed develop workflow, wrote handoff, and closed session state."
 
     if step != MAX_STEP:
         state.mark_step_complete(step)
         save_state(state, sp)
+
+    append_skill_run_memory(
+        SKILL_NAME,
+        step,
+        PHASE_NAMES.get(step, f"Step {step}"),
+        run_summary,
+        state=state,
+        state_path=sp,
+        handoff_path=handoff_path,
+    )
 
     next_cmd = _next_command(step, state_path=str(sp)) if step < MAX_STEP else None
     print(_format(step, body, next_cmd, handoff_menu=handoff_menu))

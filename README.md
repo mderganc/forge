@@ -28,7 +28,8 @@ This repository is the **source tree** for prompts, templates, agent briefs, and
 
 - **App-first:** Cursor and Claude Code use `/forge:…`; Codex uses `$forge:…`. See [OpenAI Codex](#openai-codex).
 - **Session-safe:** Repo state lives under `.codex/forge/` by default. Older trees may still use `.codex/forge-codex/` until migrated. If `.codex` cannot be a directory, Forge falls back to `.forge/`. Stop anytime; continue with `forge resume`, `/forge:resume` (Cursor/Claude), or `$forge:resume` (Codex).
-- **Handoffs:** On the last step, the numbered menu may show `forge: …` labels in the transcript. Reply `yes`, `1`, or `default`, or pick an option, then run the next step as `/forge:…` (Cursor/Claude) or `$forge:…` (Codex). Outside Codex, use the `forge …` command line from [Advanced: terminal and CI](#advanced-terminal-and-ci).
+- **Handoffs:** On the last step, the numbered menu may show `forge: …` labels in the transcript. Reply `yes`, `1`, or `default`, or pick an option, then run the next step as `/forge:…` (Cursor/Claude) or `$forge:…` (Codex). Outside Codex, use the `forge …` command line from [Advanced: terminal and CI](#advanced-terminal-and-ci). Downstream step-1 intake consumes handoffs (read + close) so used handoffs do not stay active indefinitely.
+- **Per-skill run memory:** Every workflow run appends an auditable entry to `memory/<skill>-runs.jsonl` (for example `plan-runs.jsonl`), retaining the most recent 30 entries with timestamp, phase/step, short summary, session linkage, and handoff linkage when present.
 - **Integrations:** `forge install` and `forge uninstall` lay down Cursor, Claude, and Codex wrappers.
 
 ---
@@ -138,6 +139,16 @@ pipx uninstall forge-next
 
 ---
 
+## Session + handoff audit lifecycle
+
+- **Run memory files:** Each skill appends a short record on every step run to `memory/<skill>-runs.jsonl` and keeps only the last ~30 records.
+- **Audit linkage:** Run-memory records include `state_path`/`session_ref` and `handoff_path`/`handoff_ref` (when a handoff exists), plus timestamp and summary.
+- **Handoff closure:** Handoffs are consumed on step-1 intake of downstream skills (for example plan consumes develop handoff, code-review consumes implement handoff, test consumes code-review/implement handoffs).
+- **Session completeness:** Active-session detection treats a run as complete when either `completed_at` is set or legacy state reached max step (`current_step >= max_step` and `last_completed_step >= max_step`).
+- **Cleanup behavior:** `forge resume --cleanup` also recognizes legacy max-step state files as cleanup-eligible, even when `completed_at` is missing.
+
+---
+
 ## Workflows (what each one is for)
 
 **Default linear delivery:** same order for Cursor, Claude (`/forge:…`) and Codex (`$forge:…` — see [Commands in your apps](#commands-in-your-apps)).
@@ -153,8 +164,11 @@ One nuance from the code: the **handoff menu** and `scripts/shared/skill_chain.p
 | 5 | `/forge:code-review` | `$forge:code-review` |
 | 6 | `/forge:test` | `$forge:test` |
 | As Needed | `/forge:diagnose` | `$forge:diagnose` |
+| Meta (full loop) | `/forge:iterate` | `$forge:iterate` |
 
-Evaluate and diagnose also run standalone. 
+Evaluate and diagnose also run standalone. **Iterate** chains the linear workflow with inner review loops and outer loops until a metric target is met or a max loop count (see [Iterate](#iterate)).
+
+**Plan discovery:** For **evaluate** (`--plan`), **implement** (`--plan`), and **code-review** (`--plan`), Forge searches markdown plans in the repo and in native IDE plan folders — for example `<repo>/.cursor/plans`, `<repo>/.claude/plans`, `<repo>/.codex/plans`, and the same paths under your user home directory (`~/.cursor/plans`, …). Pass a path or keywords.
 
 **Status:** `/forge:status` / `$forge:status`. 
 
@@ -218,6 +232,15 @@ Default run mode; flows mode for end-to-end mock flows. Handoff may push diagnos
 
 **Methodologies:** run mode — suite discovery (unit/integration/e2e/perf/property), coverage tooling, execution plan, failure analysis, coverage gaps, reporting. Flows mode — scored recommendation across flow types (scenario, BDD, HTTP-replay, workflow-dry-run); eight progressive quality criteria (realistic journeys, data packs, roles matrix, entry-point ladder, outcome validation, minimal mocking, failure paths, repeatable/double-run); scope, scaffold, author, execute, report phases with pytest reliability checks (fixture teardown/isolation, `tmp_path` usage, deterministic assertions, strict markers, seam-first targeted runs before full sweeps).
 
+### Iterate
+
+- **Cursor / Claude:** `/forge:iterate`
+- **Codex:** `$forge:iterate`
+
+Runs **diagnose → plan → evaluate (pre) → implement → evaluate (post) → code-review → test** with **inner loops** until evaluate/code-review gates report no open findings, and **outer loops** until a **target metric** is satisfied or `--max-loops` is reached. Gate JSON files live under runtime memory **`.iterate-gates/`** (for example `diagnose.json`, `evaluate-pre.json`, `metric.json`) so progress stays auditable.
+
+**CLI:** `forge iterate --step 1 --goal "…" --target "accuracy >= 0.9" --max-loops 5` or `--text "… until …, max loops N"`. Advance `--step` as each phase completes.
+
 ### Diagnose
 
 - **Cursor / Claude:** `/forge:diagnose`
@@ -243,7 +266,7 @@ Dashboard of handoffs and active sessions.
 
 Next step command(s) and cleanup; mirrors terminal `forge resume` when you need flags not exposed in the app.
 
-**Methodologies:** active-session detection, conflict vs non-conflicting workflows, step inference from state, cleanup dry-run vs forced delete; operational, not domain-method heavy.
+**Methodologies:** active-session detection, conflict vs non-conflicting workflows, step inference from state, cleanup dry-run vs forced delete; completion checks include both `completed_at` and legacy max-step states.
 
 ---
 

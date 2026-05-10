@@ -33,6 +33,7 @@ if str(REPO_ROOT) not in sys.path:
 
 from scripts.shared.orchestrator import (
     SkillState,
+    append_skill_run_memory,
     build_base_parser,
     build_next_command,
     check_same_skill_clobber,
@@ -313,6 +314,14 @@ def handle_step_1(args) -> None:
 
     state.mark_step_complete(1)
     save_state(state, sp)
+    append_skill_run_memory(
+        SKILL_NAME,
+        1,
+        PHASE_NAMES[1],
+        "Initialized diagnose session and classified incident context.",
+        state=state,
+        state_path=sp,
+    )
 
     next_cmd = build_next_command(
         SCRIPT_DIR / "orchestrate.py", 1, MAX_STEP,
@@ -360,6 +369,8 @@ def handle_step_n(step: int, state_file: str | None = None, mode: str | None = N
     # Phase 7: mark complete and write handoff
     is_last = step >= MAX_STEP
     cross_skill_next = None
+    handoff_path: Path | None = None
+    run_summary = f"Completed step {step} ({PHASE_NAMES.get(step, f'Step {step}')})."
     if is_last:
         state.mark_step_complete(step)
         state.completed_at = now_iso()
@@ -368,7 +379,7 @@ def handle_step_n(step: int, state_file: str | None = None, mode: str | None = N
         complexity = state.custom.get("fix_complexity", "unknown")
         suggested_next = "plan" if complexity == "complex" else "(end of flow)"
 
-        write_handoff(
+        handoff_path = write_handoff(
             skill_name=SKILL_NAME,
             state=state,
             context={
@@ -383,10 +394,13 @@ def handle_step_n(step: int, state_file: str | None = None, mode: str | None = N
         if complexity == "complex":
             cross_skill_next = "plan"
         clear_state_file(sp)
+        run_summary = "Completed diagnose workflow, wrote handoff, and closed session state."
 
     if not is_last:
         state.mark_step_complete(step)
         save_state(state, sp)
+        if step == 6 and state.custom.get("fix_complexity") == "complex":
+            run_summary = "Complexity gate triggered; diagnose prepared handoff path for planning flow."
 
     # Build next command
     if is_last:
@@ -413,6 +427,15 @@ def handle_step_n(step: int, state_file: str | None = None, mode: str | None = N
     if is_last:
         output += "\n\n" + render_dashboard(state)
 
+    append_skill_run_memory(
+        SKILL_NAME,
+        step,
+        phase_name,
+        run_summary,
+        state=state,
+        state_path=sp,
+        handoff_path=handoff_path,
+    )
     print(output)
 
 

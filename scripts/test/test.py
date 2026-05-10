@@ -29,6 +29,7 @@ if str(REPO_ROOT) not in sys.path:
 
 from scripts.shared.orchestrator import (
     SkillState,
+    append_skill_run_memory,
     build_base_parser,
     build_next_command,
     build_skill_handoff_menu,
@@ -41,7 +42,7 @@ from scripts.shared.orchestrator import (
     format_step_output,
     load_state,
     now_iso,
-    read_handoff,
+    consume_handoff,
     read_memory_file,
     render_dashboard,
     runtime_state_path,
@@ -416,6 +417,8 @@ def _handle_flow_step(step: int, state: SkillState, sp: Path) -> None:
 
     # Step 7: mark completion and write handoff
     handoff_menu = None
+    handoff_path: Path | None = None
+    run_summary = f"Completed flow-mode step {step} ({phase_name})."
     if step == FLOWS_MAX_STEP:
         state.mark_step_complete(step)
         state.completed_at = now_iso()
@@ -436,10 +439,21 @@ def _handle_flow_step(step: int, state: SkillState, sp: Path) -> None:
         body += f"\n\nHandoff written to: {handoff_path}"
         clear_state_file(sp)
         handoff_menu = build_skill_handoff_menu(SKILL_NAME, state, sp)
+        run_summary = "Completed test (flows mode), wrote handoff, and closed session state."
 
     if step != FLOWS_MAX_STEP:
         state.mark_step_complete(step)
         save_state(state, sp)
+
+    append_skill_run_memory(
+        SKILL_NAME,
+        step,
+        phase_name,
+        run_summary,
+        state=state,
+        state_path=sp,
+        handoff_path=handoff_path,
+    )
 
     next_cmd = _next_command(step, state_path=str(sp)) if step < FLOWS_MAX_STEP else None
     print(format_step_output(
@@ -470,8 +484,8 @@ def handle_step_1(args) -> None:
         print(format_active_session_warning(conflicting_sessions, SKILL_NAME), file=sys.stderr)
 
     # Read handoffs
-    handoff_cr = read_handoff("code-review")
-    handoff_impl = read_handoff("implement")
+    handoff_cr = consume_handoff("code-review")
+    handoff_impl = consume_handoff("implement")
     project_md = read_memory_file("project.md")
 
     # Determine target
@@ -557,6 +571,14 @@ def handle_step_1(args) -> None:
 
         state.mark_step_complete(1)
         save_state(state, sp)
+        append_skill_run_memory(
+            SKILL_NAME,
+            1,
+            PHASE_NAMES[1],
+            "Initialized test session (run mode) and loaded handoff context.",
+            state=state,
+            state_path=sp,
+        )
 
         phase_name = PHASE_NAMES[1]
         next_cmd = _next_command(1, state_path=str(sp))
@@ -621,6 +643,8 @@ def handle_step_n(step: int, state_file: str | None = None) -> None:
 
     # Step 6: mark completion and write handoff
     handoff_menu = None
+    handoff_path: Path | None = None
+    run_summary = f"Completed step {step} ({PHASE_NAMES.get(step, f'Step {step}')})."
     if step == MAX_STEP:
         state.mark_step_complete(step)
         state.completed_at = now_iso()
@@ -653,10 +677,21 @@ def handle_step_n(step: int, state_file: str | None = None) -> None:
         body += f"\n\nHandoff written to: {handoff_path}"
         clear_state_file(sp)
         handoff_menu = build_skill_handoff_menu(SKILL_NAME, state, sp)
+        run_summary = "Completed test workflow (run mode), wrote handoff, and closed session state."
 
     if step != MAX_STEP:
         state.mark_step_complete(step)
         save_state(state, sp)
+
+    append_skill_run_memory(
+        SKILL_NAME,
+        step,
+        PHASE_NAMES.get(step, f"Step {step}"),
+        run_summary,
+        state=state,
+        state_path=sp,
+        handoff_path=handoff_path,
+    )
 
     phase_name = PHASE_NAMES.get(step, f"Step {step}")
     next_cmd = _next_command(step, state_path=str(sp)) if step < MAX_STEP else None

@@ -70,6 +70,15 @@
       ]
     },
     {
+      "id": "forge:iterate",
+      "cli_subcommand": "iterate",
+      "description": "Meta-workflow: chained diagnose, plan, evaluate, implement, review, test with loops.",
+      "examples": [
+        "forge iterate --step 1 --goal \"Improve X\" --target \"score >= 0.9\" --max-loops 5",
+        "forge iterate --step 1 --text \"improve pipeline until accuracy > 90%, max loops 10\""
+      ]
+    },
+    {
       "id": "forge:resume",
       "cli_subcommand": "resume",
       "description": "Resume in-progress workflows and manage state cleanup.",

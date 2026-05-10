@@ -7,7 +7,11 @@ You are starting a code review. First, identify what will be reviewed.
 **Target argument:** {{TARGET}}
 **Detected mode:** {{MODE}} ({{MODE_DISPLAY}})
 
+{{PLAN_LINK_SECTION}}
+
 {{HANDOFF_CONTENT}}
+
+{{NATIVE_PLAN_HINTS}}
 
 ## Your Task
 

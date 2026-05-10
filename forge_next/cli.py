@@ -121,6 +121,22 @@ def build_parser() -> argparse.ArgumentParser:
     cr.add_argument("--step", type=int, required=True)
     cr.add_argument("--state", type=str)
     cr.add_argument("--quick", action="store_true")
+    cr.add_argument(
+        "--plan",
+        type=str,
+        default=None,
+        help="Optional plan path or keywords (repo + native Cursor/Claude/Codex plan folders)",
+    )
+    cr.add_argument(
+        "--mode", type=str, choices=["pr", "deep", "architecture"], default=None,
+        help="Review mode (optional; auto-detected if omitted)",
+    )
+    cr.add_argument(
+        "--target",
+        type=str,
+        default=None,
+        help="PR number, branch name, or paths to review",
+    )
 
     # test
     ts = sub.add_parser("test", help="Run the test orchestrator")
@@ -138,6 +154,19 @@ def build_parser() -> argparse.ArgumentParser:
     dg.add_argument("--step", type=int, required=True)
     dg.add_argument("--state", type=str)
     dg.add_argument("--quick", action="store_true")
+
+    # iterate (meta-workflow)
+    it = sub.add_parser("iterate", help="Run the iterate meta-workflow orchestrator")
+    add_common_repo_flag(it)
+    add_common_output_flags(it)
+    it.add_argument("--step", type=int, required=True)
+    it.add_argument("--state", type=str)
+    it.add_argument("--goal", type=str)
+    it.add_argument("--target", type=str)
+    it.add_argument("--max-loops", type=int, dest="max_loops")
+    it.add_argument("--metric-command", type=str, dest="metric_command")
+    it.add_argument("--harness", type=str)
+    it.add_argument("--text", type=str, help="Natural-language goal line")
 
     # status
     st = sub.add_parser("status", help="Show workflow status (dashboard)")
@@ -275,6 +304,7 @@ def main(argv: list[str] | None = None) -> None:
         "code-review": "scripts.code_review.code_review",
         "test": "scripts.test.test",
         "diagnose": "scripts.diagnose.orchestrate",
+        "iterate": "scripts.iterate.iterate",
         "resume": "scripts.shared.resume",
     }
     module_name = module_map[cmd]
@@ -303,6 +333,13 @@ def main(argv: list[str] | None = None) -> None:
     add_flag(passthrough, "--auto1", getattr(args, "auto1", None))
     add_flag(passthrough, "--auto2", getattr(args, "auto2", None))
     add_flag(passthrough, "--auto3", getattr(args, "auto3", None))
+    add_flag(passthrough, "--goal", getattr(args, "goal", None))
+    add_flag(passthrough, "--target", getattr(args, "target", None))
+    add_flag(passthrough, "--max-loops", getattr(args, "max_loops", None))
+    add_flag(passthrough, "--metric-command", getattr(args, "metric_command", None))
+    add_flag(passthrough, "--harness", getattr(args, "harness", None))
+    add_flag(passthrough, "--text", getattr(args, "text", None))
+    add_flag(passthrough, "--target", getattr(args, "target", None))
 
     if getattr(args, "json_output", False):
         human_out, rc = _capture_human_output(module_name, passthrough, repo_root)

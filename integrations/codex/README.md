@@ -32,6 +32,7 @@ forge doctor
 | `forge-resume` | `forge resume` |
 | `forge-status` | `forge status` |
 | `forge-doctor` | `forge doctor` |
+| `forge-iterate` | `forge iterate` |
 
 ## Default install location (via `forge install`)
 

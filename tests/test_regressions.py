@@ -234,6 +234,25 @@ def test_check_same_skill_clobber_passes_on_completed_state(fresh_state_dir):
     check_same_skill_clobber("plan")
 
 
+def test_check_same_skill_clobber_passes_on_logically_completed_state(fresh_state_dir):
+    from scripts.shared.orchestrator import (
+        SkillState,
+        check_same_skill_clobber,
+        runtime_state_path,
+        save_state,
+    )
+
+    sp = runtime_state_path("plan", fresh_state_dir)
+    sp.parent.mkdir(parents=True, exist_ok=True)
+    state = SkillState(skill_name="plan", max_step=7)
+    state.current_step = 7
+    state.last_completed_step = 7
+    save_state(state, sp)
+
+    # Legacy complete state (no completed_at) should not block a fresh start.
+    check_same_skill_clobber("plan")
+
+
 def test_check_same_skill_clobber_passes_when_no_state(fresh_state_dir):
     from scripts.shared.orchestrator import check_same_skill_clobber
 
@@ -333,6 +352,29 @@ def test_resume_cleanup_force_deletes(fresh_state_dir):
     )
     assert result.returncode == 0
     assert not target.exists()
+
+
+def test_resume_cleanup_handles_legacy_complete_without_completed_at(fresh_state_dir):
+    state_dir = fresh_state_dir / ".codex" / "forge-codex" / "state"
+    state_dir.mkdir(parents=True)
+    target = state_dir / "plan.json"
+    target.write_text(json.dumps({
+        "skill_name": "plan",
+        "current_step": 7,
+        "last_completed_step": 7,
+        "max_step": 7,
+    }))
+
+    result = subprocess.run(
+        [sys.executable, str(SCRIPTS / "shared" / "resume.py"), "--cleanup"],
+        cwd=fresh_state_dir,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+    )
+    assert result.returncode == 0
+    assert "state reached max_step without completed_at" in (result.stderr + result.stdout)
+    assert target.exists()  # dry-run only
 
 
 # ---------------------------------------------------------------------------
@@ -902,15 +944,24 @@ def test_scenario_index_writes_backup_before_rewrite(tmp_path):
 
 
 def test_skill_chain_default_for_each_skill():
-    """SKILL_CHAIN[s].default exists for every skill; only diagnose may be None."""
+    """SKILL_CHAIN[s].default exists for every skill; diagnose and iterate may be None."""
     from scripts.shared.skill_chain import SKILL_CHAIN
 
-    required_skills = {"develop", "plan", "evaluate", "implement", "code-review", "test", "diagnose"}
+    required_skills = {
+        "develop",
+        "plan",
+        "evaluate",
+        "implement",
+        "code-review",
+        "test",
+        "diagnose",
+        "iterate",
+    }
     assert set(SKILL_CHAIN.keys()) == required_skills
 
     for skill in required_skills:
         transition = SKILL_CHAIN[skill]
-        assert transition.default is not None or skill == "diagnose"
+        assert transition.default is not None or skill in ("diagnose", "iterate")
 
 
 def test_build_skill_handoff_menu_renders_numbered_options(capsys):

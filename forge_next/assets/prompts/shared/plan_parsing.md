@@ -10,6 +10,10 @@ You are evaluating a plan document. Read it carefully and extract the following:
 {{PLAN_CONTENT}}
 </plan>
 
+## Native IDE plans (also search when resolving `--plan`)
+
+{{NATIVE_PLAN_HINTS}}
+
 ## Your Task
 
 1. **Goals:** What is this plan trying to accomplish? List the main objectives.

@@ -24,13 +24,15 @@ if str(PLUGIN_ROOT) not in sys.path:
 
 from scripts.evaluate.state import EvalState, load_state, save_state, state_path_for_plan, STATE_FILENAME
 from scripts.evaluate.state import clear_state
-from scripts.evaluate.plan_resolver import resolve_plan, extract_title
+from scripts.evaluate.plan_resolver import extract_title, format_native_plan_hints, resolve_plan
 from scripts.evaluate.mode_detector import extract_file_references, detect_mode
 from scripts.evaluate.template_engine import load_template, render_template
 from scripts.shared.orchestrator import (
+    append_skill_run_memory,
     build_next_command,
     build_skill_handoff_menu,
     build_skill_todos,
+    _detect_repo_root,
     detect_active_sessions,
     format_active_session_warning,
     format_phase_todos,
@@ -231,6 +233,8 @@ def _build_variables(
     if state_dir is not None and step is not None:
         sidecar_path = str(_findings_sidecar_path(state_dir, step))
 
+    native_hints = format_native_plan_hints(_detect_repo_root(Path.cwd()))
+
     return {
         "PLAN_CONTENT": plan_content,
         "PLAN_PATH": state.plan_path,
@@ -241,6 +245,7 @@ def _build_variables(
         "REVIEW_ROUND": str(state.review_round),
         "QUICK_MODE_NOTE": "",
         "FINDINGS_SIDECAR": sidecar_path,
+        "NATIVE_PLAN_HINTS": native_hints,
     }
 
 
@@ -393,6 +398,14 @@ def handle_step_1(args: argparse.Namespace) -> None:
     # Mark step 1 complete
     state.mark_step_complete(1)
     save_state(state, sp)
+    append_skill_run_memory(
+        "evaluate",
+        1,
+        PHASE_NAMES.get(mode, PHASE_NAMES["pre"]).get(1, "Plan Parsing"),
+        f"Initialized evaluate session ({mode} mode) and parsed plan context.",
+        state=state,
+        state_path=sp,
+    )
 
     max_step = _max_step_for_mode(mode)
     title = f"EVALUATE — Plan Parsing (Step 1 of {max_step})"
@@ -424,6 +437,14 @@ def handle_step_1_review(args: argparse.Namespace) -> None:
 
     state.mark_step_complete(1)
     save_state(state, sp)
+    append_skill_run_memory(
+        "evaluate",
+        1,
+        PHASE_NAMES["review"][1],
+        "Initialized evaluate session (review mode) and dispatched review team setup.",
+        state=state,
+        state_path=sp,
+    )
 
     title = f"EVALUATE (REVIEW) — Team Dispatch (Step 1 of {_max_step_for_mode('review')})"
     next_cmd = _next_command(1, state_path=str(sp), mode="review")
@@ -526,9 +547,28 @@ def handle_step_n(step: int, state_file: str | None = None) -> None:
     next_cmd = _next_command(step, state_path=str(sp), mode=state.mode)
     phase_todos = PHASE_TODOS.get((state.mode or "pre", step), [])
     handoff_menu = None
+    run_summary = f"Completed evaluate step {step} ({phase_name}) in mode {(state.mode or 'pre')}."
     if not next_cmd:
+        run_summary = f"Completed final evaluate step ({phase_name}) in mode {(state.mode or 'pre')} and closed state."
         handoff_menu = build_skill_handoff_menu("evaluate", state, sp)
+        append_skill_run_memory(
+            "evaluate",
+            step,
+            phase_name,
+            run_summary,
+            state=state,
+            state_path=sp,
+        )
         clear_state(sp)
+    else:
+        append_skill_run_memory(
+            "evaluate",
+            step,
+            phase_name,
+            run_summary,
+            state=state,
+            state_path=sp,
+        )
     print(_format_output(title, body, next_cmd, phase_todos=phase_todos, mode=state.mode or "pre", step=step, handoff_menu=handoff_menu))
 
 

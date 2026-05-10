@@ -54,6 +54,7 @@ CANONICAL_RUNTIME_PARTS = (".codex", "forge")
 LEGACY_FORGE_CODEX_RUNTIME_PARTS = (".codex", "forge-codex")
 LEGACY_RUNTIME_DIRNAME = ".forge"
 EVALUATE_STATE_FILENAME = ".evaluate-state.json"
+RUN_HISTORY_MAX_ENTRIES = 30
 
 
 def _blocked_runtime_anchor(base_dir: Path) -> bool:
@@ -390,6 +391,7 @@ KNOWN_SKILLS = [
     "test",
     "diagnose",
     "evaluate",
+    "iterate",
 ]
 
 PIPELINE_SKILLS = {
@@ -516,7 +518,7 @@ def detect_active_sessions(search_dir: Path | None = None) -> list[dict]:
                 except Exception:
                     continue
 
-                if state.completed_at:
+                if is_state_effectively_complete(state):
                     continue
 
                 sessions.append({
@@ -635,22 +637,58 @@ def validate_state_path(state_file: str, skill_name: str) -> Path | None:
     return sp
 
 
-def read_handoff(name: str) -> str:
+def _handoff_paths(name: str, search_dir: Path | None = None) -> tuple[Path, Path]:
+    """Return canonical and legacy handoff paths for a skill name."""
+    return (
+        runtime_memory_dir(search_dir) / f"handoff-{name}.md",
+        legacy_memory_dir(search_dir) / f"handoff-{name}.md",
+    )
+
+
+def read_handoff(name: str, search_dir: Path | None = None) -> str:
     """Read a handoff file from the runtime memory directory if it exists.
 
     Args:
         name: The skill name (e.g. "develop", "implement", "code-review").
+        search_dir: Optional repo root override (mainly for tests).
 
     Returns:
         File content as string, or empty string if not found.
     """
-    for handoff in (
-        runtime_memory_dir() / f"handoff-{name}.md",
-        legacy_memory_dir() / f"handoff-{name}.md",
-    ):
+    for handoff in _handoff_paths(name, search_dir):
         if handoff.exists():
             return handoff.read_text(encoding="utf-8")
     return ""
+
+
+def close_handoff(name: str, search_dir: Path | None = None) -> bool:
+    """Delete canonical + legacy handoff files for a skill.
+
+    Returns True when at least one file was deleted.
+    """
+    removed = False
+    for handoff in _handoff_paths(name, search_dir):
+        if handoff.exists():
+            handoff.unlink()
+            removed = True
+    return removed
+
+
+def consume_handoff(name: str, search_dir: Path | None = None) -> str:
+    """Read and close a handoff so it does not leak across later sessions."""
+    content = read_handoff(name, search_dir=search_dir)
+    if content:
+        close_handoff(name, search_dir=search_dir)
+    return content
+
+
+def is_state_effectively_complete(state: SkillState) -> bool:
+    """Treat legacy max-step states as complete when completed_at is absent."""
+    if state.completed_at:
+        return True
+    if state.max_step <= 0:
+        return False
+    return state.current_step >= state.max_step and state.last_completed_step >= state.max_step
 
 
 def read_memory_file(name: str) -> str:
@@ -993,6 +1031,89 @@ def write_handoff(
     return handoff_path
 
 
+def skill_run_memory_path(
+    skill_name: str,
+    search_dir: Path | None = None,
+    memory_dir: Path | None = None,
+) -> Path:
+    """Path to per-skill run-memory jsonl file."""
+    md = memory_dir or runtime_memory_dir(search_dir)
+    return md / f"{skill_name}-runs.jsonl"
+
+
+def append_skill_run_memory(
+    skill_name: str,
+    step: int,
+    phase: str,
+    summary: str,
+    *,
+    state: Any | None = None,
+    state_path: Path | None = None,
+    handoff_path: Path | None = None,
+    max_entries: int = RUN_HISTORY_MAX_ENTRIES,
+    search_dir: Path | None = None,
+    memory_dir: Path | None = None,
+) -> Path:
+    """Append an auditable run entry and cap history to the most recent entries."""
+    md = memory_dir or runtime_memory_dir(search_dir)
+    md.mkdir(parents=True, exist_ok=True)
+    history_path = skill_run_memory_path(skill_name, search_dir=search_dir, memory_dir=md)
+    timestamp = now_iso()
+
+    state_path_str = str(state_path.resolve()) if isinstance(state_path, Path) else (
+        str(Path(state_path).resolve()) if state_path else ""
+    )
+    handoff_path_str = str(handoff_path.resolve()) if isinstance(handoff_path, Path) else (
+        str(Path(handoff_path).resolve()) if handoff_path else ""
+    )
+
+    started_at = getattr(state, "started_at", None) if state is not None else None
+    session_ref = f"{skill_name}:{state_path_str or '(no-state)'}:{started_at or '(unknown-start)'}"
+    handoff_ref = handoff_path_str or "(none)"
+
+    entry: dict[str, Any] = {
+        "timestamp": timestamp,
+        "skill": skill_name,
+        "step": int(step),
+        "phase": phase,
+        "summary": summary.strip(),
+        "session_ref": session_ref,
+        "state_path": state_path_str,
+        "session_started_at": started_at,
+        "handoff_ref": handoff_ref,
+        "handoff_path": handoff_path_str,
+    }
+    if state is not None:
+        entry["current_step"] = getattr(state, "current_step", None)
+        entry["last_completed_step"] = getattr(state, "last_completed_step", None)
+        entry["max_step"] = getattr(state, "max_step", None)
+        entry["completed_at"] = getattr(state, "completed_at", None)
+        entry["quick_mode"] = bool(getattr(state, "quick_mode", False))
+
+    records: list[dict[str, Any]] = []
+    if history_path.exists():
+        for line in history_path.read_text(encoding="utf-8").splitlines():
+            s = line.strip()
+            if not s:
+                continue
+            try:
+                obj = json.loads(s)
+            except json.JSONDecodeError:
+                continue
+            if isinstance(obj, dict):
+                records.append(obj)
+
+    records.append(entry)
+    keep = max(1, int(max_entries))
+    records = records[-keep:]
+
+    history_path.write_text(
+        "\n".join(json.dumps(r, ensure_ascii=True, separators=(",", ":")) for r in records) + "\n",
+        encoding="utf-8",
+    )
+    return history_path
+
+
 def build_skill_handoff_menu(
     skill_name: str,
     state: SkillState | None = None,
@@ -1175,7 +1296,7 @@ def check_same_skill_clobber(skill_name: str) -> None:
         except Exception:
             # Corrupt state — leave it for the regular load path to surface.
             continue
-        if state.completed_at is None and state.current_step > 0:
+        if not is_state_effectively_complete(state) and state.current_step > 0:
             sys.exit(
                 f"ERROR: A `{skill_name}` session is already in progress "
                 f"(step {state.current_step}/{state.max_step}, started "

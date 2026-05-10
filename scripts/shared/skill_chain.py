@@ -18,6 +18,7 @@ class SkillTransition:
 
 
 SKILL_CHAIN: dict[str, SkillTransition] = {
+    "iterate":     SkillTransition(None,                   ["diagnose", "plan", "evaluate --mode pre", "implement"]),
     "develop":     SkillTransition("plan",                 ["evaluate --mode pre", "implement", "diagnose"]),
     "plan":        SkillTransition("evaluate --mode pre",  ["implement", "develop", "code-review"]),
     "evaluate":    SkillTransition("implement",            ["plan", "evaluate --mode review", "test"]),
@@ -30,6 +31,7 @@ SKILL_CHAIN: dict[str, SkillTransition] = {
 
 # Optional descriptions for each command, rendered as "(why)" inline in the menu
 COMMAND_DESCRIPTIONS: dict[str, str] = {
+    "iterate":               "meta-workflow: diagnose→plan→evaluate→implement→review→test loops",
     "plan":                  "create the implementation plan",
     "evaluate --mode pre":   "review the plan before implementing",
     "evaluate --mode post":  "review what was implemented against the plan",

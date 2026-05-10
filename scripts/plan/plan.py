@@ -33,6 +33,7 @@ if str(REPO_ROOT) not in sys.path:
 
 from scripts.shared.orchestrator import (
     SkillState,
+    append_skill_run_memory,
     build_base_parser,
     build_next_command,
     build_skill_handoff_menu,
@@ -45,7 +46,7 @@ from scripts.shared.orchestrator import (
     get_conflicting_sessions,
     load_state,
     now_iso,
-    read_handoff,
+    consume_handoff,
     read_memory_file,
     render_dashboard,
     runtime_memory_dir,
@@ -335,7 +336,7 @@ def handle_step_1(args: argparse.Namespace) -> None:
     # Same-skill abort: refuse to silently overwrite an in-progress session.
     check_same_skill_clobber(SKILL_NAME)
 
-    handoff_content = read_handoff("develop")
+    handoff_content = consume_handoff("develop")
 
     # Cross-skill detection: warn only (different skills don't conflict).
     conflicting_sessions = get_conflicting_sessions(
@@ -388,6 +389,14 @@ def handle_step_1(args: argparse.Namespace) -> None:
     # Mark step 1 complete
     state.mark_step_complete(1)
     save_state(state, sp)
+    append_skill_run_memory(
+        SKILL_NAME,
+        1,
+        PHASE_NAMES[1],
+        "Initialized plan session and loaded context.",
+        state=state,
+        state_path=sp,
+    )
 
     phase_name = PHASE_NAMES[1]
     next_cmd = _next_command(1, state_path=str(sp))
@@ -450,6 +459,8 @@ def handle_step_n(step: int, state_file: str | None = None) -> None:
 
     # Step 6: mark completion and write handoff
     handoff_menu = None
+    handoff_path: Path | None = None
+    run_summary = f"Completed step {step} ({PHASE_NAMES.get(step, f'Step {step}')})."
     if step == MAX_STEP:
         plan_file = state.custom.get("plan_file")
         if not plan_file:
@@ -474,6 +485,10 @@ def handle_step_n(step: int, state_file: str | None = None) -> None:
             # Don't set completed_at; don't write handoff; don't clear state.
             # Preserve in-progress status so resume can pick up.
             save_state(state, sp)
+            run_summary = (
+                "Attempted final handoff but plan skeleton markers remain; "
+                "session kept open."
+            )
         else:
             state.mark_step_complete(step)
             state.completed_at = now_iso()
@@ -495,10 +510,21 @@ def handle_step_n(step: int, state_file: str | None = None) -> None:
             body += f"\n\nHandoff written to: {handoff_path}"
             handoff_menu = build_skill_handoff_menu(SKILL_NAME, state, sp)
             clear_state_file(sp)
+            run_summary = "Completed plan workflow, wrote handoff, and closed session state."
 
     if step != MAX_STEP:
         state.mark_step_complete(step)
         save_state(state, sp)
+
+    append_skill_run_memory(
+        SKILL_NAME,
+        step,
+        PHASE_NAMES.get(step, f"Step {step}"),
+        run_summary,
+        state=state,
+        state_path=sp,
+        handoff_path=handoff_path,
+    )
 
     phase_name = PHASE_NAMES.get(step, f"Step {step}")
     next_cmd = _next_command(step, state_path=str(sp)) if step < MAX_STEP else None

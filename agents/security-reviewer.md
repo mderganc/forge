@@ -108,6 +108,7 @@ Follow `templates/beads-integration.md`:
 | plan | Available | Security-relevant task review |
 | evaluate | Reviewer (review mode) | OWASP audit, input validation |
 | implement | Reviewer (if security-relevant) | Per-task security review |
+| iterate | Available | Security posture across repeated review/test cycles |
 | code-review | Reviewer | Security scan of diffs |
 | test | Available | Security-related test gaps |
 | diagnose | Support (Phase 2) | Security-related evidence and root causes |

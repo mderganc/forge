@@ -215,12 +215,15 @@ This agent is part of the forge-codex team toolkit at `agents/`. It leads invest
 
 ## Cross-Skill Availability
 
+**Current Forge surface:** **iterate** is the meta-workflow (diagnose → plan → evaluate → implement → code-review → test with outer loops and `.iterate-gates/` JSON under Forge runtime memory). **Plan discovery** for evaluate / implement / code-review resolves markdown from the repo tree and native IDE plan dirs (`.cursor/plans`, `.claude/plans`, `.codex/plans`, plus user-home equivalents). Shipped CLI/package line: **forge-next 0.6.0**.
+
 | Skill | Role | Focus |
 |-------|------|-------|
 | develop | **Lead** (Stages 1-2) | Investigation five-why, solution design |
 | plan | Contributor + reviewer | Architecture design, plan review |
 | evaluate | Reviewer (review mode) | Architecture conformance check |
 | implement | Available | Blocker resolution, architecture clarification |
+| iterate | Available | Target/metric clarity, gate-oriented design, recovery between outer loops |
 | code-review | Reviewer | Architecture conformance, design patterns |
 | test | Available | Architecture-related test failures |
 | diagnose | Support (Phases 1, 3, 5) | Architecture context, structural decomposition, solution design |

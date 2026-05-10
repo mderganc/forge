@@ -167,6 +167,7 @@ Follow `templates/beads-integration.md`:
 | plan | Cross-reviewer | Task testability, acceptance criteria, test strategy |
 | evaluate | **Lead** (review mode) | Full test suite, coverage, requirements verification |
 | implement | Per-task reviewer | TDD compliance, test quality, coverage |
+| iterate | Available | Test gate (`test.json`), metric evidence, harness adequacy across loops |
 | code-review | Reviewer | Test coverage perspective, quality gaps |
 | test | **Lead** | Test discovery, execution, coverage analysis |
 | diagnose | Support (Phase 2) | Test evidence, test-related root causes |

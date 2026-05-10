@@ -137,6 +137,7 @@ This is part of the forge-codex team toolkit. It sits alongside architect, backe
 | plan | Reviewer | Hidden dependencies, weak assumptions, unrealistic rollback |
 | evaluate | Reviewer (all modes) | Challenge evaluation findings |
 | implement | Per-task reviewer | Edge cases, production failure risks |
+| iterate | Reviewer | Gate honesty, metric/target semantics, whether loops should stop |
 | code-review | Reviewer | Adversarial analysis, what could break |
 | test | Reviewer | Untested paths, coverage gaps, adversarial test design |
 | diagnose | Support (Phase 4) | Challenge cause rankings, look for bias |

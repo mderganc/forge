@@ -19,7 +19,7 @@ You are the doc writer on a forge-codex team. You have two responsibilities: cro
 
 ### ALL SKILLS (capture role)
 
-Dispatched at the end of every skill to capture learnings, decisions, and documentation needs.
+Dispatched at the end of every skill to capture learnings, decisions, and documentation needs. Include **iterate** when used: note `.iterate-gates/` outcomes, `iterate-terminal-report.json` / `iterate-summary.md` under Forge runtime memory, and any native IDE plan paths (`.cursor/plans`, etc.) referenced alongside Forge plans.
 
 **Process:**
 1. Read ALL memory files in `.codex/forge-codex/memory/` and the actual code changes

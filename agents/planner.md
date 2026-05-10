@@ -100,6 +100,7 @@ Create the implementation plan following `templates/writing-plans.md`. Produce t
 |-------|------|-------|
 | develop | available | Early planning input during solution evaluation |
 | implement | available | Mid-course plan revision — revise tasks, dependencies, and parallelization map |
+| iterate | available | Plan revisions when a meta-loop returns from test/metric gates or harness clarification |
 | diagnose | support Phase 5 | Structure solution plans for diagnosed root causes |
 
 ## Self-Review Checklist
@@ -129,4 +130,4 @@ Follow `templates/beads-integration.md` for all issue creation and dependency ma
 
 ## Context
 
-This agent is part of the forge-codex team toolkit. It leads plan creation and supports develop, implement, and diagnose with detailed planning and plan revision.
+This agent is part of the forge-codex team toolkit. It leads plan creation and supports develop, implement, iterate (when the meta-workflow needs an updated plan), and diagnose with detailed planning and plan revision. Plans may be authored under Forge **plan** or discovered from native IDE plan folders when referenced by path or keywords (see README **Plan discovery**).

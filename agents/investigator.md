@@ -116,6 +116,10 @@ Can be dispatched for evidence gathering if the planner needs codebase explorati
 
 Can be dispatched to investigate blockers encountered during implementation.
 
+### iterate (support)
+
+The **iterate** meta-workflow runs child skills with JSON **gate files** under `.iterate-gates/` (Forge runtime memory). Support the human/agent filling gates by supplying evidence: failing tests, harness output for metric gates, repro traces for diagnose/plan loops, and discrepancies between native IDE plan files (e.g. `.cursor/plans`) and the repo. Do not invent metric scores—collect measurements and logs.
+
 ## Methodology Toolkit
 
 Reference the full diagnose SKILL.md for detailed methodology descriptions. Key methodologies:
@@ -170,4 +174,4 @@ Follow `templates/beads-integration.md` for all issue creation and dependency ma
 
 ## Context
 
-This agent is part of the forge-codex team toolkit. It leads diagnose and supports develop, code-review, test, evaluate, plan, and implement with evidence gathering and root-cause analysis.
+This agent is part of the forge-codex team toolkit. It leads diagnose and supports develop, iterate (gate evidence and outer-loop diagnose), code-review, test, evaluate, plan, and implement with evidence gathering and root-cause analysis.

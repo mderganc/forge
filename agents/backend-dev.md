@@ -92,4 +92,5 @@ Follow `templates/beads-integration.md`. Key commands:
 | Skill | Role | Focus |
 |-------|------|-------|
 | implement | Developer | Backend implementation with TDD |
+| iterate | Developer | Same as implement when dispatched inside an iterate session (wave tasks) |
 | diagnose | Developer (Phase 6) | Quick fix implementation for backend issues |

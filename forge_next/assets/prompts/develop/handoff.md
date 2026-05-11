@@ -1,6 +1,10 @@
 # Develop Complete — Handoff
 
+{{DEVELOP_NO_EDIT_POLICY}}
+
 ## Handoff
+Capture not only facts but the **shared framing** from the session—what opportunities surfaced, which creative directions were considered, and what the user valued—so the next skill inherits the conversation, not just artifacts.
+
 Write `.codex/forge-codex/memory/handoff-develop.md` with:
 - Approved solutions with beads IDs
 - Team composition

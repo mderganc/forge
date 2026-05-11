@@ -1,5 +1,11 @@
 # Stage 1 — Investigation
 
+{{DEVELOP_NO_EDIT_POLICY}}
+
+## Investigation + conversation
+
+Deep investigation runs **alongside** the user, not behind their back. Share emerging hypotheses and surprising findings early. If evidence points to a **bigger opportunity** (simpler fix, better feature shape, adjacent win), say so and invite reaction—especially before investigation artifacts harden.
+
 Dispatch agents for deep investigation.
 
 ## Agent Dispatch

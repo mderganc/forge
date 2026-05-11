@@ -1,5 +1,13 @@
 # forge-codex Develop — Startup
 
+{{DEVELOP_NO_EDIT_POLICY}}
+
+## What develop is for
+
+**Develop is a collaborative skill.** Work **with** the human in a back-and-forth rhythm: surface **opportunities** (not only problems), **brainstorm requirements** before locking scope, and **invent** multiple solution directions before anyone commits to code or docs. The scripted steps exist to **structure** that dialogue—not to replace it. Prefer short rounds of questions, options, and reactions over dumping long monologues.
+
+At each continuation gate, welcome refinements: “Does this match what you’re trying to achieve?” “What are we missing?” “What would make this exciting vs merely adequate?”
+
 ## Dependency Detection
 
 **Check beads:**

@@ -94,7 +94,7 @@ After a new `forge-next` release on PyPI, upgrade with `pipx upgrade forge-next`
 
 | Workflow | Cursor / Claude | Codex |
 |----------|-----------------|-------|
-| Investigation before plan | `/forge:develop` | `$forge:develop` |
+| **Develop** — interactive discovery, requirements, and options (before plan) | `/forge:develop` | `$forge:develop` |
 | Check install / environment | `/forge:doctor` | `$forge:doctor` |
 | Implementation plan | `/forge:plan` | `$forge:plan` |
 | Plan / implementation review | `/forge:evaluate` | `$forge:evaluate` |
@@ -179,7 +179,9 @@ Evaluate and diagnose also run standalone. **Iterate** chains the linear workflo
 - **Cursor / Claude:** `/forge:develop`
 - **Codex:** `$forge:develop`
 
-Investigate the problem or feature, explore options, converge before plan. Handoff often points to plan (`/forge:plan` or `$forge:plan`) or evaluate (`/forge:evaluate` or `$forge:evaluate`).
+**Develop is a back-and-forth with you:** surface opportunities (not only bugs), brainstorm and refine requirements, and generate multiple solution directions before anything is “locked.” The step sequence structures that conversation—short rounds of questions, options, and gates—not a one-shot report.
+
+Then investigate the problem or feature, explore and score options, and converge before plan. Handoff often points to plan (`/forge:plan` or `$forge:plan`) or evaluate (`/forge:evaluate` or `$forge:evaluate`).
 
 **Methodologies:** evidence-first investigation and git/history context; 5 Whys (`templates/five-why-protocol.md`); systematic debugging for defects (`templates/systematic-debugging.md`); brainstorming phased for requirements and solution families (`templates/brainstorming.md`, `brainstorming-gates.md`); How-Might-We framing; Pugh / weighted scoring and rubrics (`templates/scoring-rubric.md`); cross-review of investigation; user approval gates.
 

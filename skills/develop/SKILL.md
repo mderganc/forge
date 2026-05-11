@@ -38,6 +38,10 @@ other work. As you work:
 
 **If you skip progress tracking, the user has no visibility into what you are doing.**
 
+## CRITICAL: No repo edits without permission
+
+Do **not** modify tracked project files (application code, `agents/`, packaged prompts, tests, config, etc.) unless the user **explicitly** authorizes that edit. Develop phases may direct writes under **session memory** (e.g. `.codex/forge-codex/memory/`); everything else is read-only until the user says otherwise.
+
 ## CRITICAL: Continuation Protocol
 
 **This workflow spans many tool calls. You MUST NOT stop between stages.**

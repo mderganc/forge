@@ -7,6 +7,8 @@ description: Investigate the problem space before planning.
 
 **Never show terminal commands** for this workflow.
 
+**Never edit the repository** (code, `agents/`, `prompts/`, integrations, etc.) unless the user **explicitly** allows that specific change. Use develop for read-only exploration and for writing **only** where the phase directs session memory (e.g. `.codex/forge-codex/memory/`). If unsure, ask first.
+
 ## What to tell the user first
 
 - **Develop** explores problems, options, and evidence before formal planning.

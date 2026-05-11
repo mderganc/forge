@@ -5,6 +5,10 @@ Script-driven workflow that outputs formatted prompts for Codex to follow.
 Each --step invocation loads state, selects the appropriate prompt template,
 substitutes variables, and prints the prompt for Codex to execute.
 
+Develop is designed as **interactive collaboration**: identify opportunities,
+brainstorm requirements, and explore creative solution directions with the user;
+steps structure that dialogue rather than replacing it.
+
 Covers 3 development stages (Investigation, Solution Generation, Approval)
 across 7 orchestrator steps:
   1. Startup        -- dependency detection, autonomy, session resume, init
@@ -160,8 +164,23 @@ def _build_variables(state: SkillState) -> dict[str, str]:
     # Solutions summary for approval step
     solutions_summary = state.custom.get("solutions_summary", "(Solutions not yet generated)")
 
+    no_edit_policy = (
+        "## Permission to modify files\n\n"
+        "**Hard rule — applies to every develop phase:** Do **not** modify the repository "
+        "(including source code, `agents/`, `prompts/`, integrations, tests, or any tracked "
+        "project files) unless the user gives **explicit permission** for that specific change "
+        '(e.g. “you may edit `agents/foo.md` now” or “apply the drafted updates”). '
+        "Exploration must be **read-only** on the codebase.\n\n"
+        "**Allowed without asking:** Append or update files **only** under develop session "
+        "memory when this workflow explicitly tells you to (typically `.codex/forge-codex/memory/` "
+        "— e.g. `project.md`, investigation notes). If unsure whether a path counts as "
+        "session memory, **ask first**.\n\n"
+        "Do **not** skip this requirement based on autonomy level.\n"
+    )
+
     return {
         "AUTONOMY_INSTRUCTIONS": autonomy_text,
+        "DEVELOP_NO_EDIT_POLICY": no_edit_policy,
         "PREVIOUS_FINDINGS": findings_text.strip(),
         "REVIEW_STATE": review_state.strip(),
         "SOLUTIONS_SUMMARY": solutions_summary,

@@ -1,5 +1,7 @@
 # Stage 3 — Solution Review & User Approval
 
+{{DEVELOP_NO_EDIT_POLICY}}
+
 ## Review Loop
 Per `templates/review-loop.md`:
 | Step | Agent | Focus |
@@ -16,6 +18,8 @@ Before presenting to the user, run a pre-mortem per `templates/pre-mortem.md`. E
 
 Present scored solutions summary:
 {{SOLUTIONS_SUMMARY}}
+
+Frame approval as **closure of a design conversation**, not a rubber stamp. If the user hesitates, explore why—**Revise** and **Alternate** are healthy paths that keep creative iteration alive.
 
 Then ask the user directly for approval (per `templates/user-questions.md`).
 Use this question and these options:

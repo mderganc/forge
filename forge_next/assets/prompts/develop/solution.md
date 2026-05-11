@@ -1,5 +1,9 @@
 # Stage 2 — Solution Generation
 
+{{DEVELOP_NO_EDIT_POLICY}}
+
+Stage 2 is where **creative solution design** lives: divergent ideas, explicit technique choices, and scored candidates—not a single “best guess.” Treat every gate as a **real conversation**: explain tradeoffs in plain language, invite pushback, and treat user choices as creative input, not bureaucracy.
+
 Stage 2 is a **PM-orchestrated three-dispatch loop**, not a single Architect run. The PM wraps the Architect's brainstorming work with interactive decision gates so the user's judgment shapes framing, technique choice, candidate selection, and scoring weights.
 
 - Methods catalog: `templates/brainstorming.md` (read by the Architect)

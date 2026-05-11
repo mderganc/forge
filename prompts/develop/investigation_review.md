@@ -1,5 +1,9 @@
 # Investigation Review Loop
 
+{{DEVELOP_NO_EDIT_POLICY}}
+
+If the review surfaces **new angles or opportunities**, pause briefly and ask whether the user wants to adjust direction before Stage 2—creative pivots belong here.
+
 Per `templates/review-loop.md`:
 
 | Step | Agent | Focus |

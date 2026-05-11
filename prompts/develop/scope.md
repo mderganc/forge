@@ -1,5 +1,17 @@
 # Scope Assessment & Team Composition
 
+{{DEVELOP_NO_EDIT_POLICY}}
+
+## Dialogue before labels
+
+Treat this step as **discovery**, not a form to fill. Before fixing task type and layers:
+
+- **Surface opportunities:** What could be better, faster, simpler, or newly possible—even if the user started with a narrow bug or chore?
+- **Co-develop the problem statement:** Reframe once or twice with the user (“Are we solving X, or is the real goal Y?”).
+- **Brainstorm requirements at a high level:** Success signals, non-goals, and “delighters” belong here as much as acceptance criteria.
+
+Stay in conversation until the user confirms the framing—or explicitly asks to move on.
+
 ## Scope
 
 First, infer task type and layers from the user's initial description. If

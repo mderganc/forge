@@ -188,6 +188,7 @@ def _init_state(quick: bool = False) -> SkillState:
         "plan_path": "",
         "feature_branch": "",
         "branch_prefix": DEFAULT_BRANCH_PREFIX,
+        "implementation_mode": "parallel",
         "current_wave": 0,
         "total_waves": 0,
         "waves_completed": 0,
@@ -203,6 +204,7 @@ def _sync_waves_from_plan(state: SkillState) -> None:
     if not plan_path:
         state.custom["wave_rows"] = []
         state.custom["plan_waves_parsed"] = False
+        state.custom["implementation_mode"] = "parallel"
         return
     try:
         path = resolve_plan_file(plan_path, Path.cwd())
@@ -210,8 +212,10 @@ def _sync_waves_from_plan(state: SkillState) -> None:
         state.custom["total_waves"] = total
         state.custom["wave_rows"] = wave_rows_to_custom(rows)
         state.custom["plan_waves_parsed"] = bool(rows)
+        state.custom["implementation_mode"] = "parallel" if rows else "direct"
     except (OSError, AmbiguousPlanError, FileNotFoundError):
         state.custom["plan_waves_parsed"] = False
+        state.custom["implementation_mode"] = "direct"
 
 
 def _feature_branch_placeholder(state: SkillState) -> str:
@@ -278,9 +282,11 @@ def _build_wave_variables(state: SkillState) -> dict[str, str]:
     current_wave = state.custom.get("current_wave", 1)
     total_waves = state.custom.get("total_waves", 0)
     waves_completed = state.custom.get("waves_completed", 0)
+    implementation_mode = str(state.custom.get("implementation_mode", "parallel"))
+    direct_mode = implementation_mode == "direct"
 
     wave_rows: list[dict[str, object]] = state.custom.get("wave_rows") or []
-    if wave_rows:
+    if wave_rows and not direct_mode:
         wave_tasks = format_wave_tasks_from_custom(wave_rows, current_wave)
         def _row_wave(rd: dict[str, object]) -> int:
             try:
@@ -304,15 +310,26 @@ def _build_wave_variables(state: SkillState) -> dict[str, str]:
             "If this looks wrong, fix the table and re-run step 2.)_"
         )
     else:
-        wave_tasks = (
-            f"No parallelization table parsed yet. Read the plan file at `{state.custom.get('plan_path', '')}` "
-            f"and `.codex/forge-codex/memory/project.md` for the Wave {current_wave} task list.\n"
-            f"Each task includes: title, assigned agent, file paths, acceptance criteria."
-        )
-        agent_list = (
-            f"Read `.codex/forge-codex/memory/project.md` for the agent assignments for Wave {current_wave}.\n"
-            f"Dispatch each agent per `templates/parallel-dispatch.md`."
-        )
+        if direct_mode:
+            wave_tasks = (
+                "Parallelization map parsing did not produce usable wave rows.\n"
+                f"Proceed with **direct implementation** from `{state.custom.get('plan_path', '')}` in dependency order.\n"
+                "Treat this as a single implementation pass and continue without asking the user to choose a fallback path."
+            )
+            agent_list = (
+                "Direct mode: implement tasks sequentially on the feature branch, "
+                "or dispatch one task at a time if delegation is still helpful."
+            )
+        else:
+            wave_tasks = (
+                f"No parallelization table parsed yet. Read the plan file at `{state.custom.get('plan_path', '')}` "
+                f"and `.codex/forge-codex/memory/project.md` for the Wave {current_wave} task list.\n"
+                f"Each task includes: title, assigned agent, file paths, acceptance criteria."
+            )
+            agent_list = (
+                f"Read `.codex/forge-codex/memory/project.md` for the agent assignments for Wave {current_wave}.\n"
+                f"Dispatch each agent per `templates/parallel-dispatch.md`."
+            )
 
     # Quick mode note
     if state.quick_mode:
@@ -324,7 +341,11 @@ def _build_wave_variables(state: SkillState) -> dict[str, str]:
         quick_note = "Standard mode: full four-step review loop for each task."
 
     # Next wave or proceed to documentation
-    if waves_completed < total_waves - 1:
+    if direct_mode:
+        next_wave_or_proceed = (
+            "Direct implementation mode uses a single pass. After this pass, proceed to integration verification."
+        )
+    elif waves_completed < total_waves - 1:
         next_wave_or_proceed = (
             f"More waves remain. After completing this wave, proceed to Wave {current_wave + 1}."
         )
@@ -540,28 +561,13 @@ def handle_step_3(state: SkillState, sp: Path) -> None:
         state.custom["current_wave"] = 1
         current_wave = 1
 
-    # 0-wave plans (no parallel work): jump straight to integration verification
-    # without ever entering the wave-review loop.
+    # 0-wave plans (parser could not derive waves): auto-fallback to direct
+    # implementation mode instead of skipping implementation.
     total_waves = state.custom.get("total_waves", 0)
     if total_waves == 0:
-        state.current_step = 3
-        save_state(state, sp)
-        state.mark_step_complete(3)
-        save_state(state, sp)
-        body = (
-            "**No waves defined for this plan.** Skipping wave dispatch and review; "
-            "proceeding directly to integration verification (step 6)."
-        )
-        _emit(
-            3,
-            body,
-            _next_command(3, quick=state.quick_mode, target_step=6),
-            wave=None,
-            state=state,
-            state_path=sp,
-            summary="No waves parsed; skipped wave loop and advanced to integration verification.",
-        )
-        return
+        state.custom["implementation_mode"] = "direct"
+        state.custom["total_waves"] = 1
+        state.custom["current_wave"] = 1
 
     variables = _build_wave_variables(state)
     body = render_template(template, variables)

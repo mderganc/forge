@@ -215,7 +215,7 @@ This agent is part of the forge-codex team toolkit at `agents/`. It leads invest
 
 ## Cross-Skill Availability
 
-**Current Forge surface:** **iterate** is the meta-workflow (diagnose → plan → evaluate → implement → code-review → test with outer loops and `.iterate-gates/` JSON under Forge runtime memory). **Plan discovery** for evaluate / implement / code-review resolves markdown from the repo tree and native IDE plan dirs (`.cursor/plans`, `.claude/plans`, `.codex/plans`, plus user-home equivalents). Shipped CLI/package line: **forge-next 0.6.3** (keep aligned with `pyproject.toml`).
+**Current Forge surface:** **iterate** is the meta-workflow (diagnose → plan → evaluate → implement → code-review → test with outer loops and `.iterate-gates/` JSON under Forge runtime memory). **develop** is the collaborative entry skill before formal planning, focused on back-and-forth opportunity discovery, requirement framing, and multiple solution directions. **Plan discovery** for evaluate / implement / code-review resolves markdown from the repo tree and native IDE plan dirs (`.cursor/plans`, `.claude/plans`, `.codex/plans`, plus user-home equivalents). Shipped CLI/package line: **forge-next 0.6.3** (keep aligned with `pyproject.toml`).
 
 | Skill | Role | Focus |
 |-------|------|-------|

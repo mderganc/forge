@@ -414,6 +414,59 @@ def test_implement_next_command_supports_target_step():
     assert _next_command(5, target_step=99) == ""
 
 
+def test_implement_step3_auto_falls_back_to_direct_mode_when_no_waves(fresh_state_dir, capsys):
+    from scripts.implement.implement import _init_state, handle_step_3
+
+    state = _init_state()
+    state.custom["plan_path"] = str(fresh_state_dir / "plan.md")
+    state.custom["total_waves"] = 0
+    state.custom["wave_rows"] = []
+    state.custom["plan_waves_parsed"] = False
+
+    sp = fresh_state_dir / ".codex" / "forge-codex" / "state" / "implement.json"
+    sp.parent.mkdir(parents=True, exist_ok=True)
+
+    handle_step_3(state, sp)
+    output = capsys.readouterr().out
+
+    assert state.custom["implementation_mode"] == "direct"
+    assert state.custom["total_waves"] == 1
+    assert "direct implementation" in output.lower()
+    assert "next step is clear: continue directly to **step 4**." in output.lower()
+    assert "skipping wave dispatch and review" not in output.lower()
+
+
+def test_step_output_auto_continues_when_next_step_is_clear():
+    from scripts.shared.orchestrator import format_step_output
+
+    output = format_step_output(
+        "plan",
+        1,
+        7,
+        "Phase",
+        "Body",
+        next_cmd="$forge:plan --step 2 --state .codex/forge-codex/state/plan.json",
+    )
+    lower = output.lower()
+    assert "next step is clear: continue directly to **step 2**." in lower
+    assert "should i continue into step 2?" not in lower
+
+
+def test_step_output_prompts_when_next_step_is_ambiguous():
+    from scripts.shared.orchestrator import format_step_output
+
+    output = format_step_output(
+        "plan",
+        1,
+        7,
+        "Phase",
+        "Body",
+        next_cmd="not-a-parseable-step-token",
+    )
+    lower = output.lower()
+    assert "should i continue into step 2?" in lower
+
+
 # ---------------------------------------------------------------------------
 # Fix 2 — Mock-flow type catalog (prose + typed)
 # ---------------------------------------------------------------------------

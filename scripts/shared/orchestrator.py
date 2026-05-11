@@ -835,18 +835,36 @@ def parse_continuation_command(cmd: str) -> tuple[int | None, str | None]:
 def format_same_skill_continuation(
     next_step: int,
     state_path: str | None = None,
+    *,
+    require_confirmation: bool = False,
 ) -> str:
-    """Ask plainly whether to advance to the next step within the current Forge skill."""
+    """Render same-skill continuation guidance.
+
+    By default, deterministic next steps should auto-continue and avoid a
+    confirmation prompt. Ask for confirmation only when the continuation target
+    could not be parsed unambiguously.
+    """
     bar = ("-" * 60) if os.environ.get("FORGE_ASCII") == "1" else ("━" * 60)
-    lines = [
-        f"\n\n{bar}",
-        "CONTINUATION",
-        bar,
-        "",
-        f"This phase is complete. **Should I continue into step {next_step}?**",
-        "",
-        "Reply yes to move on, or say no / pause if you want to stop here.",
-    ]
+    if require_confirmation:
+        lines = [
+            f"\n\n{bar}",
+            "CONTINUATION",
+            bar,
+            "",
+            f"This phase is complete. **Should I continue into step {next_step}?**",
+            "",
+            "Reply yes to move on, or say no / pause if you want to stop here.",
+        ]
+    else:
+        lines = [
+            f"\n\n{bar}",
+            "CONTINUATION",
+            bar,
+            "",
+            f"Next step is clear: continue directly to **step {next_step}**.",
+            "",
+            "Only pause if the user asked to stop or change direction.",
+        ]
     if state_path:
         lines.extend(["", f"Resume context is saved at `{state_path}`."])
     return "\n".join(lines)
@@ -931,9 +949,14 @@ def format_step_output(
         output += "\n\n" + handoff_menu
     elif next_cmd:
         ns, sp_ = parse_continuation_command(next_cmd)
+        require_confirmation = ns is None
         if ns is None:
             ns = step + 1
-        output += format_same_skill_continuation(ns, sp_)
+        output += format_same_skill_continuation(
+            ns,
+            sp_,
+            require_confirmation=require_confirmation,
+        )
     elif cross_skill_next:
         output += "\n\nWORKFLOW COMPLETE — this skill has finished."
         output += format_workflow_transition(cross_skill_next)

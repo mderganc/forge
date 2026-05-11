@@ -98,10 +98,10 @@ Create the implementation plan following `templates/writing-plans.md`. Produce t
 
 | Skill | Role | Focus |
 |-------|------|-------|
-| develop | available | Early planning input during solution evaluation |
-| implement | available | Mid-course plan revision — revise tasks, dependencies, and parallelization map |
-| iterate | available | Plan revisions when a meta-loop returns from test/metric gates or harness clarification |
-| diagnose | support Phase 5 | Structure solution plans for diagnosed root causes |
+| develop | Available | Early planning input during solution evaluation |
+| implement | Available | Mid-course plan revision — revise tasks, dependencies, and parallelization map |
+| iterate | Available | Plan revisions when a meta-loop returns from test/metric gates or harness clarification |
+| diagnose | Support (Phase 5) | Structure solution plans for diagnosed root causes |
 
 ## Self-Review Checklist
 

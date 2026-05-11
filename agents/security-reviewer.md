@@ -56,7 +56,7 @@ Comprehensive security audit of the merged feature branch via the evaluate skill
    - A07: Identification and Authentication Failures
    - A08: Software and Data Integrity Failures
    - A09: Security Logging and Monitoring Failures
-   - A10: Server-Side Request forge-codexry
+   - A10: Server-Side Request Forgery (SSRF)
 3. Input validation audit — every system boundary must validate
 4. Dependency audit — check for known vulnerabilities
 5. Secrets handling — no hardcoded secrets, proper env var usage

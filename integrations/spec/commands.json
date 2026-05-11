@@ -105,6 +105,18 @@
         "forge doctor",
         "forge doctor --repo \"<path>\""
       ]
+    },
+    {
+      "id": "forge:graphify",
+      "cli_subcommand": "graphify",
+      "description": "Optional Graphify index: refresh status for forge resume; install or remove a fail-soft post-commit hook.",
+      "examples": [
+        "forge graphify refresh",
+        "forge graphify refresh --repo \"<path>\"",
+        "forge graphify install-hook",
+        "forge graphify install-hook --repo \"<path>\"",
+        "forge graphify uninstall-hook"
+      ]
     }
   ]
 }

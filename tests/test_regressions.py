@@ -1410,3 +1410,137 @@ def test_flows_step_8_over_cap_friendly(fresh_state_dir):
     output = result2.stderr + result2.stdout
     assert "nothing left to do" in output or "ends at step 7" in output, \
         f"Expected 'nothing left to do' or 'ends at step 7' in output, got: {output}"
+
+
+# ---------------------------------------------------------------------------
+# Continuity resume + resume-context.json + Graphify status
+# ---------------------------------------------------------------------------
+
+
+def test_save_state_writes_resume_context_snapshot(fresh_state_dir):
+    from scripts.shared.orchestrator import SkillState, save_state, runtime_memory_dir, runtime_state_dir
+
+    sp = runtime_state_dir() / "plan.json"
+    state = SkillState(
+        skill_name="plan",
+        current_step=2,
+        last_completed_step=1,
+        max_step=7,
+        started_at="2026-01-01T00:00:00+00:00",
+    )
+    save_state(state, sp)
+    rc = runtime_state_dir() / "resume-context.json"
+    assert rc.is_file(), "resume-context.json should exist after save_state"
+    data = json.loads(rc.read_text(encoding="utf-8"))
+    assert data.get("schema_version") == 1
+    assert data.get("skill") == "plan"
+    assert data.get("current_step") == 2
+    syn = runtime_memory_dir() / "forge-memory-synthesis.md"
+    assert syn.is_file(), "forge-memory-synthesis.md should exist after save_state"
+    assert "Forge memory synthesis" in syn.read_text(encoding="utf-8")
+
+
+def test_resume_context_rejects_unsupported_schema(fresh_state_dir):
+    from scripts.shared import resume_context
+    from scripts.shared.orchestrator import runtime_state_dir
+
+    p = runtime_state_dir() / "resume-context.json"
+    p.parent.mkdir(parents=True, exist_ok=True)
+    p.write_text(
+        json.dumps(
+            {
+                "schema_version": 999,
+                "skill": "plan",
+                "current_step": 1,
+                "last_completed_step": 0,
+                "max_step": 7,
+                "state_path": str(p.parent / "plan.json"),
+                "updated_at": "2026-01-01T00:00:00+00:00",
+            }
+        ),
+        encoding="utf-8",
+    )
+    snap, warn = resume_context.load_resume_snapshot()
+    assert snap is None
+    assert warn is not None
+
+
+def test_resume_no_sessions_includes_continuity_when_snapshot_present(fresh_state_dir):
+    from scripts.shared.orchestrator import runtime_state_dir
+
+    p = runtime_state_dir() / "resume-context.json"
+    p.parent.mkdir(parents=True, exist_ok=True)
+    st_path = runtime_state_dir() / "develop.json"
+    p.write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "writer_version": "test",
+                "snapshot_id": "abc",
+                "skill": "develop",
+                "current_step": 3,
+                "last_completed_step": 2,
+                "max_step": 6,
+                "invocation_status": "in_progress",
+                "state_path": str(st_path),
+                "started_at": None,
+                "updated_at": "2026-05-11T12:00:00+00:00",
+                "last_error_summary": None,
+                "memory_current_step_path": None,
+                "memory_latest_handoff_path": None,
+                "memory_latest_handoff_skill": None,
+                "open_findings_count": 0,
+            }
+        ),
+        encoding="utf-8",
+    )
+    result = subprocess.run(
+        [sys.executable, str(SCRIPTS / "shared" / "resume.py")],
+        cwd=str(fresh_state_dir),
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+    )
+    assert result.returncode == 0
+    out = result.stdout + result.stderr
+    assert "Continuity snapshot" in out
+
+
+def test_snapshot_memory_conflict_detects_skill_mismatch():
+    from scripts.shared import resume_context
+
+    session = {
+        "skill": "plan",
+        "path": "/repo/.codex/forge/state/plan.json",
+        "current_step": 2,
+        "last_completed_step": 1,
+        "max_step": 7,
+    }
+    snap = {
+        "skill": "implement",
+        "current_step": 1,
+        "last_completed_step": 0,
+        "max_step": 6,
+        "state_path": "/repo/.codex/forge/state/implement.json",
+    }
+    assert resume_context.snapshot_memory_conflict(session, snap) is True
+
+
+def test_graphify_refresh_writes_status(monkeypatch):
+    monkeypatch.chdir(REPO_ROOT)
+    from forge_next import graphify
+    from scripts.shared.resume_context import graphify_status_path
+
+    status_path = graphify_status_path(REPO_ROOT)
+    backup = status_path.read_text(encoding="utf-8") if status_path.exists() else None
+    try:
+        assert graphify.refresh(REPO_ROOT) == 0
+        assert status_path.is_file()
+        data = json.loads(status_path.read_text(encoding="utf-8"))
+        assert "status" in data
+        assert "last_refresh" in data
+    finally:
+        if backup is not None:
+            status_path.write_text(backup, encoding="utf-8")
+        elif status_path.exists():
+            status_path.unlink()

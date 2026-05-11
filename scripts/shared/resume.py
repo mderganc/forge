@@ -29,7 +29,7 @@ if str(REPO_ROOT) not in sys.path:
 
 from scripts.shared.orchestrator import (
     KNOWN_SKILLS,
-    PIPELINE_FLOW,
+    _detect_repo_root,
     detect_active_sessions,
     is_state_effectively_complete,
     legacy_memory_dir,
@@ -40,6 +40,7 @@ from scripts.shared.orchestrator import (
     runtime_state_dir,
     state_filename,
 )
+from scripts.shared import resume_context
 
 # Number of consecutive same-step retries after which we stop offering a
 # resume command and ask the user to inspect logs / clear state.
@@ -175,21 +176,86 @@ def _check_handoffs() -> list[str]:
     return completed
 
 
+def _continuity_context_sections() -> tuple[list[str], dict | None, str]:
+    """Markdown sections: Continuity snapshot, Memory, Graphify status/context."""
+    lines: list[str] = []
+    snap, warn = resume_context.load_resume_snapshot()
+    if warn:
+        lines.append(f"**Note:** {warn}")
+        lines.append("")
+    if snap:
+        lines.append("## Continuity snapshot")
+        lines.append("")
+        lines.append(
+            f"- **Skill:** `{snap.get('skill')}` — step {snap.get('current_step')}/"
+            f"{snap.get('max_step')} (last completed: {snap.get('last_completed_step')})"
+        )
+        lines.append(f"- **Invocation:** `{snap.get('invocation_status')}` at `{snap.get('updated_at')}`")
+        lines.append(f"- **State file:** `{snap.get('state_path')}`")
+        if snap.get("memory_latest_handoff_skill"):
+            lines.append(
+                f"- **Latest handoff:** `{snap.get('memory_latest_handoff_skill')}` "
+                f"(`{snap.get('memory_latest_handoff_path')}`)"
+            )
+        if snap.get("evaluate_plan_name"):
+            lines.append(f"- **Evaluate plan:** `{snap.get('evaluate_plan_name')}`")
+        ofc = snap.get("open_findings_count")
+        if ofc is not None:
+            lines.append(f"- **Open findings (from last skill state):** {ofc}")
+        lines.append("")
+    mem = resume_context.summarize_memory_for_resume()
+    if mem.strip():
+        lines.append("## Memory snapshot (recent actions / next steps)")
+        lines.append("")
+        lines.append("```")
+        lines.append(mem)
+        lines.append("```")
+        lines.append("")
+    repo = _detect_repo_root()
+    gf = resume_context.read_graphify_status()
+    excerpt = resume_context.read_graphify_codebase_excerpt(repo)
+    lines.append("## Graphify status (codebase index)")
+    lines.append("")
+    lines.append(
+        f"- **status:** `{gf.get('status')}` | **last_refresh:** {gf.get('last_refresh')!r} | "
+        f"**graphify CLI:** {'detected' if gf.get('graphify_available') else 'not detected'}"
+    )
+    if gf.get("error"):
+        lines.append(f"- **last error:** {gf.get('error')}")
+    lines.append("")
+    if excerpt.strip():
+        lines.append("## Graphify codebase context (excerpt)")
+        lines.append("")
+        lines.append(excerpt)
+        lines.append("")
+    return lines, snap, mem
+
+
 def render_no_sessions() -> str:
     """Output when no active sessions exist."""
     completed = _check_handoffs()
+    ctx_lines, snap, mem_summary = _continuity_context_sections()
+    successor = _pipeline_successor_skill(set(completed)) if completed else None
+    conf = resume_context.continuation_confidence(None, snap, mem_summary)
+    sugg = resume_context.suggested_continuation_lines(
+        session=None,
+        snap=snap,
+        memory_summary=mem_summary,
+        successor_skill=successor,
+    )
 
     lines = [
         "FORGE-CODEX RESUME",
         "=" * 60,
         "",
-        "**No active sessions found.**",
+        "**No active JSON sessions found.**",
         "",
     ]
+    lines.extend(ctx_lines)
 
-    if not completed:
+    if not completed and not snap and not mem_summary.strip():
         lines.extend([
-            "No handoff files exist either — no workflow is currently in progress.",
+            "No continuity snapshot, memory narrative, or handoffs detected.",
             "",
             "To start a new workflow, run one of these skills:",
             "  develop   - investigate and brainstorm solutions",
@@ -199,24 +265,28 @@ def render_no_sessions() -> str:
         ])
         return "\n".join(lines)
 
-    lines.extend([
-        f"**Handoff files found for:** {', '.join(completed)}",
-        "",
-    ])
+    if completed:
+        lines.extend([
+            f"**Handoff files found for:** {', '.join(completed)}",
+            "",
+        ])
+        if successor:
+            lines.extend([
+                f"**Next skill in pipeline:** `{successor}`",
+                "",
+            ])
+        else:
+            lines.extend([
+                "**Workflow appears complete** — all pipeline skills have handoff files.",
+                "",
+            ])
 
-    successor = _pipeline_successor_skill(set(completed))
-    if successor:
-        lines.extend([
-            f"**Next skill in pipeline:** `{successor}`",
-            "",
-            "Ask the user directly whether to continue to that skill, run a different skill, or stay idle.",
-        ])
-    else:
-        lines.extend([
-            "**Workflow appears complete** — all pipeline skills have handoff files.",
-            "",
-            "Start a new workflow or view status with the `status` skill.",
-        ])
+    lines.append(f"**Suggested continuation (confidence: {conf})**")
+    lines.append("")
+    for s in sugg:
+        lines.append(f"- {s}")
+    lines.append("")
+    lines.append("Ask the user which path to take before starting long-running work.")
 
     return "\n".join(lines)
 
@@ -227,6 +297,7 @@ def render_single_session(session: dict) -> str:
     current = session.get("current_step", 1)
     last = session.get("last_completed_step", 0)
     max_step = session.get("max_step", 6)
+    ctx_lines, snap, mem_summary = _continuity_context_sections()
 
     # If workflow is actually complete, don't produce a resume command
     if _session_is_complete(session):
@@ -237,13 +308,16 @@ def render_single_session(session: dict) -> str:
             f"**Session `{skill}` is complete** ({current}/{max_step}).",
             f"**State file:** `{session['path']}`",
             "",
+        ]
+        lines.extend(ctx_lines)
+        lines.extend([
             "The final step has been executed. No resume command is needed.",
             "",
             "You may:",
             "  - Delete the state file to start fresh next time",
             "  - Run `resume` again to advance to the next pipeline skill",
             "  - Run `status` to see the overall workflow state",
-        ]
+        ])
         return "\n".join(lines)
 
     next_step = _resume_step(session)
@@ -254,13 +328,16 @@ def render_single_session(session: dict) -> str:
     if _is_retry(session):
         new_count = _bump_failure_count(session["path"])
         if new_count >= MAX_RETRY_COUNT:
-            return "\n".join([
+            lines = [
                 "FORGE-CODEX RESUME",
                 "=" * 60,
                 "",
                 f"**Active session:** `{skill}` ({current}/{max_step})",
                 f"**State file:** `{session['path']}`",
                 "",
+            ]
+            lines.extend(ctx_lines)
+            lines.extend([
                 f"**Step {current} has failed {new_count} times.**",
                 "",
                 "Inspect logs for the underlying error before retrying. If the failure",
@@ -270,6 +347,7 @@ def render_single_session(session: dict) -> str:
                 "",
                 "Then start the workflow over from step 1.",
             ])
+            return "\n".join(lines)
 
     cmd = _resume_command(session)
 
@@ -287,6 +365,57 @@ def render_single_session(session: dict) -> str:
         f"**Status:** {status}",
         f"**State file:** `{session['path']}`",
         "",
+    ]
+    lines.extend(ctx_lines)
+
+    conflict = bool(snap and resume_context.snapshot_memory_conflict(session, snap))
+    conf = resume_context.continuation_confidence(session, snap, mem_summary)
+    sugg = resume_context.suggested_continuation_lines(
+        session=session,
+        snap=snap,
+        memory_summary=mem_summary,
+        successor_skill=None,
+    )
+
+    lines.append(f"**Suggested continuation (confidence: {conf})**")
+    lines.append("")
+    for s in sugg:
+        lines.append(f"- {s}")
+    lines.append("")
+
+    if conflict:
+        snap_cmd = ""
+        if snap and snap.get("skill") and snap.get("state_path"):
+            fake_sess = {
+                "skill": snap.get("skill"),
+                "path": snap.get("state_path"),
+                "current_step": snap.get("current_step"),
+                "last_completed_step": snap.get("last_completed_step"),
+                "max_step": snap.get("max_step", 6),
+                "started_at": snap.get("started_at"),
+            }
+            snap_cmd = _resume_command(fake_sess)
+        lines.extend([
+            "## Source conflict (JSON state vs continuity snapshot)",
+            "",
+            "The active workflow state and `resume-context.json` disagree on skill, step, or state path.",
+            "**Ask the user which source to trust** before running any resume command.",
+            "",
+            "**Option A — State-based resume (recommended default):**",
+            "",
+            f"    {cmd}",
+            "",
+            "**Option B — Snapshot-based continuation (if memory reflects reality):**",
+            "",
+        ])
+        if snap_cmd:
+            lines.append(f"    {snap_cmd}")
+        else:
+            lines.append("    (snapshot incomplete — reconcile or delete `resume-context.json`.)")
+        lines.append("")
+        return "\n".join(lines)
+
+    lines.extend([
         "━" * 60,
         "CONTINUATION — IMMEDIATE ACTION REQUIRED",
         "━" * 60,
@@ -295,12 +424,13 @@ def render_single_session(session: dict) -> str:
         f"    {cmd}",
         "",
         "DO NOT STOP. Execute the command now to continue the workflow.",
-    ]
+    ])
     return "\n".join(lines)
 
 
 def render_multiple_sessions(sessions: list[dict]) -> str:
     """Output when 2+ active sessions exist - emit a menu."""
+    ctx_lines, snap, mem_summary = _continuity_context_sections()
     options_lines = []
     for i, s in enumerate(sessions):
         skill = s["skill"]
@@ -319,8 +449,13 @@ def render_multiple_sessions(sessions: list[dict]) -> str:
         "",
         f"**{len(sessions)} active sessions found.**",
         "",
-        "Ask the user directly which session to resume:",
+        "The **JSON state menu below is authoritative** — pick one session to resume.",
+        "Continuity snapshot and memory sections are **context only** (do not auto-select).",
+        "",
     ]
+    lines.extend(ctx_lines)
+    lines.append("Ask the user directly which session to resume:")
+    lines.append("")
 
     for i, opt_line in enumerate(options_lines):
         lines.append(opt_line.replace('      {"label": "', "- `").replace('", "description": "', "` — ").replace('"}', ""))
@@ -330,6 +465,11 @@ def render_multiple_sessions(sessions: list[dict]) -> str:
     for s in sessions:
         cmd = _resume_command(s)
         lines.append(f"  {s['skill']}: `{cmd}`")
+
+    if snap and mem_summary.strip():
+        conf = resume_context.continuation_confidence(sessions[0], snap, mem_summary)
+        lines.append("")
+        lines.append(f"(Optional context confidence vs first listed session: `{conf}`.)")
 
     return "\n".join(lines)
 

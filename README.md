@@ -27,10 +27,11 @@ This repository is the **source tree** for prompts, templates, agent briefs, and
 ## Overview
 
 - **App-first:** Cursor and Claude Code use `/forge:…`; Codex uses `$forge:…`. See [OpenAI Codex](#openai-codex).
-- **Session-safe:** Repo state lives under `.codex/forge/` by default. Older trees may still use `.codex/forge-codex/` until migrated. If `.codex` cannot be a directory, Forge falls back to `.forge/`. Stop anytime; continue with `forge resume`, `/forge:resume` (Cursor/Claude), or `$forge:resume` (Codex).
+- **Session-safe:** Repo state lives under `.codex/forge/` by default. Older trees may still use `.codex/forge-codex/` until migrated. If `.codex` cannot be a directory, Forge falls back to `.forge/`. Stop anytime; continue with `forge resume`, `/forge:resume` (Cursor/Claude), or `$forge:resume` (Codex). Each skill save also updates **`state/resume-context.json`** (continuity snapshot for new chats) and **`memory/forge-memory-synthesis.md`** (rollup of `project.md`, `current-step.md`, and recent handoffs). Resume prints memory + optional **Graphify** codebase status; if the snapshot disagrees with live JSON state, output asks you to pick **state-based** vs **snapshot-based** continuation before auto-running the next step.
 - **Handoffs:** On the last step, the numbered menu may show `forge: …` labels in the transcript. Reply `yes`, `1`, or `default`, or pick an option, then run the next step as `/forge:…` (Cursor/Claude) or `$forge:…` (Codex). Outside Codex, use the `forge …` command line from [Advanced: terminal and CI](#advanced-terminal-and-ci). Downstream step-1 intake consumes handoffs (read + close) so used handoffs do not stay active indefinitely.
 - **Per-skill run memory:** Every workflow run appends an auditable entry to `memory/<skill>-runs.jsonl` (for example `plan-runs.jsonl`), retaining the most recent 30 entries with timestamp, phase/step, short summary, session linkage, and handoff linkage when present.
-- **Integrations:** `forge install` and `forge uninstall` lay down Cursor, Claude, and Codex wrappers.
+- **Integrations:** `forge install` and `forge uninstall` lay down Cursor, Claude, and Codex wrappers. Install output includes optional **Graphify** setup (CLI or `FORGE_GRAPHIFY_COMMAND`, `forge graphify refresh`, `install-hook` / `uninstall-hook`) for codebase context in `forge resume` — see [`docs/graphify.md`](docs/graphify.md).
+- **Memory rollup:** each time skill state is saved, Forge refreshes **`memory/forge-memory-synthesis.md`** as an explicit merge of `project.md`, `current-step.md`, and recent handoffs so resume can open one synthesized narrative (see `templates/memory-protocol.md`).
 
 ---
 
@@ -76,6 +77,8 @@ forge install --codex
 
 Options (defaults are usually fine): `--ref`, `--repo-url`, `--cursor-dir`, `--claude-dir`, `--codex-dir`.
 
+**After `forge install`:** the installer prints optional **Graphify** setup (install the Graphify CLI or set `FORGE_GRAPHIFY_COMMAND`, run `forge graphify refresh`, optionally `forge graphify install-hook` for post-commit refresh). Same hints appear in JSON output as `graphify_onboarding` when you pass `--json`. Details: [`docs/graphify.md`](docs/graphify.md).
+
 **Note:** Running from Windows will install in the Windows Cursor/Claude/Codex locations, while WSL will use the WSL locations.
 
 ### 3. First run in the app (not in a terminal)
@@ -104,6 +107,9 @@ After a new `forge-next` release on PyPI, upgrade with `pipx upgrade forge-next`
 | Root-cause / incident analysis | `/forge:diagnose` | `$forge:diagnose` |
 | Dashboard | `/forge:status` | `$forge:status` |
 | Resume or cleanup | `/forge:resume` | `$forge:resume` |
+| Optional Graphify (codebase map for resume) | `/forge:graphify` | `$forge:graphify` |
+
+**Terminal:** same subcommands as `forge graphify …` (see [`docs/graphify.md`](docs/graphify.md)).
 
 **Codex:** `forge install --codex` installs skills under `~/.codex/skills/forge/` (see [`integrations/codex/README.md`](integrations/codex/README.md)). In the app you invoke `$forge:<subcommand>`; that matches `name: forge:<subcommand>` in each `SKILL.md` (aligned with [`integrations/spec/commands.json`](integrations/spec/commands.json)).
 
@@ -142,6 +148,8 @@ pipx uninstall forge-next
 ## Session + handoff audit lifecycle
 
 - **Run memory files:** Each skill appends a short record on every step run to `memory/<skill>-runs.jsonl` and keeps only the last ~30 records.
+- **Continuity snapshot:** On every skill state save (and evaluate saves), Forge writes **`state/resume-context.json`** with skill, steps, invocation hint, state path, and pointers to the latest handoff / `current-step.md` for `forge resume` and new chat pickup.
+- **Memory synthesis:** The same saves refresh **`memory/forge-memory-synthesis.md`** — an explicit merge of `project.md`, `current-step.md`, and recent `handoff-*.md` excerpts (see `templates/memory-protocol.md`). Resume prefers this file for the memory narrative when present.
 - **Audit linkage:** Run-memory records include `state_path`/`session_ref` and `handoff_path`/`handoff_ref` (when a handoff exists), plus timestamp and summary.
 - **Handoff closure:** Handoffs are consumed on step-1 intake of downstream skills (for example plan consumes develop handoff, code-review consumes implement handoff, test consumes code-review/implement handoffs).
 - **Session completeness:** Active-session detection treats a run as complete when either `completed_at` is set or legacy state reached max step (`current_step >= max_step` and `last_completed_step >= max_step`).
@@ -266,9 +274,9 @@ Dashboard of handoffs and active sessions.
 - **Cursor / Claude:** `/forge:resume`
 - **Codex:** `$forge:resume`
 
-Next step command(s) and cleanup; mirrors terminal `forge resume` when you need flags not exposed in the app.
+**What it does:** discovers active workflow **JSON** sessions, prints **continuity** context from `resume-context.json`, a **memory** block (prefers `forge-memory-synthesis.md`, then `current-step.md`, then handoffs), and optional **Graphify** status plus a short **GRAPH_REPORT** excerpt when those files exist. Emits the next `forge <skill> --step … --state …` line when there is a single clear session; with **multiple** active sessions, the **menu is authoritative** and synthesis/Graphify are annotation only. If snapshot and JSON state **disagree**, output shows **two** resume options and asks which source to trust before treating the command as auto-run. **Cleanup** (`--cleanup`, `--force`, `--all-stale`) lists or deletes stale state files.
 
-**Methodologies:** active-session detection, conflict vs non-conflicting workflows, step inference from state, cleanup dry-run vs forced delete; completion checks include both `completed_at` and legacy max-step states.
+**Methodologies:** active-session detection, cross-session conflict warnings from other skills, step inference from state, retry guard after repeated same-step failures, cleanup dry-run vs forced delete; completion checks include both `completed_at` and legacy max-step states.
 
 ---
 
@@ -306,6 +314,8 @@ Source: [github.com/mderganc/forge](https://github.com/mderganc/forge)
 ## Advanced: terminal and CI
 
 Outside Codex chat, hooks and automation call `forge <subcommand>` with a space (e.g. `forge plan --step 1`). That is the same engine as `/forge:plan` (Cursor/Claude) and `$forge:plan` (Codex skills invoke this binary for you). `forge --help` lists flags.
+
+**Graphify (optional):** `forge graphify refresh` runs your Graphify command (or `FORGE_GRAPHIFY_COMMAND`) and writes `graphify-status.json` under the Forge runtime state directory. `forge graphify install-hook` / `uninstall-hook` manage a **fail-soft** fragment in `.git/hooks/post-commit`. Pass `--repo <path>` when not running from the project root. See [`docs/graphify.md`](docs/graphify.md).
 
 ---
 

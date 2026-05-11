@@ -344,6 +344,19 @@ def save_state(state: SkillState, path: Path) -> None:
     except BaseException:
         Path(tmp).unlink(missing_ok=True)
         raise
+    # Continuity snapshot for `forge resume` (never break state saves).
+    try:
+        from scripts.shared import resume_context
+
+        resume_context.write_skill_resume_snapshot(state, path)
+    except Exception:
+        pass
+    try:
+        from scripts.shared import memory_synthesis
+
+        memory_synthesis.write_memory_synthesis_from_skill_state(state, path)
+    except Exception:
+        pass
 
 
 def load_state(path: Path) -> SkillState:

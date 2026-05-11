@@ -6,6 +6,7 @@ Defines conventions for the `.codex/forge-codex/memory/` directory used by all a
 
 | File | Owner | Content |
 |------|-------|---------|
+| forge-memory-synthesis.md | Forge (auto) | **Rollup only:** rewritten on each skill state save from `project.md`, `current-step.md`, and recent `handoff-*.md` excerpts so resume and new chats can open one synthesized view. Does not replace hand-written memory; refresh by running any skill step that persists state. |
 | project.md | PM | Shared context: feature name, timestamps, dependency status, autonomy level/changes, task type, scope, team composition, open findings tracker, stage markers, completion summary |
 | investigation.md | Architect | Five-why analysis per finding, root causes with evidence chains |
 | investigator.md | Investigator | Evidence gathered, five-why chains, MECE trees, barrier analysis |

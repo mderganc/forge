@@ -79,6 +79,45 @@ def save_state(state: EvalState, path: Path = DEFAULT_STATE_PATH) -> None:
     except BaseException:
         Path(tmp).unlink(missing_ok=True)
         raise
+    mode = state.mode or "pre"
+    if mode == "review":
+        max_step = 5
+    elif mode == "post":
+        max_step = 8
+    else:
+        max_step = 7
+
+    # Continuity snapshot (evaluate uses variable max_step by mode).
+    try:
+        from scripts.shared import resume_context
+
+        resume_context.write_evaluate_resume_snapshot(
+            plan_path=state.plan_path,
+            plan_name=state.plan_name,
+            mode=state.mode,
+            current_step=state.current_step,
+            last_completed_step=state.last_completed_step,
+            max_step=max_step,
+            state_path=path,
+            failure_count=int(state.failure_count or 0),
+            search_dir=None,
+        )
+    except Exception:
+        pass
+    try:
+        from scripts.shared import memory_synthesis
+
+        memory_synthesis.write_memory_synthesis_evaluate(
+            plan_name=state.plan_name,
+            mode=state.mode,
+            current_step=state.current_step,
+            last_completed_step=state.last_completed_step,
+            max_step=max_step,
+            state_path=path,
+            search_dir=None,
+        )
+    except Exception:
+        pass
 
 
 def load_state(path: Path = DEFAULT_STATE_PATH) -> EvalState:

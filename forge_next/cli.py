@@ -186,6 +186,16 @@ def build_parser() -> argparse.ArgumentParser:
     rs.add_argument("--force", action="store_true")
     rs.add_argument("--all-stale", action="store_true", dest="all_stale")
 
+    # graphify (optional codebase index + post-commit hook)
+    gf = sub.add_parser("graphify", help="Optional Graphify index refresh and git post-commit hook")
+    gf_sub = gf.add_subparsers(dest="graphify_cmd", required=True)
+    gfr = gf_sub.add_parser("refresh", help="Run Graphify if available; write graphify-status.json")
+    add_common_repo_flag(gfr)
+    gfi = gf_sub.add_parser("install-hook", help="Add fail-soft Graphify block to .git/hooks/post-commit")
+    add_common_repo_flag(gfi)
+    gfu = gf_sub.add_parser("uninstall-hook", help="Remove Forge Graphify block from .git/hooks/post-commit")
+    add_common_repo_flag(gfu)
+
     # install
     ins = sub.add_parser("install", help="Install integrations (Cursor/Claude/Codex) for this user")
     add_common_output_flags(ins)
@@ -257,6 +267,23 @@ def main(argv: list[str] | None = None) -> None:
             dry_run=bool(getattr(args, "dry_run", False)),
         )
         raise SystemExit(rc)
+
+    if cmd == "graphify":
+        from forge_next import graphify as forge_graphify
+
+        rr = _repo_root_from_args(getattr(args, "repo", None))
+        subc = getattr(args, "graphify_cmd", None)
+        if subc == "refresh":
+            raise SystemExit(forge_graphify.refresh(rr))
+        if subc == "install-hook":
+            ok, msg = forge_graphify.install_post_commit_hook(rr)
+            print(msg)
+            raise SystemExit(0 if ok else 1)
+        if subc == "uninstall-hook":
+            ok, msg = forge_graphify.uninstall_post_commit_hook(rr)
+            print(msg)
+            raise SystemExit(0 if ok else 1)
+        raise SystemExit(f"Unknown graphify subcommand: {subc!r}")
 
     if cmd == "install":
         _run_install(
@@ -644,12 +671,15 @@ def _run_install(
     except Exception as e:
         raise SystemExit(f"forge install failed (download/unpack): {e}")
 
+    from forge_next.graphify import graphify_install_notice_lines
+
     payload = {
         "command": "install",
         "repo_url": repo_url,
         "ref": ref,
         "installed": installed,
         "warnings": warnings,
+        "graphify_onboarding": graphify_install_notice_lines(),
         "error": None,
     }
 
@@ -671,6 +701,8 @@ def _run_install(
     print("Next steps:")
     print("- Restart your editor/agent environment(s) so new commands are picked up.")
     print("- Run: forge doctor")
+    for line in graphify_install_notice_lines():
+        print(line.rstrip())
 
 
 def _run_uninstall(

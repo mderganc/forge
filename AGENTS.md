@@ -100,3 +100,13 @@ All reads use `.get(key, default)` pattern for backward compatibility with legac
 The recommendation sidecar persists at `<state-dir>/.test-recommendation-step2.json` (step-numbered, mirrors evaluate's findings sidecar convention). Schema: `{"chosen": "<type>", "reasoning": "...", "confidence": 0.0-1.0, "alternatives": [...]}`. Ingested at step 3; malformed sidecar aborts with `sys.exit(1)` and stderr message.
 
 The scenario-index update at `<scenarios_dir>/README.md` is parser-gated; on parse failure, report step aborts and leaves file unchanged. Backup written to `.codex/forge-codex/memory/scenario-index.bak` before any rewrite.
+
+## graphify
+
+This project has a knowledge graph at graphify-out/ with god nodes, community structure, and cross-file relationships.
+
+Rules:
+- ALWAYS read graphify-out/GRAPH_REPORT.md before reading any source files, running grep/glob searches, or answering codebase questions. The graph is your primary map of the codebase.
+- IF graphify-out/wiki/index.md EXISTS, navigate it instead of reading raw files
+- For cross-module "how does X relate to Y" questions, prefer `graphify query "<question>"`, `graphify path "<A>" "<B>"`, or `graphify explain "<concept>"` over grep — these traverse the graph's EXTRACTED + INFERRED edges instead of scanning files
+- After modifying code, run `graphify update .` to keep the graph current (AST-only, no API cost).

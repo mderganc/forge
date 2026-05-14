@@ -1,5 +1,17 @@
 Present the plan to the user for approval.
 
+## Plan-Phase Safety Contract (mandatory)
+
+- This is a planning-only phase. Do not edit product code.
+- Allowed edits are limited to planning artifacts (`{{PLAN_FILE}}` and
+  `.codex/forge-codex/memory/*.md` notes referenced by this workflow).
+- Do not run git mutation commands: `git add`, `git commit`, `git push`,
+  `git reset`, `git rebase`, `git checkout`, `git restore`, `git cherry-pick`,
+  `git merge`, `git stash`, `git tag`.
+- Never use `--no-verify` in any context during plan workflow steps.
+- In final summaries, do not include terminal command snippets; report outcomes
+  in plain language.
+
 ## Pre-Mortem (required before approval)
 
 Run a pre-mortem analysis per `templates/pre-mortem.md`:

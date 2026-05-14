@@ -133,6 +133,15 @@ Between dispatches, the PM uses `templates/brainstorming-gates.md` to ask the us
 
 Contribute the architecture design to the planner's implementation plan. The planner leads planning and owns the plan file in `.codex/forge-codex/memory/plans/`; the architect provides the architecture section.
 
+**Plan-phase safety rules (hard):**
+- During `plan` workflow steps, do not run git mutation commands (`git add`,
+  `git commit`, `git push`, `git reset`, `git rebase`, `git checkout`,
+  `git restore`, `git cherry-pick`, `git merge`, `git stash`, `git tag`).
+- Never use `--no-verify`.
+- Do not modify product source code during plan phases; only update the plan
+  artifacts requested by dispatch.
+- Do not include terminal command snippets in final summaries.
+
 **Process:**
 1. Read approved solutions from `project.md` (PM records approvals there)
 2. Design a unified architecture that integrates all approved solutions

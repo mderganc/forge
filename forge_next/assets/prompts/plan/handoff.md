@@ -23,7 +23,11 @@ fill them and re-run step 7.
 - `evaluate --mode pre` (optional: review plan before implementing)
 - `implement` (proceed directly to implementation)
 
-## Git Checkpoint
-```
-git add .codex/forge-codex/ && git commit -m "workflow: plan complete"
-```
+## Plan-Phase Safety Contract (mandatory)
+
+- Do not run git mutation commands during plan handoff (`git add`, `git commit`,
+  `git push`, `git reset`, `git rebase`, `git checkout`, `git restore`,
+  `git cherry-pick`, `git merge`, `git stash`, `git tag`).
+- Never use `--no-verify` in any context during plan workflow steps.
+- Do not include terminal command snippets in the final summary; report
+  handoff status in plain language.

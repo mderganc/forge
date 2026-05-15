@@ -19,6 +19,7 @@ Write the final code review report and hand off to the test skill.
 Write the report to `.codex/forge-codex/memory/code-review-report.md` with this structure:
 
 - Summary section with mode, target, date, reviewers
+- **Pass A / Pass B summary:** counts (or short bullet list) of findings by pass — align with the *Two-pass review framework* from phase 2 (mode selection)
 - Findings table: ID, Severity, Title, Status
 - Detailed findings: each with severity, source reviewer, file:line, detail, recommendation
 - High-level recommendations

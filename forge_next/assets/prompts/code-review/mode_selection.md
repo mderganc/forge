@@ -30,6 +30,17 @@ Best for reviewing design decisions, structural patterns, and system health.
 - Review dependency direction and layering
 - Evaluate extensibility and maintainability
 
+## Two-pass review framework (Pass A / Pass B)
+
+Use **both** passes for every finding; note which pass drives each issue (labels help the report and triage). Canonical definitions for later phases:
+
+| Pass | Question | Typical lenses |
+|------|-----------|----------------|
+| **Pass A — Spec / intent** | Does the change do **what was agreed** (plan, ticket, design, stated user-visible behavior)? | Completeness vs requirements, wrong behavior, missing cases, mismatched API or UX promises |
+| **Pass B — Engineering quality** | Is the solution **sound, safe, and maintainable** even if it “works”? | Security, tests, readability, coupling, observability, performance footguns, operational risk |
+
+Pass A issues often block “done”; Pass B issues may be warnings or follow-ups depending on severity.
+
 ## Your Task
 
 1. **Confirm the mode** with the user (or auto-confirm if the mode is obvious)

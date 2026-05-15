@@ -467,6 +467,49 @@ def test_step_output_prompts_when_next_step_is_ambiguous():
     assert "should i continue into step 2?" in lower
 
 
+def test_forge_session_opt_in_banner_step1_only(monkeypatch: pytest.MonkeyPatch) -> None:
+    from scripts.shared.orchestrator import forge_session_opt_in_banner
+
+    assert "SESSION OPT-IN" in forge_session_opt_in_banner("develop", 1)
+    assert forge_session_opt_in_banner("iterate", 2) == ""
+    monkeypatch.setenv("FORGE_SKIP_SESSION_OPTIN", "1")
+    assert forge_session_opt_in_banner("develop", 1) == ""
+
+
+def test_format_step_output_includes_session_opt_in_on_step1_only() -> None:
+    from scripts.shared.orchestrator import format_step_output
+
+    out = format_step_output(
+        "develop",
+        1,
+        7,
+        "Startup",
+        "BODY",
+        next_cmd="$forge:develop --step 2 --state .codex/forge-codex/state/develop.json",
+    )
+    assert "SESSION OPT-IN" in out
+    out2 = format_step_output(
+        "develop",
+        2,
+        7,
+        "Scope",
+        "BODY",
+        next_cmd="$forge:develop --step 3 --state .codex/forge-codex/state/develop.json",
+    )
+    assert "SESSION OPT-IN" not in out2
+
+
+def test_evaluate_format_output_includes_opt_in_only_on_step_1() -> None:
+    from scripts.evaluate.evaluate import _format_output
+
+    o1 = _format_output("T", "B", "", mode="pre", step=1)
+    assert "SESSION OPT-IN" in o1
+    o2 = _format_output("T", "B", "", mode="pre", step=2)
+    assert "SESSION OPT-IN" not in o2
+    o_none = _format_output("T", "B", "", mode=None, step=None)
+    assert "SESSION OPT-IN" not in o_none
+
+
 # ---------------------------------------------------------------------------
 # Fix 2 — Mock-flow type catalog (prose + typed)
 # ---------------------------------------------------------------------------

@@ -31,6 +31,7 @@ from scripts.shared.orchestrator import (
     build_next_command,
     build_skill_handoff_menu,
     clear_state_file,
+    forge_session_opt_in_banner,
     load_state,
     now_iso,
     runtime_memory_dir,
@@ -457,7 +458,8 @@ def handle_step_1(args: argparse.Namespace, sp: Path) -> None:
 
     next_cmd = build_next_command(SCRIPT_DIR / "iterate.py", 1, MAX_STEP)
     title = f"{SKILL_NAME.upper()} — Initialize (Step 1 of {MAX_STEP})"
-    print(_format_out(title, "\n".join(body_parts), next_cmd))
+    body = forge_session_opt_in_banner(SKILL_NAME, 1) + "\n".join(body_parts)
+    print(_format_out(title, body, next_cmd))
 
 
 def handle_step_n(step: int, sp: Path, _args: argparse.Namespace) -> None:
@@ -695,7 +697,13 @@ def handle_step_n(step: int, sp: Path, _args: argparse.Namespace) -> None:
         _log("Unknown")
 
     if step != 9:
-        print(_format_out(f"{SKILL_NAME.upper()} — Step {step} of {MAX_STEP}", body, next_cmd))
+        print(
+            _format_out(
+                f"{SKILL_NAME.upper()} — Step {step} of {MAX_STEP}",
+                body,
+                next_cmd,
+            )
+        )
 
 
 def main() -> None:

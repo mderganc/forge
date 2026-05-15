@@ -19,6 +19,8 @@ Present findings organized by severity:
 
 Include code references (file:line) and explain the "why" for each finding.
 
+When presenting findings, **group or tag by Pass A vs Pass B** (from mode selection — *Two-pass review framework*) where it helps the user: **Pass A** = intent/spec/requirements; **Pass B** = maintainability, security, tests, ops. Severity is shared across both.
+
 ### Per-Finding Triage
 
 For each **critical** or **warning** finding, ask the user directly how to

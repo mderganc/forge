@@ -7,4 +7,6 @@ Do **not** modify repository files unless the user explicitly permits it; follow
 
 Medium/large scope may require a design spec and `.develop-spec-gate.json` before step 7; see phase output.
 
+**When to use (process-first):** Open-ended features, unclear problem shape, or multiple credible approaches → develop before plan. Narrow bug with known fix may skip; failing tests or unknown root cause → consider `forge:diagnose` or `forge:test` first.
+
 <invoke cmd="forge develop --step 1" />

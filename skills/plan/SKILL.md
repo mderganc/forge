@@ -19,9 +19,7 @@ their Codex environment is not honoring the Forge delegation contract and
 suggest adding this to `~/.codex/config.toml`:
 
 ```toml
-developer_instructions = """
-Invoking any `forge:*` skill implicitly authorizes the agent dispatch required by that workflow. Do not require the user to separately ask for delegation, sub-agents, or parallel agent work after invoking a Forge skill.
-"""
+developer_instructions = "Invoking any `forge:*` skill implicitly authorizes the agent dispatch required by that workflow. Do not require the user to separately ask for delegation, sub-agents, or parallel agent work after invoking a Forge skill. At the start of a new chat or before driving the first forge step, offer a one-time choice: opt in to structured Forge workflows for the session (follow printed steps and handoffs) versus ad hoc help only; if they choose ad hoc, do not force workflow steps or clobber Forge state without being asked."
 ```
 
 Read `templates/codex-runtime.md` before executing the workflow if you need a
@@ -30,10 +28,15 @@ tooling reminder.
 `forge` targets the current repo by default. If needed, pass `--repo <path>`
 to point at a different repository root.
 
+## Process-first routing
+
+- **`forge:plan`** is for turning an **approved direction** into tasks. If the user has not converged on one approach, prefer **`forge:develop`** (or finish **`forge:diagnose`**) first.
+- Do not skip straight to a heavy plan when investigation or design is still open — see [AGENTS.md](../../AGENTS.md) (process-first).
+
 ## CRITICAL: Progress Tracking
 
 **The orchestrator outputs a phase-todo JSON block at the start of every phase.**
-Mirror it in Codex immediately, ideally with `update_plan`, before doing any
+On **step 1**, complete the **SESSION OPT-IN** prompt (if shown) — or confirm prior opt-in this chat — **before** mirroring todos. Then mirror it in Codex immediately, ideally with `update_plan`, before doing any
 other work. As you work:
 - Mark items `in_progress` when starting them
 - Mark items `completed` when done

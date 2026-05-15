@@ -28,6 +28,13 @@ Render skill completion dashboard with:
 git add .codex/forge-codex/ && git commit -m "workflow: implementation complete"
 ```
 
+## Closure checklist (before merge / PR)
+
+- [ ] **Branch:** on the intended feature branch; unrelated work reverted or on another branch.
+- [ ] **Tests:** suite relevant to this change is green (or documented exceptions).
+- [ ] **Worktree:** if you used `git worktree`, remove or archive the extra checkout when done (`git worktree remove …` when appropriate).
+- [ ] **PR / link:** open or update the pull request (or note merge target) in handoff memory.
+
 ## Suggested Next
 
 `code-review`

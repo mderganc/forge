@@ -27,6 +27,9 @@ Present scored solutions summary:
 
 Frame approval as **closure of a design conversation**, not a rubber stamp. If the user hesitates, explore why—**Revise** and **Alternate** are healthy paths that keep creative iteration alive.
 
+- **YAGNI / scope:** If the scored options include speculative breadth, call it out; confirm the user wants that surface area before approval.
+- **Evidence:** The recommendation should rest on investigation outputs and explicit criteria — not untested assumptions. Flag gaps before the user approves.
+
 Then ask the user directly for approval (per `templates/user-questions.md`).
 
 ### Solution decision

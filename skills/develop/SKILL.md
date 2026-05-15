@@ -19,18 +19,27 @@ their Codex environment is not honoring the Forge delegation contract and
 suggest adding this to `~/.codex/config.toml`:
 
 ```toml
-developer_instructions = """
-Invoking any `forge:*` skill implicitly authorizes the agent dispatch required by that workflow. Do not require the user to separately ask for delegation, sub-agents, or parallel agent work after invoking a Forge skill.
-"""
+developer_instructions = "Invoking any `forge:*` skill implicitly authorizes the agent dispatch required by that workflow. Do not require the user to separately ask for delegation, sub-agents, or parallel agent work after invoking a Forge skill. At the start of a new chat or before driving the first forge step, offer a one-time choice: opt in to structured Forge workflows for the session (follow printed steps and handoffs) versus ad hoc help only; if they choose ad hoc, do not force workflow steps or clobber Forge state without being asked."
 ```
 
 Read `templates/codex-runtime.md` before executing the workflow if you need a
 tooling reminder.
 
+## When to invoke `develop` (process-first)
+
+| Situation | Prefer |
+|-----------|--------|
+| Open-ended feature or refactor, unclear problem shape, multiple credible approaches | **`forge:develop`** |
+| Narrow bug with an obvious fix and user wants speed | May go straight to fix or **`forge:diagnose`** if uncertain |
+| Approved direction or handoff from develop; need task breakdown | **`forge:plan`** |
+| Tests failing after recent work | **`forge:test`**; if root cause unclear, **`forge:diagnose`** |
+
+Prefer **exploration** (`develop` / `diagnose`) before **locking a plan** when the user has not picked one approach.
+
 ## CRITICAL: Progress Tracking
 
 **The orchestrator outputs a phase-todo JSON block at the start of every phase.**
-Mirror it in Codex immediately, ideally with `update_plan`, before doing any
+On **step 1**, complete the **SESSION OPT-IN** prompt (if shown) — or confirm the user already opted in this chat — **before** mirroring those todos or doing other phase work. Then mirror the JSON in Codex immediately, ideally with `update_plan`, before doing any
 other work. As you work:
 - Mark items `in_progress` when starting them
 - Mark items `completed` when done

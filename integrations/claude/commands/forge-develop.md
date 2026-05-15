@@ -15,6 +15,7 @@ description: Investigate the problem space before planning.
 
 - **Develop** explores problems, options, and evidence before formal planning.
 - Clarify goals and whether they want a lighter pacing option.
+- **Routing:** Prefer develop when the shape of the work is still unclear; if the user already has a single approved approach, they may be ready for plan instead. Unclear incidents or test failures → diagnose / test before big planning.
 
 ## What you run (agent)
 

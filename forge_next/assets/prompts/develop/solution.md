@@ -7,6 +7,8 @@
 - **No implementation** in Stage 2 — only investigation-backed design, memory artifacts, and user-facing choices.
 - **One question at a time** during PM-led clarifications and gates (prefer multiple-choice when possible). Do not bury the user in combined questionnaires unless a gate template explicitly batches for efficiency.
 - **Approach framing checkpoint** (before Dispatch 3 scoring): pause and present **2–3** coherent directions synthesizing the work so far — trade-offs, recommendation, and what would change the call. This is separate from raw divergent lists; it is the “compressed story” for the user.
+- **YAGNI:** Challenge speculative scope, optional features, and “future-proofing” not grounded in the current problem or investigation — drop or defer unless the user insists with trade-offs recorded.
+- **Evidence over claims:** Tie every recommended direction to artifacts from Stage 1 (investigation, history, metrics) or explicit user statements — avoid assertions that are not traceable to evidence.
 
 Stage 2 is where **creative solution design** lives: divergent ideas, explicit technique choices, and scored candidates—not a single “best guess.” Treat every gate as a **real conversation**: explain tradeoffs in plain language, invite pushback, and treat user choices as creative input, not bureaucracy.
 

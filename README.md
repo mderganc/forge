@@ -288,13 +288,13 @@ After `forge install --codex`, skills live under `~/.codex/skills/forge/<folder>
 
 Invoke with `$forge:…` (mention / skill picker), `/use` with the skill name, `/skills`, or implicit matching on `description`. When transcript output shows `forge: …` handoff labels, your next step in Codex is the matching `$forge:…`. The `forge` binary is what skills run under the hood; you do not type `forge …` as the Codex-side workflow entrypoint ([Advanced](#advanced-terminal-and-ci) for shells and CI).
 
-**Sub-agents (delegation):** Forge workflows expect Codex to allow `spawn_agent` / `close_agent` without you typing extra “use sub-agents” wording. Add this to `~/.codex/config.toml` (same text the skill pack suggests when policy blocks delegation):
+**Sub-agents (delegation):** Forge workflows expect Codex to allow `spawn_agent` / `close_agent` without you typing extra “use sub-agents” wording. Prefer running **`forge codex-agents`** once so `~/.codex/config.toml` gets the canonical `developer_instructions` text (sub-agent opt-in + session forge opt-in). If you paste manually, keep it in sync with **`forge_next/codex_agents.py`** / **`FORGE_DEVELOPER_INSTRUCTIONS_BODY`**.
 
 ```toml
-developer_instructions = "Invoking any `forge:*` skill implicitly authorizes the agent dispatch required by that workflow. Do not require the user to separately ask for delegation, sub-agents, or parallel agent work after invoking a Forge skill."
+developer_instructions = "Invoking any `forge:*` skill implicitly authorizes the agent dispatch required by that workflow. Do not require the user to separately ask for delegation, sub-agents, or parallel agent work after invoking a Forge skill. At the start of a new chat or before driving the first forge step, offer a one-time choice: opt in to structured Forge workflows for the session (follow printed steps and handoffs) versus ad hoc help only; if they choose ad hoc, do not force workflow steps or clobber Forge state without being asked."
 ```
 
-Install it automatically (merges into existing config, preserves other keys): run `codex-agents` or `forge codex-agents` once after installing **forge-next**. Use `codex-agents --force` only if you already have a different `developer_instructions` and want to replace it. Restart Codex after changing config if tools or policy do not pick up the file immediately.
+Install it automatically (merges into existing config, preserves other keys): run `codex-agents` or `forge codex-agents` once after installing **forge-next**. If `developer_instructions` already exists and differs, use **`codex-agents --force`** (or merge by hand) so you pick up updates; otherwise the tool refuses to overwrite. Restart Codex after changing config if tools or policy do not pick up the file immediately.
 
 For agent lifecycle (every `spawn_agent` paired with `close_agent` across steps), follow [AGENTS.md](AGENTS.md) and `templates/codex-runtime.md` — that is separate from the snippet above.
 
@@ -316,6 +316,8 @@ Source: [github.com/mderganc/forge](https://github.com/mderganc/forge)
 ## Advanced: terminal and CI
 
 Outside Codex chat, hooks and automation call `forge <subcommand>` with a space (e.g. `forge plan --step 1`). That is the same engine as `/forge:plan` (Cursor/Claude) and `$forge:plan` (Codex skills invoke this binary for you). `forge --help` lists flags.
+
+**Automation / CI:** Set **`FORGE_SKIP_SESSION_OPTIN=1`** (or `true`, `yes`, `on`) to suppress the **session opt-in** banner that step 1 of each forge skill prints above phase todos.
 
 **Graphify (optional):** `forge graphify refresh` runs your Graphify command (or `FORGE_GRAPHIFY_COMMAND`) and writes `graphify-status.json` under the Forge runtime state directory. `forge graphify install-hook` / `uninstall-hook` manage a **fail-soft** fragment in `.git/hooks/post-commit`. Pass `--repo <path>` when not running from the project root. See [`docs/graphify.md`](docs/graphify.md).
 

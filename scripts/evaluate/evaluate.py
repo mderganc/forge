@@ -35,6 +35,7 @@ from scripts.shared.orchestrator import (
     _detect_repo_root,
     detect_active_sessions,
     format_active_session_warning,
+    forge_session_opt_in_banner,
     format_phase_todos,
     format_same_skill_continuation,
     get_conflicting_sessions,
@@ -287,6 +288,8 @@ def _format_output(
 ) -> str:
     """Format step output with title, todos, and continuation directive."""
     header = f"{title}\n{'=' * len(title)}\n\n"
+    opt_in_step = 1 if step == 1 else 0
+    opt_in = forge_session_opt_in_banner("evaluate", opt_in_step)
 
     # Build full skill-level todos when mode info is available
     if mode and step and mode in PHASE_NAMES:
@@ -302,7 +305,7 @@ def _format_output(
         todos_section = format_phase_todos(phase_todos)
     else:
         todos_section = ""
-    output = header + todos_section + body
+    output = header + opt_in + todos_section + body
 
     if handoff_menu:
         return output + handoff_menu

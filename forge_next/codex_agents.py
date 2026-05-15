@@ -13,7 +13,11 @@ import tomlkit
 FORGE_DEVELOPER_INSTRUCTIONS_BODY = (
     "Invoking any `forge:*` skill implicitly authorizes the agent dispatch required by that "
     "workflow. Do not require the user to separately ask for delegation, sub-agents, or parallel "
-    "agent work after invoking a Forge skill."
+    "agent work after invoking a Forge skill. "
+    "At the start of a new chat or before driving the first forge step, offer a one-time choice: "
+    "opt in to structured Forge workflows for the session (follow printed steps and handoffs) "
+    "versus ad hoc help only; if they choose ad hoc, do not force workflow steps or clobber "
+    "Forge state without being asked."
 )
 
 

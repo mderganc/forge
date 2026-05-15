@@ -55,3 +55,17 @@ Before proceeding, verify:
 4. **Never create branches with `forge/` prefix.** Valid prefixes are only: `feat/`, `fix/`, `chore/`, `refactor/`, `docs/`, `hotfix/`.
 
 Record branch name in `.codex/forge-codex/memory/project.md`.
+
+## Optional: git worktree (second checkout)
+
+**Default:** Parallel tasks use **task sub-branches** from one working tree per `templates/parallel-dispatch.md`.
+
+**When to consider `git worktree` instead:** You want **`main` untouched** in the current directory, or a **long-lived second line of work** in parallel without constantly switching branches in a single tree — i.e. a separate folder linked to the same repo is simpler than many short-lived sub-branches.
+
+If the team chooses a worktree:
+
+1. From the repo root, add a linked checkout (example — adjust paths for your OS; `main` may be `master`):
+   - `git worktree add ../my-repo-workstream {{FEATURE_BRANCH_PATTERN}}`
+2. Run project setup and a **clean test baseline** in that tree before implementation (same expectations as a normal branch checkout).
+
+This is **optional** — do not treat worktrees and sub-branches as two mandatory patterns; pick one strategy per effort.

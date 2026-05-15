@@ -30,9 +30,9 @@ Re-read the spec and fix before involving the user:
 3. **Scope:** one coherent plan-sized design; flag if it needs splitting.
 4. **Ambiguity:** every requirement has one clear interpretation.
 
-## 3. User review
+## 3. User review (chunked)
 
-Ask the user to read the spec file and approve explicitly. **One question at a time** if you need clarifications after their read.
+Present the written spec to the user in **2–4 chunks** aligned with [templates/design-spec.md](templates/design-spec.md) (*Review with the user in chunks*): e.g. (1) goals / non-goals / constraints, (2) candidate snapshot + chosen design, (3) data/ops/tests, (4) rollout / assumptions / open questions. **Confirm each chunk** before moving on; use **one question at a time** for follow-ups. After the final chunk and any edits, ask for explicit approval to record the gate.
 
 ## 4. Record completion (mandatory for step 7)
 

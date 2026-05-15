@@ -2,6 +2,8 @@
 
 Dispatch all reviewers to analyze the PR diff in parallel.
 
+**Pass A / Pass B:** Apply the **Two-pass review framework** from phase 2 (*Mode selection*). Each reviewer should consider both **spec/intent alignment (Pass A)** and **engineering quality (Pass B)** when listing findings.
+
 ## Review Target
 
 **Mode:** PR Review

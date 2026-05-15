@@ -23,6 +23,23 @@ The canonical skill-chain mapping lives in `scripts/shared/skill_chain.py` as th
 
 The `(stop)` option is always last. The state file persists, and workflows can resume with `python3 scripts/shared/resume.py` at any time.
 
+## Session opt-in (step 1)
+
+Orchestrator output for **step 1** of workflow skills includes a **SESSION OPT-IN** block: the agent should confirm whether the user wants structured Forge for the chat vs ad hoc help, **before** mirroring phase todos. Suppress the block in automation with **`FORGE_SKIP_SESSION_OPTIN=1`** (see README Advanced). Codex installs should run **`forge codex-agents`** so `developer_instructions` includes the same expectation.
+
+## Process-first skill choice (Superpowers-style)
+
+When unsure which workflow to drive, prefer **investigation / diagnosis** before locking execution:
+
+| Signal | Suggested direction |
+|--------|---------------------|
+| Multiple approaches, unclear requirements, greenfield shape | **`develop`** |
+| Root cause unknown, incident, flaky failures | **`diagnose`** |
+| Single approved direction or develop handoff — need tasks and waves | **`plan`** |
+| Regression in test suite | **`test`** then **`diagnose`** if cause unclear |
+
+Skill-specific tables also live in `skills/develop/SKILL.md`, `skills/diagnose/SKILL.md`, and `skills/plan/SKILL.md`.
+
 ## Forge Skill Delegation Contract
 
 Invoking a Forge workflow skill is itself permission to dispatch the Forge agent team required by that workflow.

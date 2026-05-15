@@ -581,6 +581,42 @@ def next_skill_command(current_skill: str) -> str | None:
     return PIPELINE_FLOW.get(current_skill)
 
 
+def skip_forge_session_opt_in() -> bool:
+    """Return True when step-1 session opt-in banner should be suppressed."""
+    v = os.environ.get("FORGE_SKIP_SESSION_OPTIN", "").strip().lower()
+    return v in ("1", "true", "yes", "on")
+
+
+def forge_session_opt_in_banner(skill_name: str, step: int) -> str:
+    """Prompt agents to offer structured Forge workflows vs ad-hoc help (step 1 only).
+
+    Shown at the start of any skill when ``step == 1``, unless
+    ``FORGE_SKIP_SESSION_OPTIN`` is set (automation / CI).
+    """
+    if step != 1 or skip_forge_session_opt_in():
+        return ""
+    bar = ("=" * 60) if os.environ.get("FORGE_ASCII") == "1" else ("━" * 60)
+    slug = skill_name.strip().lower()
+    return (
+        f"{bar}\n"
+        "SESSION OPT-IN — Forge structured workflows\n"
+        f"{bar}\n\n"
+        "**Before mirroring or acting on the “Create Phase Todos” block below,** complete "
+        "this opt-in with the user (unless they already confirmed earlier in this chat).\n\n"
+        f"You are on **step 1** of **`{slug}`** — a multi-step Forge skill (printed "
+        "prompts, gates, handoff menus).\n\n"
+        "**Pause and ask the user once** (unless they already answered in this chat):\n\n"
+        "- **Opt in:** They want Forge for this session — follow each step, run suggested "
+        "`/forge:…`, `$forge:…`, or `forge …` lines, and honor handoffs.\n"
+        "- **Ad hoc:** Informal help only — do not drive the full workflow or touch Forge "
+        "state unless they ask.\n\n"
+        "If they already opted in earlier in this conversation, skip repeating the "
+        "question; add a line under `## Forge session` in `project.md`: "
+        "`forge_skills: opted_in` (optional short note).\n\n"
+        "_To hide this block (e.g. CI): set `FORGE_SKIP_SESSION_OPTIN=1`._\n\n"
+    )
+
+
 def format_active_session_warning(sessions: list[dict], starting_skill: str) -> str:
     """Render a Codex-friendly cross-session conflict prompt.
 
@@ -935,9 +971,10 @@ def format_step_output(
     """
     title = f"{skill_name.upper()} — {phase_name} (Step {step} of {max_step})"
     header = f"{title}\n{'=' * len(title)}\n\n"
+    opt_in_section = forge_session_opt_in_banner(skill_name, step)
 
-    # Todos come first so Codex creates them before doing phase work.
-    # Prefer full skill-level todos when available; fall back to per-phase.
+    # Step 1 may insert a session opt-in block, then phase todos (for Codex plan
+    # mirroring), then body.
     if all_phase_names:
         # If caller provided a per-step phase_todos override (e.g. implement's
         # wave-scoped todos), use it for the current step's sub-tasks instead
@@ -956,7 +993,7 @@ def format_step_output(
         todos_section = format_phase_todos(phase_todos)
     else:
         todos_section = ""
-    output = header + todos_section + body
+    output = header + opt_in_section + todos_section + body
 
     if handoff_menu:
         output += "\n\n" + handoff_menu

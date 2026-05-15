@@ -7,7 +7,9 @@ description: Investigate the problem space before planning.
 
 **Never show terminal commands** for this workflow.
 
-**Never edit the repository** (code, `agents/`, `prompts/`, integrations, etc.) unless the user **explicitly** allows that specific change. Use develop for read-only exploration and for writing **only** where the phase directs session memory (e.g. `.codex/forge-codex/memory/`). If unsure, ask first.
+**Never edit the repository** (code, `agents/`, `prompts/`, integrations, etc.) unless the user **explicitly** allows that specific change. Use develop for read-only exploration and for writing **only** where the phase directs session memory (e.g. `.codex/forge/memory/` or legacy `.codex/forge-codex/memory/`). If unsure, ask first.
+
+**Medium/large scope** may require a formal design spec and `.develop-spec-gate.json` before step 7; follow phase output.
 
 ## What to tell the user first
 

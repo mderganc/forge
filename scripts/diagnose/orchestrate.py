@@ -36,6 +36,7 @@ from scripts.shared.orchestrator import (
     append_skill_run_memory,
     build_base_parser,
     build_next_command,
+    build_skill_handoff_menu,
     check_same_skill_clobber,
     clear_state_file,
     detect_active_sessions,
@@ -45,7 +46,6 @@ from scripts.shared.orchestrator import (
     get_conflicting_sessions,
     format_step_output,
     load_state,
-    next_skill_command,
     now_iso,
     runtime_state_path,
     save_state,
@@ -247,17 +247,28 @@ def _build_variables(state: SkillState) -> dict[str, str]:
         )
     elif complexity == "complex":
         complexity_check = (
-            "Complexity assessment: **COMPLEX** (>2 files or architectural changes).\n"
-            "Skip this phase. Hand off to `plan` then `implement`.\n"
+            "Complexity assessment: **COMPLEX** (multi-file or architectural, but a single "
+            "dominant implementation path is clear).\n"
+            "Skip this phase. Hand off to **`plan`** then `implement`.\n"
             "Write the handoff file with root causes and recommended solution."
+        )
+    elif complexity == "large":
+        complexity_check = (
+            "Complexity assessment: **LARGE / SYSTEMIC** (under-specified solution space, "
+            "major cross-subsystem trade-offs, or multiple viable architectures).\n"
+            "Skip quick implementation in this phase. Hand off to **`develop`** first for "
+            "design/brainstorming, then **`plan`**.\n"
+            "Write the handoff file with root causes, constraints, and known unknowns."
         )
     else:
         complexity_check = (
             "Complexity not yet assessed. Before proceeding, evaluate:\n"
             "- How many files does the fix touch?\n"
-            "- Does it require architectural changes?\n\n"
-            "If <=2 files and no architectural changes -> set complexity to 'simple' and proceed.\n"
-            "If >2 files or architectural changes -> set complexity to 'complex' and hand off."
+            "- Does it require architectural changes?\n"
+            "- Is there one clear implementation shape, or are major design choices still open?\n\n"
+            "If <=2 files and no architectural changes → set `fix_complexity` to `simple` and proceed.\n"
+            "If multi-file / architectural **and** one dominant fix path → set to `complex` and hand off to `plan`.\n"
+            "If systemic / multi-strategy / unclear best shape → set to `large` and hand off to `develop` first."
         )
 
     return {
@@ -358,17 +369,26 @@ def handle_step_n(step: int, state_file: str | None = None, mode: str | None = N
     save_state(state, sp)
 
     # Phase 6 special: complexity gate
-    if step == 6 and state.custom.get("fix_complexity") == "complex":
+    fc = state.custom.get("fix_complexity", "unknown")
+    if step == 6 and fc == "complex":
         body += (
             "\n\n---\n\n"
-            "**COMPLEXITY GATE TRIGGERED:** Fix is too complex for quick implementation.\n"
+            "**COMPLEXITY GATE TRIGGERED (complex):** Fix is too broad for quick implementation here.\n"
             "Write handoff file and direct user to `plan` -> `implement`.\n"
+            "Then skip to Phase 7 (Report).\n"
+        )
+    if step == 6 and fc == "large":
+        body += (
+            "\n\n---\n\n"
+            "**COMPLEXITY GATE TRIGGERED (large / systemic):** Solution space needs design work before planning.\n"
+            "Write handoff file and direct user to **`develop`** (brainstorm / design) → then **`plan`** → `implement`.\n"
             "Then skip to Phase 7 (Report).\n"
         )
 
     # Phase 7: mark complete and write handoff
     is_last = step >= MAX_STEP
     cross_skill_next = None
+    handoff_menu = None
     handoff_path: Path | None = None
     run_summary = f"Completed step {step} ({PHASE_NAMES.get(step, f'Step {step}')})."
     if is_last:
@@ -377,7 +397,18 @@ def handle_step_n(step: int, state_file: str | None = None, mode: str | None = N
         save_state(state, sp)
 
         complexity = state.custom.get("fix_complexity", "unknown")
-        suggested_next = "plan" if complexity == "complex" else "(end of flow)"
+        if complexity == "large":
+            suggested_next = "develop"
+        elif complexity == "complex":
+            suggested_next = "plan"
+        else:
+            suggested_next = "(end of flow)"
+
+        routing = (
+            "develop → plan"
+            if complexity == "large"
+            else ("plan → implement" if complexity == "complex" else "resolved / choose next skill from menu")
+        )
 
         handoff_path = write_handoff(
             skill_name=SKILL_NAME,
@@ -385,14 +416,13 @@ def handle_step_n(step: int, state_file: str | None = None, mode: str | None = N
             context={
                 "Root cause": state.custom.get("root_cause", "see report"),
                 "Fix complexity": complexity,
+                "Routing": routing,
                 "Autonomy mode": state.custom.get("autonomy_mode", "guided"),
                 "Open findings": str(len(state.open_findings())),
             },
             suggested_next=suggested_next,
         )
-        # Only emit cross-skill transition if we're redirecting to plan
-        if complexity == "complex":
-            cross_skill_next = "plan"
+        handoff_menu = build_skill_handoff_menu(SKILL_NAME, state, sp)
         clear_state_file(sp)
         run_summary = "Completed diagnose workflow, wrote handoff, and closed session state."
 
@@ -401,6 +431,8 @@ def handle_step_n(step: int, state_file: str | None = None, mode: str | None = N
         save_state(state, sp)
         if step == 6 and state.custom.get("fix_complexity") == "complex":
             run_summary = "Complexity gate triggered; diagnose prepared handoff path for planning flow."
+        if step == 6 and state.custom.get("fix_complexity") == "large":
+            run_summary = "Large-complexity gate triggered; diagnose prepared handoff path for develop → plan."
 
     # Build next command
     if is_last:
@@ -419,6 +451,7 @@ def handle_step_n(step: int, state_file: str | None = None, mode: str | None = N
         next_cmd=next_cmd,
         phase_todos=PHASE_TODOS.get(step, []),
         cross_skill_next=cross_skill_next,
+        handoff_menu=handoff_menu,
         all_phase_names=PHASE_NAMES,
         all_phase_todos=PHASE_TODOS,
     )

@@ -98,7 +98,10 @@ The Investigator agent carries supporting methodology detail — see
 
 ## Workflow Handoff
 
-`diagnose` is terminal in the canonical chain — its handoff menu has no
-default ("workflow terminates here"). Numbered alternatives are `forge:plan`
-(act on findings), `forge:implement`, `forge:develop`, and `(stop)`. Reply
-with a number or literal command. See `scripts/shared/skill_chain.py`.
+On the final phase, the orchestrator emits a **WORKFLOW HANDOFF** menu.
+
+- **`fix_complexity=large` (systemic):** default next is **`forge:develop`** (design/brainstorm before planning); alternatives include `plan`, `implement`.
+- **`fix_complexity=complex`:** default next is **`forge:plan`**; alternatives include `develop`, `implement`.
+- **`simple` or unknown:** no default — pick `plan`, `develop`, `implement`, or stop.
+
+Reply with a number, `yes`/`1` when a default is shown, a literal command, or `stop`. See `scripts/shared/skill_chain.py` and `build_skill_handoff_menu()` in `scripts/shared/orchestrator.py`.

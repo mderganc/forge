@@ -2,6 +2,12 @@
 
 {{DEVELOP_NO_EDIT_POLICY}}
 
+## Brainstorming protocol (Superpowers-style guards)
+
+- **No implementation** in Stage 2 — only investigation-backed design, memory artifacts, and user-facing choices.
+- **One question at a time** during PM-led clarifications and gates (prefer multiple-choice when possible). Do not bury the user in combined questionnaires unless a gate template explicitly batches for efficiency.
+- **Approach framing checkpoint** (before Dispatch 3 scoring): pause and present **2–3** coherent directions synthesizing the work so far — trade-offs, recommendation, and what would change the call. This is separate from raw divergent lists; it is the “compressed story” for the user.
+
 Stage 2 is where **creative solution design** lives: divergent ideas, explicit technique choices, and scored candidates—not a single “best guess.” Treat every gate as a **real conversation**: explain tradeoffs in plain language, invite pushback, and treat user choices as creative input, not bureaucracy.
 
 Stage 2 is a **PM-orchestrated three-dispatch loop**, not a single Architect run. The PM wraps the Architect's brainstorming work with interactive decision gates so the user's judgment shapes framing, technique choice, candidate selection, and scoring weights.
@@ -91,6 +97,8 @@ Execute `templates/brainstorming-gates.md` **Gate 2 Q1 + Q2**:
 5. Record answers in `project.md` and update `current-step.md` with `Step: gate-2-q1q2-answered` plus the selected weights.
 
 ## 5. Dispatch 3 — Convergence Scoring (finalize `solutions.md`)
+
+**Before Dispatch 3:** PM delivers the **approach framing checkpoint** (2–3 directions + trade-offs + recommendation) to the user and confirms there is no major misunderstanding. If the user reframes the problem, loop back to Dispatch 2 only when necessary.
 
 Dispatch **Architect** with:
 

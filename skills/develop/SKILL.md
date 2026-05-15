@@ -66,13 +66,29 @@ This file is your lifeline if context compaction occurs. Always update it.
 ## Invocation
 <invoke cmd="forge develop --step 1" />
 
-Arguments: --step (1-7), --auto1/--auto2/--auto3, --quick
+| Argument | When | Description |
+|----------|------|---------------|
+| `--step` | Always | Phase 1–7 |
+| `--auto1` / `--auto2` / `--auto3` | Any | Autonomy level |
+| `--quick` | Step 1+ | Quick mode |
+| `--allow-spec-incomplete` | Step 7 only | Bypass design-spec gate when `spec_required` (requires override fields) |
+| `--spec-override-reason` | With bypass | Recorded in handoff |
+| `--spec-override-follow-up` | With bypass | Required tracked follow-up |
+| `--spec-override-requested-by` | Optional | Who requested bypass |
+
+## Dual-track scope & design spec
+
+- After **step 2**, write **`develop-scope.json`** in the forge runtime memory directory (typically `.codex/forge/memory/`; same folder as `project.md`) with `scope_tier`: `trivial` | `medium` | `large` (see `prompts/develop/scope.md`).
+- **Trivial:** memory artifacts only; no formal spec under `docs/forge/specs/` required before handoff.
+- **Medium / large:** complete the **design spec gate** (step 6 appends `spec_gate` instructions): write the spec, self-review, user approval, then **`.develop-spec-gate.json`** next to the develop state file before **step 7**.
+
+Do **not** start implementation inside develop — investigation, brainstorming, and approved design only.
 
 Do NOT analyze first. Run the script and follow its output.
 
 ## Workflow Handoff
 
-At the final step (7 — report), the orchestrator emits a numbered handoff
+At the final step (7 — handoff), the orchestrator emits a numbered handoff
 menu. Default is `forge:plan`; alternatives include `evaluate --mode pre`,
 `implement`, `diagnose`, and `(stop)`. Reply `yes`/`1`/`default` or the
 literal command to take the default. See `scripts/shared/skill_chain.py`.

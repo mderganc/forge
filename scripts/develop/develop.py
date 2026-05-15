@@ -50,11 +50,19 @@ from scripts.shared.orchestrator import (
     load_state,
     now_iso,
     render_dashboard,
+    runtime_memory_dir,
     runtime_state_path,
     save_state,
     validate_state_path,
     validate_step_or_complete,
     write_handoff,
+)
+from scripts.develop.spec_gate import (
+    exit_if_gate_fails,
+    gate_sidecar_path,
+    handoff_spec_summary,
+    load_gate_json,
+    validate_spec_gate,
 )
 from scripts.evaluate.template_engine import load_template, render_template
 
@@ -122,6 +130,59 @@ PHASE_TODOS = {
 }
 
 
+def _ensure_develop_custom(state: SkillState) -> None:
+    """Default keys for scope/spec gate (backward compatible)."""
+    defaults: dict[str, str | bool] = {
+        "scope_tier": "unknown",
+        "spec_required": False,
+        "scope_rationale": "",
+        "brainstorming_mode": "design_first_v2",
+        "diagnose_complexity_hint": "",
+    }
+    for k, v in defaults.items():
+        state.custom.setdefault(k, v)
+
+
+def _sync_develop_scope_from_memory(state: SkillState) -> None:
+    """Ingest `.codex/forge-codex/memory/develop-scope.json` if present."""
+    path = runtime_memory_dir() / "develop-scope.json"
+    if not path.is_file():
+        return
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        return
+    tier = str(data.get("scope_tier", "")).strip().lower()
+    if tier in ("trivial", "medium", "large"):
+        state.custom["scope_tier"] = tier
+        state.custom["spec_required"] = tier in ("medium", "large")
+    rationale = data.get("scope_rationale", data.get("rationale", ""))
+    if rationale is not None and str(rationale).strip():
+        state.custom["scope_rationale"] = str(rationale).strip()
+
+
+def _spec_gate_status_block(state: SkillState, state_path: Path) -> str:
+    """Human-readable spec gate status for templates."""
+    if not state.custom.get("spec_required"):
+        return (
+            "**Spec gate:** not required (`spec_required=false`, typically trivial scope).\n"
+        )
+    side = gate_sidecar_path(state_path)
+    data = load_gate_json(side)
+    if not data:
+        return (
+            f"**Spec gate:** required — sidecar missing or invalid (`{side.name}`).\n"
+        )
+    parts = [
+        "**Spec gate:** required",
+        f"- `spec_path`: {data.get('spec_path', '')}",
+        f"- `spec_written`: {data.get('spec_written', False)}",
+        f"- `self_review_passed`: {data.get('self_review_passed', False)}",
+        f"- `user_approved`: {data.get('user_approved', False)}",
+    ]
+    return "\n".join(parts) + "\n"
+
+
 def _state_path() -> Path:
     """Return the default state file path for the develop skill."""
     return runtime_state_path(SKILL_NAME)
@@ -178,12 +239,19 @@ def _build_variables(state: SkillState) -> dict[str, str]:
         "Do **not** skip this requirement based on autonomy level.\n"
     )
 
+    tier = str(state.custom.get("scope_tier", "unknown"))
+    spec_req = bool(state.custom.get("spec_required"))
     return {
         "AUTONOMY_INSTRUCTIONS": autonomy_text,
         "DEVELOP_NO_EDIT_POLICY": no_edit_policy,
         "PREVIOUS_FINDINGS": findings_text.strip(),
         "REVIEW_STATE": review_state.strip(),
         "SOLUTIONS_SUMMARY": solutions_summary,
+        "SCOPE_TIER": tier,
+        "SPEC_REQUIRED": "yes" if spec_req else "no",
+        "SCOPE_RATIONALE": str(state.custom.get("scope_rationale", "")).strip() or "(none yet)",
+        "SPEC_GATE_STATUS": "(not computed)",
+        "STATE_DIR": "(directory containing your develop --state file)",
     }
 
 
@@ -251,7 +319,7 @@ def handle_step_1(args: argparse.Namespace) -> None:
                 file=sys.stderr,
             )
 
-    state.current_step = 1
+    _ensure_develop_custom(state)
     state.autonomy_level = _parse_autonomy(args)
     state.quick_mode = getattr(args, "quick", False)
     save_state(state, sp)
@@ -309,9 +377,32 @@ def _load_existing_state(step: int, state_file: str | None) -> tuple[SkillState,
     return state, sp
 
 
-def handle_step_n(step: int, state_file: str | None = None) -> None:
+def handle_step_n(
+    step: int,
+    state_file: str | None = None,
+    args: argparse.Namespace | None = None,
+) -> None:
     """Steps 2-7: Load state, render appropriate template, output prompt."""
     state, sp = _load_existing_state(step, state_file)
+
+    _ensure_develop_custom(state)
+    _sync_develop_scope_from_memory(state)
+    save_state(state, sp)
+
+    ts = ""
+    if step == MAX_STEP:
+        ns = args or argparse.Namespace()
+        ts = now_iso()
+        ok, msg = validate_spec_gate(
+            sp,
+            bool(state.custom.get("spec_required")),
+            allow_incomplete=bool(getattr(ns, "allow_spec_incomplete", False)),
+            override_reason=str(getattr(ns, "spec_override_reason", "") or ""),
+            override_requested_by=str(getattr(ns, "spec_override_requested_by", "") or ""),
+            override_follow_up=str(getattr(ns, "spec_override_follow_up", "") or ""),
+            override_timestamp=ts,
+        )
+        exit_if_gate_fails(ok, msg)
 
     template_map = {
         2: "develop/scope",
@@ -331,7 +422,16 @@ def handle_step_n(step: int, state_file: str | None = None) -> None:
     # state half-written.
     template = load_template(template_name)
     variables = _build_variables(state)
+    variables["STATE_DIR"] = str(sp.resolve().parent)
+    variables["SPEC_GATE_STATUS"] = _spec_gate_status_block(state, sp)
     body = render_template(template, variables)
+
+    if step == 6 and state.custom.get("spec_required"):
+        try:
+            spec_tmpl = load_template("develop/spec_gate")
+            body += "\n\n---\n\n" + render_template(spec_tmpl, variables)
+        except FileNotFoundError:
+            pass
 
     state.current_step = step
     save_state(state, sp)
@@ -345,7 +445,19 @@ def handle_step_n(step: int, state_file: str | None = None) -> None:
         state.completed_at = now_iso()
         save_state(state, sp)
 
-        # Write handoff file for the next skill (plan)
+        ns = args or argparse.Namespace()
+        spec_gate_label = (
+            "overridden"
+            if getattr(ns, "allow_spec_incomplete", False)
+            else "passed"
+        )
+        gate_data = (
+            None
+            if getattr(ns, "allow_spec_incomplete", False)
+            else load_gate_json(gate_sidecar_path(sp))
+        )
+        spec_summary = handoff_spec_summary(gate_data)
+
         handoff_path = write_handoff(
             skill_name=SKILL_NAME,
             state=state,
@@ -354,6 +466,19 @@ def handle_step_n(step: int, state_file: str | None = None) -> None:
                 "Task type": state.custom.get("task_type", "unknown"),
                 "Solutions summary": state.custom.get("solutions_summary", "see handoff"),
                 "Autonomy level": str(state.autonomy_level),
+                "Scope tier": str(state.custom.get("scope_tier", "unknown")),
+                "Spec required": str(bool(state.custom.get("spec_required"))),
+                "Spec gate": spec_gate_label,
+                "Spec path": spec_summary.get("Spec path", ""),
+                "Spec approved": spec_summary.get("Spec approved", ""),
+                "Override": (
+                    f"yes — reason={getattr(ns, 'spec_override_reason', '') or '(n/a)'}; "
+                    f"follow_up={getattr(ns, 'spec_override_follow_up', '') or '(n/a)'}; "
+                    f"requested_by={getattr(ns, 'spec_override_requested_by', '') or '(n/a)'}; "
+                    f"timestamp={ts}"
+                    if getattr(ns, "allow_spec_incomplete", False)
+                    else "no"
+                ),
             },
             suggested_next="plan",
         )
@@ -397,6 +522,32 @@ def main() -> None:
         "--auto3", action="store_true",
         help="Set autonomy to Level 3 (full auto, pause at final approval)",
     )
+    parser.add_argument(
+        "--allow-spec-incomplete",
+        action="store_true",
+        help=(
+            "Bypass strict design-spec gate on step 7 when spec_required. "
+            "Requires --spec-override-reason and --spec-override-follow-up."
+        ),
+    )
+    parser.add_argument(
+        "--spec-override-reason",
+        type=str,
+        default="",
+        help="Recorded in handoff when using --allow-spec-incomplete.",
+    )
+    parser.add_argument(
+        "--spec-override-requested-by",
+        type=str,
+        default="",
+        help="Optional identifier for who requested the override.",
+    )
+    parser.add_argument(
+        "--spec-override-follow-up",
+        type=str,
+        default="",
+        help="Required tracked follow-up when using --allow-spec-incomplete.",
+    )
 
     args = parser.parse_args()
     if validate_step_or_complete(args.step, MAX_STEP, SKILL_NAME):
@@ -405,7 +556,7 @@ def main() -> None:
     if args.step == 1:
         handle_step_1(args)
     else:
-        handle_step_n(args.step, state_file=args.state)
+        handle_step_n(args.step, state_file=args.state, args=args)
 
 
 if __name__ == "__main__":

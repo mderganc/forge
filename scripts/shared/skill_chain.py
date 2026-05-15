@@ -40,6 +40,6 @@ COMMAND_DESCRIPTIONS: dict[str, str] = {
     "code-review":           "deep code review of the changes",
     "test":                  "run tests + coverage",
     "test --mode flows":     "author end-to-end mock flows",
-    "develop":               "re-investigate before re-planning",
+    "develop":               "investigate, brainstorm, and design before planning (use after diagnose when solution space is still open)",
     "diagnose":              "root-cause analysis on observed issues",
 }

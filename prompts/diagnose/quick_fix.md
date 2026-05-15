@@ -3,13 +3,23 @@
 ## Complexity Gate
 {{COMPLEXITY_CHECK}}
 
-If fix requires >2 files or architectural changes:
-→ Skip this phase
-→ Hand off to `plan` then `implement`
-→ Write handoff with root causes and recommended solution
+Classify `fix_complexity` in session state (`simple`, `complex`, or `large`) using `{{COMPLEXITY_CHECK}}` and evidence from phases 1–5.
 
-If fix is simple (<=2 files):
-→ Proceed with implementation below
+### `simple` (local fix)
+- <=2 files, no architectural / interface contract change
+→ **Proceed** with implementation and validation below.
+
+### `complex` (multi-file but one clear fix shape)
+- Broader change, or architectural touch, but **one dominant implementation path**
+→ **Skip** implementation in this phase. Hand off to **`plan`** → `implement`.  
+→ Record routing rationale in the diagnostic report and `project.md`.
+
+### `large` / systemic (design space still open)
+- Cross-subsystem / strategic trade-offs, **multiple viable architectures**, or missing decisions that belong in a design spec  
+→ **Skip** implementation in this phase. Hand off to **`develop`** (design / brainstorming) → **`plan`** → `implement`.  
+→ Capture known unknowns, constraints, and open questions for the develop session.
+
+Write the handoff file with root causes, complexity tier, and recommended routing.
 
 ## Agents to Dispatch
 - **Backend/Frontend Dev:** Apply the approved fix

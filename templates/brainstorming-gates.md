@@ -17,6 +17,18 @@ Together, `brainstorming.md` + `brainstorming-gates.md` turn Stage 2 into a **th
 
 This ordering guarantees that every user decision arrives *before* the Architect work it influences — Gate 1 is genuinely pre-divergence, Gate 2 Q1/Q2 is genuinely pre-scoring.
 
+## PM clarification micro-loop
+
+When the user’s answer is ambiguous or contradictory:
+
+1. **Stop** — do not advance the gate or dispatch the next Architect run.
+2. Ask **one** narrowing question (prefer multiple-choice).
+3. Log the resolution in `project.md`, update `current-step.md`, then proceed.
+
+## Gate 2 — Level 1 presentation (split when possible)
+
+For **Autonomy Level 1**, use **two separate user interactions** for Gate 2: complete **Q1** (candidate/family selection), then **Q2** (priority dimension). The combined template below remains valid for **Level 2** batching and plaintext fallbacks.
+
 ## Intermediate Artifact Contract
 
 The Architect writes these files into `.codex/forge-codex/memory/` during Stage 2. The PM reads them between dispatches and cites them directly so the user is choosing from real generated content, not abstractions.
@@ -87,7 +99,6 @@ This preserves all 5 rubric dimensions in the Architect's scoring pass while ask
 Only presented if Dispatch 3's Pugh Matrix returns a net-zero winner (no candidate dominates) *or* the priority-weighted rubric scores differ by <0.5 between the top two candidates. Read the finalized `solutions.md`, identify the tied candidates, and present them as options.
 
 Use the Gate 2 Q3 question template from the section below, populating options with the 2 tied candidates and their headline trade-offs.
-```
 
 ## Autonomy Routing
 

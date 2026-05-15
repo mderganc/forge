@@ -97,7 +97,7 @@ After a new `forge-next` release on PyPI, upgrade with `pipx upgrade forge-next`
 
 | Workflow | Cursor / Claude | Codex |
 |----------|-----------------|-------|
-| **Develop** — interactive discovery, requirements, and options (before plan) | `/forge:develop` | `$forge:develop` |
+| **Develop** — discovery, requirements, options; medium/large scope may require a written design spec before handoff | `/forge:develop` | `$forge:develop` |
 | Check install / environment | `/forge:doctor` | `$forge:doctor` |
 | Implementation plan | `/forge:plan` | `$forge:plan` |
 | Plan / implementation review | `/forge:evaluate` | `$forge:evaluate` |
@@ -191,6 +191,8 @@ Evaluate and diagnose also run standalone. **Iterate** chains the linear workflo
 
 Then investigate the problem or feature, explore and score options, and converge before plan. Handoff often points to plan (`/forge:plan` or `$forge:plan`) or evaluate (`/forge:evaluate` or `$forge:evaluate`).
 
+**Scope tiers and design spec:** Scope assessment can set **trivial / medium / large** (persisted as **`memory/develop-scope.json`** under the Forge runtime root, e.g. `.codex/forge/`). For **medium** and **large**, step 7 enforces a **design-spec gate**: `.develop-spec-gate.json` beside the develop state file must record a real spec path, completion booleans, and user approval. Strict bypass is opt-in via `forge develop --step 7 --allow-spec-incomplete` with **`--spec-override-reason`** and **`--spec-override-follow-up`** (optional **`--spec-override-requested-by`**). Template: `templates/design-spec.md`.
+
 **Methodologies:** evidence-first investigation and git/history context; 5 Whys (`templates/five-why-protocol.md`); systematic debugging for defects (`templates/systematic-debugging.md`); brainstorming phased for requirements and solution families (`templates/brainstorming.md`, `brainstorming-gates.md`); How-Might-We framing; Pugh / weighted scoring and rubrics (`templates/scoring-rubric.md`); cross-review of investigation; user approval gates.
 
 ### Plan
@@ -256,7 +258,7 @@ Runs **diagnose → plan → evaluate (pre) → implement → evaluate (post) �
 - **Cursor / Claude:** `/forge:diagnose`
 - **Codex:** `$forge:diagnose`
 
-Evidence-led root-cause analysis and reporting.
+Evidence-led root-cause analysis and reporting. When the workflow classifies the fix as **`large`** (systemic / needs design before planning), the closing handoff menu defaults to **develop** first, then plan; for **`complex`** (broad but plannable), it defaults to **plan**.
 
 **Methodologies:** IS/IS-NOT matrix; Cynefin classification; change analysis (last known good, deltas); first-principles baseline (invariants vs observations); MECE cause tree; software fishbone (CODE/CONFIG/DATA/INFRA/DEPS/ENV); mandatory core quartet — first-principles, hypothesis-driven solving, 5 Whys, MECE tree — plus **Technique Coverage Matrix** for all 20 methods in `prompts/diagnose/technique_catalog.md` (applied/skipped/deferred with rationale); use-case-first routing from the catalog before arbitrary breadth; FMEA RPN scoring; hypothesis test cycles; counterfactual (“but-for”) checks; Pareto; git hotspots and log patterns where applicable; solution options and structured report.
 

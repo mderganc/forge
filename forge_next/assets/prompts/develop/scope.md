@@ -12,7 +12,51 @@ Treat this step as **discovery**, not a form to fill. Before fixing task type an
 
 Stay in conversation until the user confirms the framing—or explicitly asks to move on.
 
-## Scope
+## Scope tier (required — dual track)
+
+After dialogue, classify **`trivial`**, **`medium`**, or **`large`** using **all** signals below (deterministic).
+
+### Signals
+
+Count **high-risk** and **medium-risk** indicators:
+
+| Risk | Indicator |
+|------|-----------|
+| **High** | Security / auth / data-integrity / compliance / PII |
+| **High** | Breaking API or schema change, or migration with rollback difficulty |
+| **High** | Cross-cutting architecture (multiple bounded contexts or subsystems) |
+| **Medium** | 3–10 files or multiple packages touched |
+| **Medium** | New observability, SLO, or operational runbook burden |
+| **Medium** | Significant UX or workflow change for end users |
+| **Low** | 1–2 files, localized change, clear rollback |
+
+### Tier rules
+
+- **`large`:** ≥2 **high-risk** signals.
+- **`medium`:** 1 **high-risk** OR ≥2 **medium-risk** signals (and not `large`).
+- **`trivial`:** everything else after honest assessment.
+
+### What each tier means
+
+- **`trivial`:** Session memory artifacts only; **no** formal `docs/forge/specs/...` design spec required before `plan`.
+- **`medium` | `large`:** Formal design spec + self-review + user approval **before** `forge develop --step 7` (see `develop/spec_gate` appended at step 6).
+
+## Record scope for the orchestrator
+
+Write **`develop-scope.json`** in the **Forge runtime memory directory** (same tree as `project.md`; typically `.codex/forge/memory/`, or legacy `.codex/forge-codex/memory/`):
+
+```json
+{
+  "scope_tier": "trivial",
+  "scope_rationale": "1–2 sentences: which signals fired and why."
+}
+```
+
+Valid `scope_tier` values: `trivial`, `medium`, `large`.
+
+Also log the same tier and rationale under a `## Scope tier` section in `project.md`.
+
+## Original task questions
 
 First, infer task type and layers from the user's initial description. If
 anything is unclear, ask the user directly to confirm (per
@@ -28,9 +72,10 @@ anything is unclear, ask the user directly to confirm (per
   - `Infra` — infrastructure, CI/CD, or deploy
   - `Something else` — let the user specify manually
 
-### Complexity
+### File-count hint (secondary)
 
-Estimate automatically from scope:
+Estimate breadth (does **not** override risk-based tiering):
+
 - Small (1-2 files)
 - Medium (3-10 files)
 - Large (10+ files)

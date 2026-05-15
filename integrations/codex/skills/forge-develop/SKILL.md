@@ -5,4 +5,6 @@ description: Run the Forge develop (investigation) workflow via the global forge
 
 Do **not** modify repository files unless the user explicitly permits it; follow phase output for session memory under `.codex/forge-codex/memory/` only.
 
+Medium/large scope may require a design spec and `.develop-spec-gate.json` before step 7; see phase output.
+
 <invoke cmd="forge develop --step 1" />

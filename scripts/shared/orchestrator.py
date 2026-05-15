@@ -1181,6 +1181,17 @@ def build_skill_handoff_menu(
     default_cmd = transition.default
     alternatives = list(transition.alternatives) or []
 
+    # Diagnose: large/systemic incidents default to develop → plan; localized complex defaults to plan
+    if skill_name == "diagnose" and state is not None:
+        fc = str(state.custom.get("fix_complexity", "unknown")).lower()
+        base_alts = list(transition.alternatives) or []
+        if fc == "large":
+            default_cmd = "develop"
+            alternatives = [command for command in base_alts if command != "develop"]
+        elif fc == "complex":
+            default_cmd = "plan"
+            alternatives = [command for command in base_alts if command != "plan"]
+
     # Context-aware injection: test skill with failures prepends diagnose
     if skill_name == "test" and state:
         test_results = state.custom.get("test_results", {})

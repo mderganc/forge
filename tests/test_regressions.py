@@ -1077,6 +1077,17 @@ def test_diagnose_handoff_has_no_default():
     assert "WORKFLOW HANDOFF — diagnose complete" in menu
 
 
+def test_diagnose_handoff_large_defaults_develop():
+    """Large / systemic fix_complexity promotes develop as default next."""
+    from scripts.shared.orchestrator import SkillState, build_skill_handoff_menu
+
+    state = SkillState(skill_name="diagnose")
+    state.custom["fix_complexity"] = "large"
+    menu = build_skill_handoff_menu("diagnose", state=state)
+    assert "Default" in menu
+    assert "$forge:develop" in menu
+
+
 def test_no_skill_has_legacy_workflow_complete_marker():
     """Verify that build_skill_handoff_menu is the canonical final-step footer."""
     # This is a documentation/specification test rather than a grep test.

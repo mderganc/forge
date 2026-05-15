@@ -19,7 +19,7 @@ Reply "yes" or "1" to continue with the default. Or pick a number:
 State file: <path>  —  resume any time with `python3 scripts/shared/resume.py`.
 ```
 
-The canonical skill-chain mapping lives in `scripts/shared/skill_chain.py` as the `SKILL_CHAIN` dict, mapping current skill to `SkillTransition(default, alternatives)`. The renderer `build_skill_handoff_menu(current_skill, state)` in `scripts/shared/orchestrator.py` produces the numbered output. Per-skill context-aware injection is supported — e.g., when `forge:test` detects failures, `diagnose` can be prepended as the top alternative.
+The canonical skill-chain mapping lives in `scripts/shared/skill_chain.py` as the `SKILL_CHAIN` dict, mapping current skill to `SkillTransition(default, alternatives)`. The renderer `build_skill_handoff_menu(current_skill, state)` in `scripts/shared/orchestrator.py` produces the numbered output. Per-skill context-aware injection is supported — e.g., when `forge:test` detects failures, `diagnose` can be prepended as the top alternative; when `forge:diagnose` finishes with `fix_complexity` **`large`**, the default next command is **`develop`** (with **`plan`** as default when **`complex`**).
 
 The `(stop)` option is always last. The state file persists, and workflows can resume with `python3 scripts/shared/resume.py` at any time.
 
@@ -82,6 +82,7 @@ The skill orchestrators handle state-file lifecycle so workflows are interruptib
 - **`scripts/shared/resume.py --cleanup`** removes state files left behind by completed or abandoned sessions. Defaults to dry-run; pass `--force` to delete. Pass `--all-stale --force` to clear every state file regardless of age (one-time migration after the lifecycle fixes landed).
 - **Plan files** are now created by `scripts/plan/plan.py` itself with section-marker placeholders; agents replace markers rather than create the file. The step-6 completion gate refuses to mark the workflow complete while any markers remain.
 - **Evaluate findings** persist between phases via per-step sidecar files at `<state-dir>/.evaluate-findings-step<N>.json`. Each phase's prompt instructs the LLM to write findings there; the orchestrator ingests them on the next step.
+- **Develop design-spec gate:** when `spec_required` is true (medium/large scope from `memory/develop-scope.json`), step 7 validates `<state-dir>/.develop-spec-gate.json` (spec path, `spec_written`, `self_review_passed`, `user_approved`) before handoff. Optional strict bypass: `--allow-spec-incomplete` with `--spec-override-reason` and `--spec-override-follow-up` on `forge develop --step 7`.
 
 ### Test Skill — Flows Mode State
 

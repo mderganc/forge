@@ -38,7 +38,7 @@ Use: python3 {{SCRIPT_DIR}}/diagnostic_report.py --title "..." --severity ... --
 
 ## Chat Summary
 1. Root cause: one sentence
-2. Fix applied: one sentence (or "handed off to `plan`")
+2. Fix applied: one sentence (or "handed off to `plan` / `develop`")
 3. Validation: pass/fail summary
 4. Output location: file path
 5. Recommended follow-ups
@@ -47,9 +47,16 @@ Use: python3 {{SCRIPT_DIR}}/diagnostic_report.py --title "..." --severity ... --
 Write `.codex/forge-codex/memory/handoff-diagnose.md` with:
 - Root causes identified
 - Fix applied or recommended
+- **`fix_complexity` tier:** `simple` | `complex` | `large` (must match orchestrator state)
+- Routing rationale (why not simpler / why design work needed)
 - Validation results
 - Technique coverage summary (matrix pointers)
-- Suggested next: `plan` (if complex fix needed) or "resolved"
+- Suggested next:
+  - **`develop`** when `fix_complexity` is **`large`** (systemic / multi-strategy) — then `plan`
+  - **`plan`** when **`complex`** (clear implementation path but too big for this phase)
+  - **resolved** or **menu choice** when **`simple`**
+
+The orchestrator emits a numbered **WORKFLOW HANDOFF** menu on phase 7; defaults are **context-aware** (`develop` first for `large`, `plan` for `complex`).
 
 ## Dashboard
 Render per `templates/dashboard.md`

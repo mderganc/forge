@@ -19,16 +19,29 @@ Before presenting to the user, run a pre-mortem per `templates/pre-mortem.md`. E
 Present scored solutions summary:
 {{SOLUTIONS_SUMMARY}}
 
+**Scope / spec track (from orchestrator):**
+
+- **Scope tier:** {{SCOPE_TIER}}
+- **Spec required:** {{SPEC_REQUIRED}}
+- **Spec gate status:** {{SPEC_GATE_STATUS}}
+
 Frame approval as **closure of a design conversation**, not a rubber stamp. If the user hesitates, explore why—**Revise** and **Alternate** are healthy paths that keep creative iteration alive.
 
 Then ask the user directly for approval (per `templates/user-questions.md`).
+
+### Solution decision
+
 Use this question and these options:
 
 - Question: `Approve the recommended solution for implementation?`
 - Options:
-  - `Approve` — accept the recommendation and hand off to `plan`
+  - `Approve` — accept the recommendation; continue toward handoff (`plan` after spec gate clears when required)
   - `Revise` — return to Stage 2 with feedback
   - `Alternate` — pick a different scored alternative
   - `Reject` — stop here because no solution is acceptable
+
+### Design spec decision (only when `SPEC_REQUIRED` is **yes**)
+
+After the user approves a solution direction, they must still approve the **written design spec** (see appended `spec_gate` block on this step when applicable). Until the spec file exists, self-review passes, **and** the user explicitly approves the spec, do **not** advance to `forge develop --step 7`.
 
 Record the user's decision in `project.md` and branch accordingly.

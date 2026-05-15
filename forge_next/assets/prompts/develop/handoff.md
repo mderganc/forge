@@ -19,7 +19,14 @@ Render skill completion dashboard per `templates/dashboard.md`.
 Dispatch Doc-writer to capture learnings in `.codex/forge-codex/memory/doc-writer.md`.
 
 ## Suggested Next
-`plan`
+
+`plan` — **only after** any required design spec gate is complete (see `.develop-spec-gate.json` when `spec_required`).
+
+Orchestrator context:
+
+- **Scope tier:** {{SCOPE_TIER}}
+- **Spec required:** {{SPEC_REQUIRED}}
+- **Spec gate status:** {{SPEC_GATE_STATUS}}
 
 ## Git Checkpoint
 git add .codex/forge-codex/ && git commit -m "workflow: develop complete -- solutions approved"

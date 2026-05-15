@@ -1,5 +1,7 @@
 Present the plan to the user for approval.
 
+{{MODE_CONTRACT}}
+
 ## Plan-Phase Safety Contract (mandatory)
 
 - This is a planning-only phase. Do not edit product code.
@@ -20,6 +22,19 @@ Run a pre-mortem analysis per `templates/pre-mortem.md`:
 3. Categorize and prioritize by likelihood × impact.
 4. Add any new risks to the plan's risk register before presenting.
 
+## Mode-aware readiness checklist
+
+Before asking for approval, verify against **plan mode `{{PLAN_MODE}}`**:
+
+- [ ] No placeholder language in any section (see `templates/writing-plans.md`)
+- [ ] Every task has exact file paths
+- [ ] Every task has verification command + expected outcome
+- [ ] TDD pairing for runtime code changes (or explicit doc/config exemption)
+- [ ] `default`: full wave map, interface contracts, expanded risk/rollback, complete doc tables
+- [ ] `lite`: concise sections but same correctness checks above
+
+{{EXECUTION_PATH_NOTE}}
+
 ## Plan Summary
 
 Read `{{PLAN_FILE}}` and present:
@@ -29,6 +44,7 @@ Read `{{PLAN_FILE}}` and present:
 4. Risk register highlights (including new risks from pre-mortem)
 5. Rollback strategy
 6. Estimated complexity
+7. Plan mode and recommended implement execution style
 
 ## User Approval
 

@@ -2,6 +2,10 @@
 
 Design and confirm documentation scope **before** handoff to implement. Output feeds the implement documentation gate and audience applicability.
 
+{{MODE_CONTRACT}}
+
+**Plan mode `{{PLAN_MODE}}`:** `lite` still requires complete applicability matrix and DoD rows (concise text OK). `default` requires full narrative detail.
+
 ## Plan-Phase Safety Contract (mandatory)
 
 - This is a planning-only phase. Do not edit product code.

@@ -1,5 +1,7 @@
 Present the plan to the user for approval.
 
+{{MODE_CONTRACT}}
+
 ## Plan-Phase Safety Contract (mandatory)
 
 - This is a planning-only phase. Do not edit product code.
@@ -17,8 +19,21 @@ Present the plan to the user for approval.
 Run a pre-mortem analysis per `templates/pre-mortem.md`:
 1. Imagine this plan was executed 6 months from now and **failed catastrophically**.
 2. Each team member generates 2-3 failure scenarios (technical, process, integration, assumption, external).
-3. Categorize and prioritize by likelihood Ã— impact.
+3. Categorize and prioritize by likelihood × impact.
 4. Add any new risks to the plan's risk register before presenting.
+
+## Mode-aware readiness checklist
+
+Before asking for approval, verify against **plan mode `{{PLAN_MODE}}`**:
+
+- [ ] No placeholder language in any section (see `templates/writing-plans.md`)
+- [ ] Every task has exact file paths
+- [ ] Every task has verification command + expected outcome
+- [ ] TDD pairing for runtime code changes (or explicit doc/config exemption)
+- [ ] `default`: full wave map, interface contracts, expanded risk/rollback, complete doc tables
+- [ ] `lite`: concise sections but same correctness checks above
+
+{{EXECUTION_PATH_NOTE}}
 
 ## Plan Summary
 
@@ -29,6 +44,7 @@ Read `{{PLAN_FILE}}` and present:
 4. Risk register highlights (including new risks from pre-mortem)
 5. Rollback strategy
 6. Estimated complexity
+7. Plan mode and recommended implement execution style
 
 ## User Approval
 
@@ -37,10 +53,10 @@ Use this question and these options:
 
 - Question: `Approve the implementation plan?`
 - Options:
-  - `Approve` â€” accept the plan and hand off to `implement`
-  - `Revise` â€” return to step 3 with feedback
-  - `Simplify` â€” scope the plan down before approval
-  - `Reject` â€” stop here because the plan is not viable
+  - `Approve` — accept the plan and hand off to `implement`
+  - `Revise` — return to step 3 with feedback
+  - `Simplify` — scope the plan down before approval
+  - `Reject` — stop here because the plan is not viable
 
 Record the user's decision in `project.md`. If approved, proceed to handoff.
 If changes requested, return to step 3 (plan creation).

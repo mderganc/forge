@@ -5,6 +5,15 @@ description: Run the Forge planning workflow via the global forge CLI. Use when 
 
 <invoke cmd="forge plan --step 1" />
 
+## Plan modes
+
+- **`default`** — Full governance (architecture depth, waves, contracts, risk/rollback, documentation tables).
+- **`lite`** — Lower ceremony for short ad hoc work; **same task rigor** (exact paths, verify command + expected outcome, no placeholders).
+
+If mode is not specified, step 1 asks the user to confirm with a recommendation. CLI: `--mode default|lite`. Persist default: `--mode lite --save-mode-preference`.
+
+See `templates/plan-modes.md`.
+
 ## Safety Guardrails (plan phase)
 
 - `forge:plan` is planning-only: do not edit product source code.

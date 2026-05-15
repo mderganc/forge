@@ -58,6 +58,18 @@ from scripts.shared.orchestrator import (
     write_handoff,
 )
 from scripts.evaluate.template_engine import load_template, render_template
+from scripts.plan.plan_modes import (
+    DEFAULT_MODE,
+    execution_path_recommendation,
+    format_mode_selection_block,
+    hydrate_legacy_mode,
+    load_persisted_preference,
+    mode_contract_for_template,
+    normalize_mode,
+    recommend_mode,
+    review_expectations_for_mode,
+    save_persisted_preference,
+)
 
 PROMPTS_DIR = REPO_ROOT / "prompts"
 SKILL_NAME = "plan"
@@ -247,6 +259,9 @@ def find_unfilled_sections(plan_path: Path) -> list[str]:
 
 def _build_variables(state: SkillState) -> dict[str, str]:
     """Build template variable dict from state."""
+    plan_mode = normalize_mode(state.custom.get("plan_mode"))
+    mode_migrated = state.custom.get("mode_migrated_note", "")
+
     handoff_content = state.custom.get("handoff_content", "")
     if handoff_content:
         handoff_section = (
@@ -264,17 +279,20 @@ def _build_variables(state: SkillState) -> dict[str, str]:
     plan_context = state.custom.get("plan_context", "(not yet captured)")
     architecture_notes = state.custom.get("architecture_notes", "(not yet designed)")
 
+    mode_review = review_expectations_for_mode(plan_mode, state.quick_mode)
+
     # Build review assignments based on quick mode
     if state.quick_mode:
         review_assignments = (
-            "**Quick mode active** — abbreviated review:\n\n"
+            mode_review
+            + "**Quick mode active** — abbreviated review:\n\n"
             "| Step | Agent | Focus |\n"
             "|------|-------|-------|\n"
-            "| Self-review | Planner | File paths real? TDD steps complete? |\n"
+            "| Self-review | Planner | File paths real? TDD steps complete? No placeholders? |\n"
             "| PM validation | PM | All solutions covered? Interfaces match? |\n"
         )
     else:
-        review_assignments = ""  # Template has full table
+        review_assignments = mode_review  # Template has full table when empty
 
     # Findings summary
     findings_text = ""
@@ -293,6 +311,16 @@ def _build_variables(state: SkillState) -> dict[str, str]:
         )
     handoff_file = str(runtime_memory_dir() / "handoff-plan.md")
 
+    task_count_raw = state.custom.get("task_count")
+    try:
+        task_count = int(task_count_raw) if task_count_raw is not None else None
+    except (TypeError, ValueError):
+        task_count = None
+
+    mode_contract = mode_contract_for_template(plan_mode)
+    if mode_migrated:
+        mode_contract += f"\n\n**Note:** {mode_migrated}\n"
+
     return {
         "HANDOFF_CONTENT": handoff_section,
         "PLAN_CONTEXT": plan_context,
@@ -307,6 +335,9 @@ def _build_variables(state: SkillState) -> dict[str, str]:
             if state.quick_mode
             else "**Standard mode:** produce full documentation planning detail."
         ),
+        "PLAN_MODE": plan_mode,
+        "MODE_CONTRACT": mode_contract,
+        "EXECUTION_PATH_NOTE": execution_path_recommendation(plan_mode, task_count),
         "SKILL_NAME": SKILL_NAME,
         "PLAN_FILE": plan_file,
         "HANDOFF_FILE": handoff_file,
@@ -352,11 +383,15 @@ def handle_step_1(args: argparse.Namespace) -> None:
     # state; if we got here the prior state was either absent or completed.
     sp = _state_path()
     plan_file = None
+    resumed_session = False
+    prior_mode: str | None = None
     if sp.exists():
         try:
             prior = load_state(sp)
             if prior.completed_at is None:
                 plan_file = prior.custom.get("plan_file")
+                resumed_session = True
+                prior_mode = prior.custom.get("plan_mode")
         except Exception:
             plan_file = None
 
@@ -377,6 +412,28 @@ def handle_step_1(args: argparse.Namespace) -> None:
     state.custom["handoff_content"] = handoff_content
     state.custom["plan_file"] = plan_file
 
+    cli_mode = getattr(args, "mode", None)
+    persisted = load_persisted_preference()
+    recommended, rec_rationale = recommend_mode(handoff_content)
+
+    if cli_mode:
+        plan_mode = normalize_mode(cli_mode)
+        resolution_source = "cli"
+    elif resumed_session and prior_mode:
+        plan_mode = normalize_mode(prior_mode)
+        resolution_source = "session"
+    else:
+        plan_mode = DEFAULT_MODE
+        resolution_source = "prompt"
+
+    state.custom["plan_mode"] = plan_mode
+    state.custom["plan_mode_recommended"] = recommended
+    state.custom["plan_mode_recommendation_rationale"] = rec_rationale
+    state.custom["plan_mode_resolution"] = resolution_source
+    if getattr(args, "save_mode_preference", False) and cli_mode:
+        save_persisted_preference(plan_mode)
+        state.custom["plan_mode_preference_saved"] = plan_mode
+
     save_state(state, sp)
 
     # Print state path so Codex knows where it is
@@ -385,6 +442,13 @@ def handle_step_1(args: argparse.Namespace) -> None:
     template = load_template("plan/context")
     variables = _build_variables(state)
     body = render_template(template, variables)
+    body += "\n\n" + format_mode_selection_block(
+        recommended=recommended,
+        rationale=rec_rationale,
+        persisted=persisted,
+        resolved_mode=plan_mode if resolution_source in ("cli", "session") else None,
+        resolution_source=resolution_source,
+    )
 
     # Mark step 1 complete
     state.mark_step_complete(1)
@@ -431,6 +495,15 @@ def handle_step_n(step: int, state_file: str | None = None) -> None:
         sys.exit(1)
 
     _upgrade_plan_max_step(state)
+    migrated, note = False, ""
+    if not state.custom.get("plan_mode"):
+        _, migrated = hydrate_legacy_mode(state.custom)
+        if migrated:
+            note = (
+                "Legacy plan session: plan_mode was missing and was set to `default`. "
+                "Continue without re-prompting for mode."
+            )
+            state.custom["mode_migrated_note"] = note
     save_state(state, sp)
 
     # Map steps to template names
@@ -499,6 +572,7 @@ def handle_step_n(step: int, state_file: str | None = None) -> None:
                 state=state,
                 context={
                     "Plan location": plan_file,
+                    "Plan mode": state.custom.get("plan_mode", DEFAULT_MODE),
                     "Task count": state.custom.get("task_count", "see plan"),
                     "Dependencies": state.custom.get("dependencies_summary", "see plan"),
                 },
@@ -548,6 +622,18 @@ def main():
         "--force",
         action="store_true",
         help="Overwrite an existing plan file at step 1 even if it contains content.",
+    )
+    parser.add_argument(
+        "--mode",
+        choices=["default", "lite"],
+        default=None,
+        help="Plan mode: default (full governance) or lite (concise, same task rigor). "
+        "If omitted on a new session, the agent must confirm mode with the user.",
+    )
+    parser.add_argument(
+        "--save-mode-preference",
+        action="store_true",
+        help="When used with --mode, persist that mode as the default for future plan sessions.",
     )
     args = parser.parse_args()
 

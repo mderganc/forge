@@ -3,31 +3,35 @@
 ## Purpose
 Produce a concrete implementation plan for approved solutions with task breakdown, parallelization map, branch strategy, and TDD steps.
 
-## Lead Agent
-**Architect** — produces the implementation plan
+## Lead Agents
+- **Planner** — owns the plan file and task breakdown (`templates/writing-plans.md`)
+- **Architect** — contributes Architecture Overview and reviews architectural consistency
 
-## Superpowers Integration
-- Invoke `superpowers:writing-plans` if available
+## Plan modes
+
+Select **`default`** or **`lite`** per `templates/plan-modes.md`. If mode is not passed on the CLI, confirm with the user (orchestrator step 1 includes a recommendation). Both modes require executor-ready tasks with no placeholders.
 
 ## PM Actions
 
 ### 1. Assign Planning
 
-Send to Architect:
+**Architect (step 2):** Design unified architecture; fill `ARCHITECTURE-OVERVIEW` in the plan file.
 
-> **Task: Create implementation plan for approved solutions**
->
-> Read approved solutions from `.codex/forge-codex/memory/project.md` (Stage 3 decisions).
-> Read `.codex/forge-codex/memory/solutions.md` for full solution details.
+**Planner (step 3):** Complete remaining plan sections per `templates/writing-plans.md`.
+
+Send to Planner:
+
+> Read approved solutions from `.codex/forge-codex/memory/project.md` and handoff/develop memory.
 > Use Codex runtime conventions from `templates/codex-runtime.md`.
+> Plan file: `.codex/forge-codex/memory/plans/` (timestamped path from orchestrator).
 >
-> Produce a unified plan in `.codex/forge-codex/memory/plans/` (timestamped filename):
-> 1. Architecture — how approved solutions fit together
-> 2. Branch strategy — feature branch + task sub-branches for parallel work
-> 3. Task breakdown — exact file paths, steps (TDD), acceptance criteria
-> 4. Parallelization map — which tasks can run simultaneously
-> 5. Risk register — what could go wrong, mitigation
-> 6. Rollback strategy — how to undo
+> Produce:
+> 1. Plan header (Goal, scope, plan mode)
+> 2. Branch strategy
+> 3. Task breakdown — exact paths, TDD, verify command + expected outcome
+> 4. Parallelization map
+> 5. Interface contracts (when tasks depend on each other)
+> 6. Risk register + rollback
 >
 > Create beads issues for each task with dependencies.
 
@@ -41,7 +45,7 @@ Feature branch: feat/<short-slug>
 Task branches (parallel tasks):
   feat/<short-slug>/[task-branch]
   ← Created from feature branch
-  ← Merged back after Stage 6 review
+  ← Merged back after review
 
 Sequential tasks: commit directly to feature branch
 
@@ -53,6 +57,7 @@ Each task MUST include:
 - Exact file paths to create/modify
 - Dependencies on other tasks
 - TDD steps (write test → verify fail → implement → verify pass)
+- **Verify:** command + expected outcome (both plan modes)
 - Concrete acceptance criteria ("done when")
 
 ### 4. Run Review Loop
@@ -61,10 +66,10 @@ Per `templates/review-loop.md`:
 
 | Step | Agent | Focus |
 |------|-------|-------|
-| Self-review | Architect | File paths real? Tasks specific enough? Parallelization respects deps? Rollback realistic? |
-| Cross-review | QA Reviewer | Every task testable? Acceptance criteria concrete? Test strategy covers integration? |
-| Critic challenge | Critic | Hidden deps between parallel tasks? Weakest assumption? What if Task N breaks Task M? |
-| PM validation | PM | Plan covers all approved solutions? All tasks in beads? Parallelization maximized? |
+| Self-review | Planner | Paths real? No placeholders? Verify steps on every task? |
+| Cross-review | QA Reviewer | Testable tasks? Verification evidence? Integration strategy? |
+| Critic challenge | Critic | Hidden deps? Weakest assumption? Rollback realistic? |
+| PM validation | PM | Solutions covered? Mode-appropriate depth? Beads cross-referenced? |
 
 ### 5. Beads Tracking
 

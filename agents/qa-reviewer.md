@@ -37,8 +37,10 @@ You review artifacts produced by other agents, looking for quality gaps from you
 
 **Planning review focus:**
 - Is every task testable? Are acceptance criteria concrete and verifiable?
+- Does every task specify a **verification command and expected outcome** (both `default` and `lite` modes)?
+- No placeholder language in the plan (`templates/writing-plans.md`)?
 - Does the test strategy cover integration between parallel tasks?
-- Are test commands and expected outputs specified?
+- For `lite` mode: confirm reduced ceremony did not drop required verification evidence.
 
 ### Implement Skill — Per-Task Reviewer
 

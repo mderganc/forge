@@ -1,5 +1,7 @@
 Run the review loop on the plan per `templates/review-loop.md`.
 
+{{MODE_CONTRACT}}
+
 ## Plan-Phase Safety Contract (mandatory)
 
 - This is a planning-only phase. Do not edit product code.
@@ -21,9 +23,9 @@ Read `{{PLAN_FILE}}`
 
 | Step | Agent | Focus |
 |------|-------|-------|
-| Self-review | Planner | Are file paths real? Are TDD steps complete? Dependencies consistent? |
-| Cross-review | QA Reviewer | Is every task testable? Acceptance criteria concrete? Test strategy covers integration? |
+| Self-review | Planner | File paths real? No placeholders? Verify command + expected outcome on every task? |
+| Cross-review | QA Reviewer | Every task testable? Verification evidence concrete? Integration covered? |
 | Critic challenge | Critic | Hidden dependencies? Weakest assumption? Rollback realistic? |
-| PM validation | PM | All solutions covered? Interfaces match? Beads cross-referenced? |
+| PM validation | PM | All solutions covered? Mode-appropriate depth? Interfaces match? |
 
 Loop until all four pass cleanly in the same round.

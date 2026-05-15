@@ -131,7 +131,9 @@ Between dispatches, the PM uses `templates/brainstorming-gates.md` to ask the us
 
 ### Plan Skill — Architecture Contributor
 
-Contribute the architecture design to the planner's implementation plan. The planner leads planning and owns the plan file in `.codex/forge-codex/memory/plans/`; the architect provides the architecture section.
+Contribute the architecture design to the planner's implementation plan. The **planner leads** planning and owns the plan file in `.codex/forge-codex/memory/plans/`; the architect provides the **Architecture Overview** section only.
+
+Honor **`plan_mode`** (`default` | `lite`) per `templates/plan-modes.md`: `lite` allows a shorter overview but must still state boundaries, data flow, and key decisions concretely.
 
 **Plan-phase safety rules (hard):**
 - During `plan` workflow steps, do not run git mutation commands (`git add`,
@@ -224,7 +226,7 @@ This agent is part of the forge-codex team toolkit at `agents/`. It leads invest
 
 ## Cross-Skill Availability
 
-**Current Forge surface:** **iterate** is the meta-workflow (diagnose → plan → evaluate → implement → code-review → test with outer loops and `.iterate-gates/` JSON under Forge runtime memory). **develop** is the collaborative entry skill before formal planning, focused on back-and-forth opportunity discovery, requirement framing, and multiple solution directions. **Plan discovery** for evaluate / implement / code-review resolves markdown from the repo tree and native IDE plan dirs (`.cursor/plans`, `.claude/plans`, `.codex/plans`, plus user-home equivalents). Shipped CLI/package line: **forge-next 0.6.3** (keep aligned with `pyproject.toml`).
+**Current Forge surface:** **iterate** is the meta-workflow (diagnose → plan → evaluate → implement → code-review → test with outer loops and `.iterate-gates/` JSON under Forge runtime memory). **develop** is the collaborative entry skill before formal planning, focused on back-and-forth opportunity discovery, requirement framing, and multiple solution directions. **Plan discovery** for evaluate / implement / code-review resolves markdown from the repo tree and native IDE plan dirs (`.cursor/plans`, `.claude/plans`, `.codex/plans`, plus user-home equivalents). Shipped CLI/package line: **forge-next 0.7.1** (keep aligned with `pyproject.toml`).
 
 | Skill | Role | Focus |
 |-------|------|-------|

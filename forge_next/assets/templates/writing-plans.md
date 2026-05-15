@@ -2,6 +2,20 @@
 
 Used by the plan skill and planner agent. Defines the required structure, format, and quality bar for implementation plans.
 
+See also `templates/plan-modes.md` for `default` vs `lite` ceremony; **correctness requirements are identical in both modes**.
+
+## Plan Header (required at top of every plan file)
+
+After `# Implementation Plan`, include:
+
+```markdown
+**Goal:** [One sentence]
+**Spec reference:** [Handoff, develop memory, or user request]
+**In scope:** [Bullets]
+**Out of scope:** [Bullets — explicit]
+**Plan mode:** default | lite
+```
+
 ## Plan Structure
 
 Every plan must contain all of the following sections. Missing sections are a review blocker.
@@ -13,6 +27,7 @@ Every plan must contain all of the following sections. Missing sections are a re
 5. Interface Contracts
 6. Risk Register
 7. Rollback Strategy
+8. Documentation *(plan-time documentation scope — feeds implement documentation gate)*
 
 ## 1. Architecture Overview
 
@@ -40,6 +55,16 @@ main
 - Sub-branches are merged back to the feature branch in dependency order after review.
 - Feature branch is merged to main after all tasks pass verification.
 - If parallel tasks touch the same file, the plan must specify merge order and conflict resolution strategy.
+
+## No Placeholders (plan failures)
+
+Never write these in any mode:
+
+- `TBD`, `TODO`, "implement later", "fill in details"
+- "Add appropriate error handling" / "add validation" / "handle edge cases" without specifics
+- "Write tests for the above" without actual test description or code
+- "Similar to Task N" without repeating needed detail
+- Steps that describe what to do without how (verification must name command + expected outcome)
 
 ## 3. Task Breakdown
 
@@ -82,6 +107,17 @@ Each task is a discrete unit of work assigned to one agent. Every task must incl
    - **T**estable — Has concrete acceptance criteria with pass/fail tests
 
    If a task fails any INVEST criterion, re-split or rewrite it before proceeding.
+
+### Lite mode task format
+
+When **plan mode is `lite`**, keep the same fields but allow shorter narrative. Each task **must** still include:
+
+- **Verify:** `command` → expected: `PASS` | `FAIL with "…"` | observable outcome
+- No placeholder steps; split until each task is independently executable
+
+### Default mode task format
+
+When **plan mode is `default`**, expand TDD steps with explicit commands and expected outputs per step (not only "run test").
 
 ## 4. Parallelization Map
 
@@ -159,6 +195,66 @@ What to do if the implementation fails after merge.
 **Partial rollback possible:** [yes/no, which tasks are independently revertible]
 **Verify:** [how to confirm rollback succeeded]
 ```
+
+## 8. Documentation
+
+Design documentation **before** implementation. This section is filled during **plan step 6 (Documentation Planning)** and consumed by **implement step 7 (documentation)** and the **step 8 documentation gate**.
+
+### Documentation inventory
+
+List targets you will touch:
+
+- **Tracked markdown/docs:** `README.md`, `docs/**`, `CHANGELOG*`, ADRs, root-level `*.md`.
+- **Wiki mirrors (if present):** `wiki/`, `.wiki/`, `docs/wiki/`.
+- **External wikis:** systems outside the repo (GitHub Wiki, Confluence, Notion, etc.) — tracked only as checklist rows here.
+
+### Audience applicability matrix (required)
+
+Three audiences — **pick applicability per change** (do not assume all three every time):
+
+| audience_level | applicable | justification |
+|----------------|------------|---------------|
+| architect_expert | yes / no | Why docs for architects/experts are in or out of scope |
+| technical_operator | yes / no | Why runbooks/ops/deploy content is in or out of scope |
+| user | yes / no | Why end-user docs are in or out of scope |
+
+Allowed values for `audience_level`: `architect_expert`, `technical_operator`, `user`.
+
+### Documentation Definition of Done (machine-checkable table)
+
+Include one row per documentation target (repo path or external system). Use this schema:
+
+| Field | Meaning |
+|-------|---------|
+| `audience_level` | One of `architect_expert` \| `technical_operator` \| `user` |
+| `applicable` | `true` / `false` — aligns with the applicability matrix |
+| `applicability_reason` | Short rationale when `applicable` is `false`, or “matches matrix” when `true` |
+| `target_path_or_system` | Repo path (`README.md`, `docs/...`) **or** external system label (`GitHub Wiki`, `Confluence/...`) |
+| `change_type` | `create` \| `update` \| `na` |
+| `acceptance_check` | Observable check that docs are correct (command, link, or reviewer assertion) |
+| `owner` | Role or person |
+| `status` | `planned` → becomes `done` during implement documentation phase |
+| `evidence` | PR link, commit, path, or placeholder for external wiki |
+
+During implement, agents record completion in `.implement-documentation-gate.json` beside the implement state file (see `prompts/implement/documentation.md`).
+
+### External wiki checklist (required section — may be empty)
+
+If no external wikis apply, state **“None — N/A”** and one matrix row explaining why.
+
+| system | page/slug | owner | status | evidence_link |
+
+### Done criteria for implement
+
+Implement step 8 refuses to complete until documentation artifacts satisfy the gate unless the user passes **`--allow-docs-incomplete`** with override metadata (see README).
+
+## Self-Review Checklist (planner, before review loop)
+
+1. **Spec coverage:** Each requirement in scope maps to at least one task.
+2. **Placeholder scan:** Search for forbidden patterns in "No Placeholders" above; fix inline.
+3. **Type/signature consistency:** Names and signatures match across tasks and interface contracts.
+4. **Verification:** Every task has command + expected outcome.
+5. **Mode fit:** `lite` plans are concise but not less correct; `default` plans include full governance depth.
 
 ## Rules
 

@@ -1,5 +1,7 @@
 Dispatch the **Architect** to design the unified architecture.
 
+{{MODE_CONTRACT}}
+
 ## Plan-Phase Safety Contract (mandatory)
 
 - This is a planning-only phase. Do not edit product code.

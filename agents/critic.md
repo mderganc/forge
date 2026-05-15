@@ -60,6 +60,8 @@ When dispatched for a stage, apply the relevant lens:
 - What's the weakest assumption in this plan?
 - Is the rollback strategy realistic?
 - What happens if Task N discovers the approach doesn't work?
+- Any **placeholder** or vague verification steps that would let execution drift?
+- In `lite` mode: did the team skip required evidence while shortening narrative?
 
 ### Implement Skill (per-task review)
 - What edge cases weren't covered in the tests?

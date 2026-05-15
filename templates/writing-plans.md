@@ -2,6 +2,20 @@
 
 Used by the plan skill and planner agent. Defines the required structure, format, and quality bar for implementation plans.
 
+See also `templates/plan-modes.md` for `default` vs `lite` ceremony; **correctness requirements are identical in both modes**.
+
+## Plan Header (required at top of every plan file)
+
+After `# Implementation Plan`, include:
+
+```markdown
+**Goal:** [One sentence]
+**Spec reference:** [Handoff, develop memory, or user request]
+**In scope:** [Bullets]
+**Out of scope:** [Bullets — explicit]
+**Plan mode:** default | lite
+```
+
 ## Plan Structure
 
 Every plan must contain all of the following sections. Missing sections are a review blocker.
@@ -41,6 +55,16 @@ main
 - Sub-branches are merged back to the feature branch in dependency order after review.
 - Feature branch is merged to main after all tasks pass verification.
 - If parallel tasks touch the same file, the plan must specify merge order and conflict resolution strategy.
+
+## No Placeholders (plan failures)
+
+Never write these in any mode:
+
+- `TBD`, `TODO`, "implement later", "fill in details"
+- "Add appropriate error handling" / "add validation" / "handle edge cases" without specifics
+- "Write tests for the above" without actual test description or code
+- "Similar to Task N" without repeating needed detail
+- Steps that describe what to do without how (verification must name command + expected outcome)
 
 ## 3. Task Breakdown
 
@@ -83,6 +107,17 @@ Each task is a discrete unit of work assigned to one agent. Every task must incl
    - **T**estable — Has concrete acceptance criteria with pass/fail tests
 
    If a task fails any INVEST criterion, re-split or rewrite it before proceeding.
+
+### Lite mode task format
+
+When **plan mode is `lite`**, keep the same fields but allow shorter narrative. Each task **must** still include:
+
+- **Verify:** `command` → expected: `PASS` | `FAIL with "…"` | observable outcome
+- No placeholder steps; split until each task is independently executable
+
+### Default mode task format
+
+When **plan mode is `default`**, expand TDD steps with explicit commands and expected outputs per step (not only "run test").
 
 ## 4. Parallelization Map
 
@@ -212,6 +247,14 @@ If no external wikis apply, state **“None — N/A”** and one matrix row expl
 ### Done criteria for implement
 
 Implement step 8 refuses to complete until documentation artifacts satisfy the gate unless the user passes **`--allow-docs-incomplete`** with override metadata (see README).
+
+## Self-Review Checklist (planner, before review loop)
+
+1. **Spec coverage:** Each requirement in scope maps to at least one task.
+2. **Placeholder scan:** Search for forbidden patterns in "No Placeholders" above; fix inline.
+3. **Type/signature consistency:** Names and signatures match across tasks and interface contracts.
+4. **Verification:** Every task has command + expected outcome.
+5. **Mode fit:** `lite` plans are concise but not less correct; `default` plans include full governance depth.
 
 ## Rules
 

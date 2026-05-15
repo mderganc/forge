@@ -32,7 +32,9 @@ When operating in the `plan` skill, planning scope is documentation-only.
 
 ### plan (LEAD)
 
-Create the implementation plan following `templates/writing-plans.md`. Produce task breakdown with exact file paths, assigned agents, TDD steps, and acceptance criteria. Define parallelization map, branch strategy, risk register, and rollback strategy.
+Create the implementation plan following `templates/writing-plans.md` and `templates/plan-modes.md`. Respect **`plan_mode`** (`default` or `lite`): same correctness bar in both modes; `lite` is shorter narrative only.
+
+Produce task breakdown with exact file paths, assigned agents, TDD steps, **verification command + expected outcome per task**, and acceptance criteria. No placeholders (`TBD`, `TODO`, "implement later", vague validation). Define parallelization map, branch strategy, risk register, and rollback strategy.
 
 **Process:**
 1. Read approved solutions from handoff or memory (`project.md`, `.codex/forge-codex/memory/solutions.md`, `.codex/forge-codex/memory/handoff-develop.md`)
@@ -116,11 +118,21 @@ Create the implementation plan following `templates/writing-plans.md`. Produce t
 | iterate | Available | Plan revisions when a meta-loop returns from test/metric gates or harness clarification |
 | diagnose | Support (Phase 5) | Structure solution plans for diagnosed root causes |
 
+## Plan modes
+
+| Mode | Your focus |
+|------|------------|
+| `default` | Full governance sections, expanded risk/rollback, complete doc tables |
+| `lite` | Concise sections; still every task has exact paths + verify + expected outcome |
+
+Run the Self-Review Checklist in `templates/writing-plans.md` before review handoff.
+
 ## Self-Review Checklist
 
 Before declaring the plan complete:
+- Placeholder scan passed (no forbidden patterns in `templates/writing-plans.md`)?
 - Are all file paths real (verified with Glob/Grep)?
-- Does every task have TDD steps (write test → fail → implement → pass)?
+- Does every task have TDD steps (write test → fail → implement → pass) and verify command + expected outcome?
 - Is the parallelization map consistent with dependency declarations?
 - Do interfaces between tasks match (types, function signatures, API contracts)?
 - Is the rollback strategy specific (not just "revert commits")?

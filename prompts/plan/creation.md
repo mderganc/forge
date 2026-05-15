@@ -1,5 +1,7 @@
 Dispatch the **Planner** to create the detailed implementation plan.
 
+{{MODE_CONTRACT}}
+
 ## Plan-Phase Safety Contract (mandatory)
 
 - This is a planning-only phase. Do not edit product code.
@@ -19,22 +21,25 @@ Dispatch the **Planner** to create the detailed implementation plan.
 
 Open `{{PLAN_FILE}}` — the orchestrator has already created it with section
 markers, and the Architect has already filled in the `Architecture Overview`
-section. Replace each remaining `<!-- FORGE_SKELETON: ... -->` marker with the
-content described in `templates/writing-plans.md`:
+section. Add the **Plan Header** block from `templates/writing-plans.md` (Goal,
+Spec reference, In scope, Out of scope, **Plan mode: {{PLAN_MODE}}**).
+
+Replace each remaining `<!-- FORGE_SKELETON: ... -->` marker with content per
+`templates/writing-plans.md` and `templates/plan-modes.md`:
 
 1. **`BRANCH-STRATEGY`** — Branch structure per the template's diagram and rules.
-2. **`TASK-BREAKDOWN`** — Tasks with exact file paths, agents, TDD steps.
-   Validate each against INVEST (Independent, Negotiable, Valuable, Estimable,
-   Small, Testable).
-3. **`PARALLELIZATION-MAP`** — Wave table and dependencies.
-4. **`INTERFACE-CONTRACTS`** — Concrete signatures/schemas where tasks depend on each other.
-5. **`RISK-REGISTER`** — At least 2 risks with specific mitigations.
+2. **`TASK-BREAKDOWN`** — Tasks with exact file paths, agents, TDD steps, **Verify**
+   command + expected outcome per task. No placeholders. INVEST validation.
+3. **`PARALLELIZATION-MAP`** — Wave table and dependencies (`lite`: only if >1 task).
+4. **`INTERFACE-CONTRACTS`** — Concrete signatures/schemas when tasks depend on each other.
+5. **`RISK-REGISTER`** — At least 2 risks with specific mitigations (`lite`: may be compact).
    Run a pre-mortem per `templates/pre-mortem.md` first.
-6. **`ROLLBACK-STRATEGY`** — Specific commands, not "revert commits."
+6. **`ROLLBACK-STRATEGY`** — Specific steps, not "revert commits."
+
+Run the **Self-Review Checklist** in `templates/writing-plans.md` before handing off to review.
 
 Do not leave any `<!-- FORGE_SKELETON: ... -->` markers in the file — the
-step-6 completion gate will refuse to mark the plan complete while any
-remain.
+step-7 completion gate will refuse to mark the plan complete while any remain.
 
 ## Agents to Dispatch
 - **Planner** (lead): Plan creation

@@ -11,6 +11,7 @@ dist/
 build/
 .venv/
 .DS_Store
+graphify-out/
 
 # PyPI upload secrets (never commit)
 .pypirc

@@ -1598,3 +1598,26 @@ def test_graphify_refresh_writes_status(monkeypatch):
             status_path.write_text(backup, encoding="utf-8")
         elif status_path.exists():
             status_path.unlink()
+
+
+def test_graphify_refresh_default_command_runs_update_dot(monkeypatch):
+    monkeypatch.chdir(REPO_ROOT)
+    from forge_next import graphify
+
+    calls: list[list[str]] = []
+
+    def fake_write_status(_repo_root: Path, payload: dict) -> Path:
+        assert payload["status"] == "fresh"
+        return REPO_ROOT / ".codex" / "forge-codex" / "state" / "graphify-status.json"
+
+    def fake_run(cmd, **kwargs):
+        calls.append(cmd)
+        return subprocess.CompletedProcess(cmd, 0, "", "")
+
+    monkeypatch.setattr(graphify, "_write_status", fake_write_status)
+    monkeypatch.setattr(graphify.shutil, "which", lambda exe: "graphify" if exe == "graphify" else None)
+    monkeypatch.setattr(graphify.subprocess, "run", fake_run)
+
+    assert graphify.refresh(REPO_ROOT) == 0
+    assert calls, "Expected graphify subprocess.run to be called"
+    assert ["graphify", "update", "."] in calls

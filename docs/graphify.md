@@ -30,7 +30,7 @@ Install the Graphify tooling your project uses (CLI name may vary). If the
 Alternatively, set a full command line:
 
 - **`FORGE_GRAPHIFY_COMMAND`** — shell command to rebuild the graph (split with
-  POSIX rules). Example: `graphify build` or a project-specific wrapper.
+  POSIX rules). Default behavior (when unset) is `graphify update .`.
 
 ## Refresh status file
 

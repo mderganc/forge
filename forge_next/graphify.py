@@ -11,6 +11,7 @@ import os
 import shlex
 import shutil
 import subprocess
+import sys
 import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
@@ -38,11 +39,12 @@ def _git_head(repo: Path) -> str | None:
     return None
 
 
-def _write_status(repo: Path, payload: dict) -> None:
-    """Write graphify-status.json under Forge runtime state directory."""
-    # Import inside function so `forge graphify` works with minimal path setup.
-    import sys
+def _write_status(repo: Path, payload: dict) -> Path:
+    """Write graphify-status.json under Forge runtime state directory.
 
+    Returns the path to the status file.
+    """
+    # Import inside function so `forge graphify` works with minimal path setup.
     if str(repo) not in sys.path:
         sys.path.insert(0, str(repo))
     from scripts.shared.orchestrator import ensure_runtime_dirs, runtime_state_dir
@@ -58,6 +60,7 @@ def _write_status(repo: Path, payload: dict) -> None:
     except BaseException:
         Path(tmp).unlink(missing_ok=True)
         raise
+    return out
 
 
 def refresh(repo_root: Path) -> int:
@@ -72,7 +75,7 @@ def refresh(repo_root: Path) -> int:
         try:
             cmd = shlex.split(custom)
         except ValueError as e:
-            _write_status(
+            sp = _write_status(
                 repo_root,
                 {
                     "status": "error",
@@ -82,12 +85,15 @@ def refresh(repo_root: Path) -> int:
                     "graphify_available": False,
                 },
             )
+            print(f"forge graphify: invalid FORGE_GRAPHIFY_COMMAND ({e}). Status: {sp}", file=sys.stderr)
             return 0
     elif shutil.which("graphify"):
-        cmd = ["graphify"]
+        # Plain `graphify` may print help and exit 0 without rebuilding output.
+        # Use the project-safe explicit refresh command by default.
+        cmd = ["graphify", "update", "."]
 
     if not cmd:
-        _write_status(
+        sp = _write_status(
             repo_root,
             {
                 "status": "missing",
@@ -96,6 +102,12 @@ def refresh(repo_root: Path) -> int:
                 "repo_head": head,
                 "graphify_available": False,
             },
+        )
+        print(
+            "forge graphify: no `graphify` on PATH and FORGE_GRAPHIFY_COMMAND is unset.\n"
+            f"  Recorded status ({sp.name}): status=missing — exiting 0 (fail-soft for hooks).\n"
+            "  Install Graphify or set FORGE_GRAPHIFY_COMMAND; see docs/graphify.md.",
+            file=sys.stderr,
         )
         return 0
 
@@ -109,7 +121,7 @@ def refresh(repo_root: Path) -> int:
         )
         ok = r.returncode == 0
         err_tail = ((r.stderr or "") + (r.stdout or ""))[-800:]
-        _write_status(
+        sp = _write_status(
             repo_root,
             {
                 "status": "fresh" if ok else "error",
@@ -119,8 +131,15 @@ def refresh(repo_root: Path) -> int:
                 "graphify_available": True,
             },
         )
+        if ok:
+            print("forge graphify: refresh finished (status file updated).", file=sys.stderr)
+        else:
+            print(
+                f"forge graphify: Graphify exited {r.returncode}. Details in {sp}.\n{err_tail}",
+                file=sys.stderr,
+            )
     except subprocess.TimeoutExpired:
-        _write_status(
+        sp = _write_status(
             repo_root,
             {
                 "status": "error",
@@ -130,8 +149,9 @@ def refresh(repo_root: Path) -> int:
                 "graphify_available": True,
             },
         )
+        print(f"forge graphify: command timed out. Status: {sp}", file=sys.stderr)
     except OSError as e:
-        _write_status(
+        sp = _write_status(
             repo_root,
             {
                 "status": "error",
@@ -141,6 +161,7 @@ def refresh(repo_root: Path) -> int:
                 "graphify_available": bool(cmd),
             },
         )
+        print(f"forge graphify: {e}. Status: {sp}", file=sys.stderr)
     return 0
 
 
@@ -201,7 +222,7 @@ def graphify_install_notice_lines() -> list[str]:
         "",
         "Graphify (optional — gives `forge resume` a codebase map, not your chat history):",
         "  1) Install Graphify so a `graphify` command works on your PATH, **or** set environment variable",
-        "     FORGE_GRAPHIFY_COMMAND to exactly how you run it (e.g. `graphify build` — use your project’s real command).",
+        "     FORGE_GRAPHIFY_COMMAND to exactly how you run it (defaults to `graphify update .`).",
         "  2) In each **git clone** of your app repo, run **forge graphify refresh** once from that repo",
         "     (or `forge graphify refresh --repo \"C:/path/to/repo\"` from any directory).",
         "     That writes **graphify-status.json** under your Forge runtime state folder (e.g. `.codex/forge/state/`).",

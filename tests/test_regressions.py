@@ -363,6 +363,46 @@ def test_resolve_step1_state_path_ignores_stale_conflict(fresh_state_dir, monkey
     assert resolved == canonical
 
 
+def test_develop_step1_auto_parallel_not_overridden_by_existing_lookup(fresh_state_dir):
+    """Develop step 1 should keep resolver's parallel path decision."""
+    import os
+    import re
+
+    state_dir = fresh_state_dir / ".codex" / "forge" / "state"
+    state_dir.mkdir(parents=True, exist_ok=True)
+    canonical = state_dir / "develop.json"
+    env = os.environ.copy()
+    env["FORGE_SKIP_SESSION_OPTIN"] = "1"
+
+    # Seed a fresh active canonical session.
+    r1 = subprocess.run(
+        [sys.executable, str(SCRIPTS / "develop" / "develop.py"), "--step", "1", "--state", str(canonical)],
+        cwd=str(fresh_state_dir),
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        env=env,
+    )
+    assert r1.returncode == 0, r1.stderr
+
+    # Next implicit step-1 run should auto-fan-out to a suffixed parallel file.
+    r2 = subprocess.run(
+        [sys.executable, str(SCRIPTS / "develop" / "develop.py"), "--step", "1"],
+        cwd=str(fresh_state_dir),
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        env=env,
+    )
+    assert r2.returncode == 0, r2.stderr
+    combined = (r2.stderr or "") + "\n" + (r2.stdout or "")
+    m = re.search(r"STATE FILE:\s*(.+)", combined)
+    assert m, combined
+    selected = Path(m.group(1).strip())
+    assert selected.name.startswith("develop-")
+    assert selected.name != "develop.json"
+
+
 def test_validate_state_path_accepts_suffixed_skill_state(fresh_state_dir):
     from scripts.shared.orchestrator import validate_state_path
 

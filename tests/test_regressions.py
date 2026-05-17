@@ -12,6 +12,7 @@ pytest fixture parameters appear unused but trigger setup/teardown.
 from __future__ import annotations
 
 import json
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -1621,3 +1622,44 @@ def test_graphify_refresh_default_command_runs_update_dot(monkeypatch):
     assert graphify.refresh(REPO_ROOT) == 0
     assert calls, "Expected graphify subprocess.run to be called"
     assert ["graphify", "update", "."] in calls
+
+
+# ---------------------------------------------------------------------------
+# Structured question prompt shape guard
+# ---------------------------------------------------------------------------
+
+def test_structured_question_prompts_avoid_legacy_malformed_shape():
+    """Guard against legacy Ask-the-user pseudo-JSON that breaks pickers."""
+    roots = [
+        REPO_ROOT / "templates",
+        REPO_ROOT / "prompts",
+        REPO_ROOT / "forge_next" / "assets" / "templates",
+        REPO_ROOT / "forge_next" / "assets" / "prompts",
+    ]
+    legacy_markers = (
+        '"multiSelect":',
+        '"header":',
+        "Ask the user:\n  {",
+        "Ask the user:\r\n  {",
+        "])",
+    )
+    offenders: list[str] = []
+    malformed_lists: list[str] = []
+
+    for root in roots:
+        if not root.exists():
+            continue
+        for path in root.rglob("*.md"):
+            text = path.read_text(encoding="utf-8")
+            if "Ask the user:" not in text:
+                continue
+            if any(marker in text for marker in legacy_markers):
+                offenders.append(str(path.relative_to(REPO_ROOT)))
+            if '"allow_multiple":' in text and not re.search(r"Ask the user:\s*\[", text):
+                malformed_lists.append(str(path.relative_to(REPO_ROOT)))
+
+    assert not offenders, "Legacy structured-question markers found in:\n" + "\n".join(sorted(offenders))
+    assert not malformed_lists, (
+        "Structured question blocks must start with 'Ask the user:' followed by a JSON array in:\n"
+        + "\n".join(sorted(malformed_lists))
+    )

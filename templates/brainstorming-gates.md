@@ -170,57 +170,59 @@ Copy-paste skeletons. Replace bracketed placeholders with content read from the 
 
 ```
 Ask the user:
+[
   {
-    "question": "Which How-Might-We framing should drive divergence?",
-    "header":   "HMW framing",
-    "multiSelect": false,
+    "id": "gate1_hmw",
+    "prompt": "Which How-Might-We framing should drive divergence?",
+    "allow_multiple": false,
     "options": [
-      {"label": "[HMW #1 truncated] (Recommended)", "description": "[short rationale]"},
-      {"label": "[HMW #2 truncated]",               "description": "[short rationale]"},
-      {"label": "[HMW #3 truncated]",               "description": "[short rationale]"}
+      {"id": "hmw_1", "label": "[HMW #1 truncated] (Recommended)", "description": "[short rationale]"},
+      {"id": "hmw_2", "label": "[HMW #2 truncated]", "description": "[short rationale]"},
+      {"id": "hmw_3", "label": "[HMW #3 truncated]", "description": "[short rationale]"}
     ]
   },
   {
-    "question": "Which advanced divergent techniques should the Architect also apply? (SCAMPER + Reverse + Constraint Removal are always included)",
-    "header":   "Techniques",
-    "multiSelect": true,
+    "id": "gate1_techniques",
+    "prompt": "Which advanced divergent techniques should the Architect also apply? (SCAMPER + Reverse + Constraint Removal are always included)",
+    "allow_multiple": true,
     "options": [
-      {"label": "First Principles",    "description": "Strip to invariants; rebuild from fundamentals"},
-      {"label": "Analogical Reasoning","description": "Import solution shapes from other domains (distributed systems, compilers, biology, …)"},
-      {"label": "Assumption Reversal", "description": "List and flip implicit assumptions the obvious solution makes"},
-      {"label": "TRIZ Contradiction",  "description": "Resolve we-want-X-and-not-X tensions via segmentation / asymmetry / dynamics / prior action"}
+      {"id": "first_principles", "label": "First Principles", "description": "Strip to invariants; rebuild from fundamentals"},
+      {"id": "analogical_reasoning", "label": "Analogical Reasoning", "description": "Import solution shapes from other domains (distributed systems, compilers, biology, ...)"},
+      {"id": "assumption_reversal", "label": "Assumption Reversal", "description": "List and flip implicit assumptions the obvious solution makes"},
+      {"id": "triz_contradiction", "label": "TRIZ Contradiction", "description": "Resolve we-want-X-and-not-X tensions via segmentation / asymmetry / dynamics / prior action"}
     ]
   }
-])
+]
 ```
 
 ### Gate 2 Q1 + Q2 (Level 1 / Level 2 partial)
 
 ```
 Ask the user:
+[
   {
-    "question": "Which solution families should be carried into full scored comparison?",
-    "header":   "Candidates",
-    "multiSelect": true,
+    "id": "gate2_candidates",
+    "prompt": "Which solution families should be carried into full scored comparison?",
+    "allow_multiple": true,
     "options": [
-      {"label": "[Candidate 1 title]", "description": "[1-line pros/cons summary]"},
-      {"label": "[Candidate 2 title]", "description": "[1-line pros/cons summary]"},
-      {"label": "[Candidate 3 title]", "description": "[1-line pros/cons summary]"},
-      {"label": "[Candidate 4 title]", "description": "[1-line pros/cons summary]"}
+      {"id": "candidate_1", "label": "[Candidate 1 title]", "description": "[1-line pros/cons summary]"},
+      {"id": "candidate_2", "label": "[Candidate 2 title]", "description": "[1-line pros/cons summary]"},
+      {"id": "candidate_3", "label": "[Candidate 3 title]", "description": "[1-line pros/cons summary]"},
+      {"id": "candidate_4", "label": "[Candidate 4 title]", "description": "[1-line pros/cons summary]"}
     ]
   },
   {
-    "question": "Which scoring dimension matters most for this task?",
-    "header":   "Priority dim",
-    "multiSelect": false,
+    "id": "gate2_priority",
+    "prompt": "Which scoring dimension matters most for this task?",
+    "allow_multiple": false,
     "options": [
-      {"label": "Quality",  "description": "Correctness, maintainability, reliability"},
-      {"label": "Time",     "description": "Velocity, time-to-ship (collapses rubric T+E)"},
-      {"label": "Risk",     "description": "Security, data loss, rollback cost (collapses rubric R+C)"},
-      {"label": "Balanced", "description": "No dimension dominates"}
+      {"id": "quality", "label": "Quality", "description": "Correctness, maintainability, reliability"},
+      {"id": "time", "label": "Time", "description": "Velocity, time-to-ship (collapses rubric T+E)"},
+      {"id": "risk", "label": "Risk", "description": "Security, data loss, rollback cost (collapses rubric R+C)"},
+      {"id": "balanced", "label": "Balanced", "description": "No dimension dominates"}
     ]
   }
-])
+]
 ```
 
 **Level 2 variant:** Omit the first question entirely. Pass only the priority-dimension question. The families list is pre-cut by ICE or kept whole if ≤4.
@@ -229,16 +231,17 @@ Ask the user:
 
 ```
 Ask the user:
+[
   {
-    "question": "The top candidates scored nearly equivalently. Which do you prefer?",
-    "header":   "Tiebreak",
-    "multiSelect": false,
+    "id": "gate2_tiebreak",
+    "prompt": "The top candidates scored nearly equivalently. Which do you prefer?",
+    "allow_multiple": false,
     "options": [
-      {"label": "[Candidate A title]", "description": "[headline trade-off]"},
-      {"label": "[Candidate B title]", "description": "[headline trade-off]"}
+      {"id": "candidate_a", "label": "[Candidate A title]", "description": "[headline trade-off]"},
+      {"id": "candidate_b", "label": "[Candidate B title]", "description": "[headline trade-off]"}
     ]
   }
-])
+]
 ```
 
 ## Fallback

@@ -51,6 +51,7 @@ from scripts.shared.orchestrator import (
     now_iso,
     render_dashboard,
     resolve_step1_state_path,
+    is_state_stale,
     runtime_memory_dir,
     runtime_state_path,
     save_state,
@@ -298,16 +299,25 @@ def handle_step_1(args: argparse.Namespace) -> None:
     )
     sp.parent.mkdir(parents=True, exist_ok=True)
 
-    # Check for existing state (session resume)
+    # Check for existing state (session resume). Important: honor the resolved
+    # step-1 path so auto-parallel fan-out is not overwritten by broad
+    # find_state_file() fallback.
     existing = None
     if args.state:
         existing = validate_state_path(args.state, SKILL_NAME)
-    elif not getattr(args, "parallel", False):
-        existing = find_state_file(SKILL_NAME)
+    elif sp.exists():
+        existing = sp
+
     if existing is not None:
         try:
-            state = load_state(existing)
-            sp = existing
+            loaded = load_state(existing)
+            # For implicit starts, stale in-progress state should be treated as
+            # ignorable so a fresh session can start cleanly.
+            if args.state or not is_state_stale(loaded, existing):
+                state = loaded
+                sp = existing
+            else:
+                state = None
         except Exception:
             state = None
     else:

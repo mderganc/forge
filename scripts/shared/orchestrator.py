@@ -19,6 +19,7 @@ from dataclasses import dataclass, field, asdict
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
+from uuid import uuid4
 
 def _detect_repo_root(start: Path | None = None) -> Path:
     """Detect the target repo root from the current working directory.
@@ -209,6 +210,8 @@ class SkillState:
     # Timestamps
     started_at: str | None = None
     completed_at: str | None = None
+    last_touched_at: str | None = None
+    session_id: str = field(default_factory=lambda: str(uuid4()))
 
     # Retry guard: counts consecutive failures of the same step. Reset on
     # successful step completion. resume.py emits an "inspect logs" hint
@@ -280,6 +283,8 @@ class SkillState:
             "phase_todos": self.phase_todos,
             "started_at": self.started_at,
             "completed_at": self.completed_at,
+            "last_touched_at": self.last_touched_at,
+            "session_id": self.session_id,
             "failure_count": self.failure_count,
             "custom": self.custom,
         }
@@ -308,6 +313,8 @@ class SkillState:
         state.phase_todos = data.get("phase_todos", {})
         state.started_at = data.get("started_at")
         state.completed_at = data.get("completed_at")
+        state.last_touched_at = data.get("last_touched_at")
+        state.session_id = data.get("session_id", state.session_id)
         state.failure_count = data.get("failure_count", 0)
         state.custom = data.get("custom", {})
         return state
@@ -332,8 +339,57 @@ def runtime_state_path(skill_name: str, search_dir: Path | None = None) -> Path:
     return runtime_state_dir(search_dir) / state_filename(skill_name)
 
 
+def _is_skill_state_filename(name: str, skill_name: str) -> bool:
+    """True when ``name`` is a valid state filename for ``skill_name``."""
+    if skill_name == "evaluate":
+        return name == EVALUATE_STATE_FILENAME or (
+            name.startswith(".evaluate-state-") and name.endswith(".json")
+        )
+    if name in {state_filename(skill_name), legacy_state_filename(skill_name)}:
+        return True
+    # Support parallel sessions with suffixed names, e.g. plan-20260517-123000.json
+    return name.startswith(f"{skill_name}-") and name.endswith(".json")
+
+
+def _state_path_candidates(skill_name: str, search_dir: Path | None = None) -> list[Path]:
+    """Return deduplicated candidate paths for a skill's state files."""
+    cwd = search_dir or Path.cwd()
+    dirs = [
+        runtime_state_dir(cwd),
+        legacy_state_dir(cwd),
+        cwd,
+    ]
+    candidates: list[Path] = []
+    seen: set[Path] = set()
+
+    # Fixed canonical + legacy names first.
+    for path in (
+        runtime_state_path(skill_name, cwd),
+        cwd / state_filename(skill_name),
+        legacy_state_dir(cwd) / legacy_state_filename(skill_name),
+        cwd / legacy_state_filename(skill_name),
+    ):
+        if path not in seen:
+            candidates.append(path)
+            seen.add(path)
+
+    # Parallel-session variants (skill-*.json) in the same directories.
+    for dir_path in dirs:
+        if not dir_path.exists():
+            continue
+        for path in sorted(dir_path.glob(f"{skill_name}-*.json")):
+            if path not in seen:
+                candidates.append(path)
+                seen.add(path)
+
+    return candidates
+
+
 def save_state(state: SkillState, path: Path) -> None:
     """Write state to JSON file atomically."""
+    state.last_touched_at = now_iso()
+    if not state.session_id:
+        state.session_id = str(uuid4())
     path.parent.mkdir(parents=True, exist_ok=True)
     content = json.dumps(state.to_dict(), indent=2)
     fd, tmp = tempfile.mkstemp(dir=path.parent, suffix=".tmp")
@@ -374,20 +430,46 @@ def clear_state_file(path: Path) -> None:
     path.unlink(missing_ok=True)
 
 
-def find_state_file(skill_name: str, search_dir: Path | None = None) -> Path | None:
-    """Search for a skill's state file."""
-    cwd = search_dir or Path.cwd()
-    candidates = [
-        runtime_state_path(skill_name, cwd),
-        cwd / state_filename(skill_name),
-        legacy_state_dir(cwd) / legacy_state_filename(skill_name),
-        cwd / legacy_state_filename(skill_name),
-    ]
+def find_state_file(
+    skill_name: str,
+    search_dir: Path | None = None,
+    *,
+    include_completed: bool = False,
+    include_stale: bool = False,
+) -> Path | None:
+    """Find the best state file for a skill.
 
-    for candidate in candidates:
-        if candidate.exists():
-            return candidate
+    Selection policy:
+      1) Prefer active (not effectively complete) states.
+      2) Within that set, choose most recently modified.
+      3) Optionally include completed states as fallback.
+    """
+    active_fresh: list[Path] = []
+    active_stale: list[Path] = []
+    complete: list[Path] = []
 
+    for candidate in _state_path_candidates(skill_name, search_dir):
+        if not candidate.exists():
+            continue
+        try:
+            state = load_state(candidate)
+        except Exception:
+            continue
+        if state.skill_name != skill_name:
+            continue
+        if is_state_effectively_complete(state):
+            complete.append(candidate)
+        elif is_state_stale(state, candidate):
+            active_stale.append(candidate)
+        else:
+            active_fresh.append(candidate)
+
+    if active_fresh:
+        return max(active_fresh, key=lambda p: p.stat().st_mtime)
+    if include_stale and active_stale:
+        return max(active_stale, key=lambda p: p.stat().st_mtime)
+    if include_completed and complete:
+        return max(complete, key=lambda p: p.stat().st_mtime)
     return None
 
 
@@ -440,18 +522,18 @@ def _scan_evaluate_sessions(cwd: Path) -> list[dict]:
 
     # Candidate locations: cwd, runtime roots, and anywhere under docs/
     candidates: list[Path] = []
-    for fname in (EVALUATE_STATE_FILENAME,):
-        direct = cwd / fname
-        if direct.exists():
-            candidates.append(direct)
-        for extra_dir in (runtime_root(cwd), legacy_runtime_root(cwd)):
-            candidate = extra_dir / fname
+    for dir_path in (cwd, runtime_root(cwd), legacy_runtime_root(cwd)):
+        if not dir_path.exists():
+            continue
+        # Canonical evaluate state filename plus parallel-session variants.
+        for candidate in [dir_path / EVALUATE_STATE_FILENAME, *dir_path.glob(".evaluate-state-*.json")]:
             if candidate.exists():
                 candidates.append(candidate)
 
     docs_dir = cwd / "docs"
     if docs_dir.is_dir():
         candidates.extend(docs_dir.rglob(".evaluate-state.json"))
+        candidates.extend(docs_dir.rglob(".evaluate-state-*.json"))
 
     seen: set[Path] = set()
     for path in candidates:
@@ -463,6 +545,8 @@ def _scan_evaluate_sessions(cwd: Path) -> list[dict]:
         try:
             data = json.loads(path.read_text())
         except Exception:
+            continue
+        if is_evaluate_state_stale(data, path):
             continue
 
         # Evaluate state has no completed_at field (it's ephemeral - deleted on
@@ -506,44 +590,39 @@ def detect_active_sessions(search_dir: Path | None = None) -> list[dict]:
     """
     cwd = search_dir or _detect_repo_root()
     sessions: list[dict] = []
-    candidate_dirs = [
-        runtime_state_dir(cwd),
-        legacy_state_dir(cwd),
-        cwd,
-    ]
-
     seen_paths: set[Path] = set()
     for skill in KNOWN_SKILLS:
         # Evaluate uses a different state system - handle separately below
         if skill == "evaluate":
             continue
 
-        fnames = (state_filename(skill), legacy_state_filename(skill))
-        for dir_path in candidate_dirs:
-            for fname in fnames:
-                candidate = dir_path / fname
-                if not candidate.exists() or candidate in seen_paths:
-                    continue
-                seen_paths.add(candidate)
+        for candidate in _state_path_candidates(skill, cwd):
+            if not candidate.exists() or candidate in seen_paths:
+                continue
+            seen_paths.add(candidate)
 
-                try:
-                    state = load_state(candidate)
-                except Exception:
-                    continue
+            try:
+                state = load_state(candidate)
+            except Exception:
+                continue
 
-                if is_state_effectively_complete(state):
-                    continue
+            if state.skill_name != skill:
+                continue
+            if is_state_effectively_complete(state):
+                continue
+            if is_state_stale(state, candidate):
+                continue
 
-                sessions.append({
-                    "skill": state.skill_name,
-                    "path": candidate,
-                    "current_step": state.current_step,
-                    "last_completed_step": state.last_completed_step,
-                    "max_step": state.max_step,
-                    "started_at": state.started_at,
-                    "completed_at": state.completed_at,
-                    "is_complete": False,
-                })
+            sessions.append({
+                "skill": state.skill_name,
+                "path": candidate,
+                "current_step": state.current_step,
+                "last_completed_step": state.last_completed_step,
+                "max_step": state.max_step,
+                "started_at": state.started_at,
+                "completed_at": state.completed_at,
+                "is_complete": False,
+            })
 
     # Handle evaluate separately (different state format + location)
     sessions.extend(_scan_evaluate_sessions(cwd))
@@ -669,13 +748,9 @@ def validate_state_path(state_file: str, skill_name: str) -> Path | None:
               file=sys.stderr)
         return None
 
-    # Reject paths that don't look like state files
-    expected_names = {
-        state_filename(skill_name),
-        legacy_state_filename(skill_name),
-        EVALUATE_STATE_FILENAME,
-    }
-    if sp.name not in expected_names:
+    # Reject paths that don't look like state files for this skill.
+    looks_like_state = _is_skill_state_filename(sp.name, skill_name)
+    if not looks_like_state:
         print(f"WARNING: --state path doesn't look like a state file, ignoring: {state_file}",
               file=sys.stderr)
         return None
@@ -684,6 +759,63 @@ def validate_state_path(state_file: str, skill_name: str) -> Path | None:
         return None
 
     return sp
+
+
+def resolve_step1_state_path(
+    skill_name: str,
+    state_file: str | None = None,
+    *,
+    parallel: bool = False,
+    search_dir: Path | None = None,
+) -> Path:
+    """Resolve where a step-1 invocation should write state.
+
+    - ``--state <path>``: use that path if it is inside the repo and filename
+      matches the skill.
+    - ``--parallel``: auto-allocate a suffixed file in runtime state dir.
+    - default: canonical ``<skill>.json`` in runtime state dir.
+    """
+    repo_root = _detect_repo_root(search_dir).resolve()
+
+    if state_file:
+        sp = Path(state_file).resolve()
+        try:
+            sp.relative_to(repo_root)
+        except ValueError:
+            sys.exit(f"ERROR: --state path is outside the repository: {state_file}")
+        if not _is_skill_state_filename(sp.name, skill_name):
+            sys.exit(
+                f"ERROR: --state must look like `{skill_name}.json` or "
+                f"`{skill_name}-<id>.json` (got `{sp.name}`)"
+            )
+        return sp
+
+    if parallel:
+        return _next_parallel_state_path(skill_name, repo_root)
+
+    # Fresh active same-skill session exists: auto-fan-out to parallel unless disabled.
+    if find_state_file(skill_name, repo_root) is not None and auto_parallel_on_conflict_enabled():
+        return _next_parallel_state_path(skill_name, repo_root)
+
+    return runtime_state_path(skill_name, repo_root)
+
+
+def _next_parallel_state_path(skill_name: str, repo_root: Path) -> Path:
+    state_dir = runtime_state_dir(repo_root)
+    state_dir.mkdir(parents=True, exist_ok=True)
+    stamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
+    candidate = state_dir / f"{skill_name}-{stamp}.json"
+    idx = 2
+    while candidate.exists():
+        candidate = state_dir / f"{skill_name}-{stamp}-{idx}.json"
+        idx += 1
+    return candidate
+
+
+def auto_parallel_on_conflict_enabled() -> bool:
+    """Whether step-1 should auto-allocate parallel state on same-skill conflicts."""
+    v = os.environ.get("FORGE_AUTO_PARALLEL_ON_CONFLICT", "1").strip().lower()
+    return v not in ("0", "false", "no", "off")
 
 
 def _handoff_paths(name: str, search_dir: Path | None = None) -> tuple[Path, Path]:
@@ -738,6 +870,54 @@ def is_state_effectively_complete(state: SkillState) -> bool:
     if state.max_step <= 0:
         return False
     return state.current_step >= state.max_step and state.last_completed_step >= state.max_step
+
+
+def stale_session_threshold_seconds() -> float:
+    """Session inactivity threshold used to classify stale in-progress states."""
+    raw = os.environ.get("FORGE_STALE_SESSION_HOURS", "24").strip()
+    try:
+        hours = float(raw)
+    except ValueError:
+        hours = 24.0
+    if hours <= 0:
+        hours = 24.0
+    return hours * 3600.0
+
+
+def _parse_iso_timestamp(ts: str | None) -> datetime | None:
+    if not ts:
+        return None
+    try:
+        dt = datetime.fromisoformat(ts)
+    except ValueError:
+        return None
+    if dt.tzinfo is None:
+        return dt.replace(tzinfo=timezone.utc)
+    return dt.astimezone(timezone.utc)
+
+
+def is_state_stale(state: SkillState, path: Path) -> bool:
+    """True when an in-progress state has not been touched recently."""
+    if is_state_effectively_complete(state):
+        return False
+    touched = (
+        _parse_iso_timestamp(state.last_touched_at)
+        or _parse_iso_timestamp(state.started_at)
+        or datetime.fromtimestamp(path.stat().st_mtime, tz=timezone.utc)
+    )
+    age_seconds = (datetime.now(timezone.utc) - touched).total_seconds()
+    return age_seconds > stale_session_threshold_seconds()
+
+
+def is_evaluate_state_stale(data: dict[str, Any], path: Path) -> bool:
+    """Staleness check for raw evaluate-state JSON objects."""
+    touched = (
+        _parse_iso_timestamp(data.get("last_touched_at"))
+        or _parse_iso_timestamp(data.get("started_at"))
+        or datetime.fromtimestamp(path.stat().st_mtime, tz=timezone.utc)
+    )
+    age_seconds = (datetime.now(timezone.utc) - touched).total_seconds()
+    return age_seconds > stale_session_threshold_seconds()
 
 
 def read_memory_file(name: str) -> str:
@@ -1327,7 +1507,14 @@ def build_base_parser(skill_name: str, max_step: int) -> argparse.ArgumentParser
     )
     parser.add_argument(
         "--state", type=str, default=None,
-        help="Path to state file (auto-detected if omitted)"
+        help="Path to state file (auto-detected if omitted; step 1 supports custom paths)"
+    )
+    parser.add_argument(
+        "--parallel", action="store_true",
+        help=(
+            "Start a parallel same-skill session by creating a suffixed state file "
+            f"(`{skill_name}-<timestamp>.json`)."
+        ),
     )
     parser.add_argument(
         "--quick", action="store_true",
@@ -1342,7 +1529,12 @@ def validate_step(step: int, max_step: int) -> None:
         sys.exit(f"ERROR: --step must be 1-{max_step}")
 
 
-def check_same_skill_clobber(skill_name: str) -> None:
+def check_same_skill_clobber(
+    skill_name: str,
+    *,
+    allow_parallel: bool = False,
+    target_state_path: Path | None = None,
+) -> None:
     """Abort if a same-skill state file exists with in-progress work.
 
     Call from a skill's `handle_step_1` (fresh-start path only). Subsequent
@@ -1360,17 +1552,16 @@ def check_same_skill_clobber(skill_name: str) -> None:
     *same-skill* case where the user would otherwise silently overwrite
     in-progress state.
     """
-    seen: set[Path] = set()
-    candidates: list[Path] = []
-    # 1. Where state would be written by this invocation (REPO_ROOT default).
-    canonical = runtime_state_path(skill_name)
-    candidates.append(canonical)
-    seen.add(canonical)
-    # 2. What find_state_file would discover from cwd (legacy paths, etc).
-    discovered = find_state_file(skill_name)
-    if discovered is not None and discovered not in seen:
-        candidates.append(discovered)
-        seen.add(discovered)
+    # Default behavior (single-session mode): block when any in-progress same-skill
+    # session exists.
+    candidates = [
+        p
+        for p in _state_path_candidates(skill_name, _detect_repo_root())
+        if p.exists()
+    ]
+    if allow_parallel and target_state_path is not None:
+        # Parallel mode still protects against overwriting the chosen file.
+        candidates = [target_state_path] if target_state_path.exists() else []
 
     for path in candidates:
         if not path.exists():
@@ -1380,14 +1571,17 @@ def check_same_skill_clobber(skill_name: str) -> None:
         except Exception:
             # Corrupt state — leave it for the regular load path to surface.
             continue
+        if is_state_stale(state, path):
+            continue
         if not is_state_effectively_complete(state) and state.current_step > 0:
             sys.exit(
                 f"ERROR: A `{skill_name}` session is already in progress "
                 f"(step {state.current_step}/{state.max_step}, started "
-                f"{state.started_at}).\n"
+                f"{state.started_at}, session_id {state.session_id}).\n"
                 f"State file: {path}\n"
                 f"Run `python3 scripts/shared/resume.py` to continue it, "
-                f"or delete the state file to start fresh."
+                f"or use `--parallel` / `--state {skill_name}-<id>.json` "
+                f"to start another session."
             )
 
 

@@ -52,6 +52,7 @@ from scripts.shared.orchestrator import (
     consume_handoff,
     read_memory_file,
     render_dashboard,
+    resolve_step1_state_path,
     runtime_state_path,
     save_state,
     validate_state_path,
@@ -261,8 +262,17 @@ def _next_command(step: int, state_path: str = "") -> str:
 
 def handle_step_1(args) -> None:
     """Step 1: Target Detection -- detect PR/branch/files/handoff, init state."""
+    sp = resolve_step1_state_path(
+        SKILL_NAME,
+        args.state,
+        parallel=getattr(args, "parallel", False),
+    )
     # Same-skill abort: refuse to silently overwrite an in-progress session.
-    check_same_skill_clobber(SKILL_NAME)
+    check_same_skill_clobber(
+        SKILL_NAME,
+        allow_parallel=bool(getattr(args, "parallel", False) or args.state),
+        target_state_path=sp,
+    )
 
     # Cross-skill detection: warn only.
     conflicting_sessions = get_conflicting_sessions(
@@ -298,16 +308,21 @@ def handle_step_1(args) -> None:
     if not mode:
         mode = _detect_mode(target, handoff_content)
 
-    state = SkillState(skill_name=SKILL_NAME, max_step=MAX_STEP)
+    if sp.exists():
+        try:
+            state = load_state(sp)
+        except Exception:
+            state = SkillState(skill_name=SKILL_NAME, max_step=MAX_STEP)
+    else:
+        state = SkillState(skill_name=SKILL_NAME, max_step=MAX_STEP)
     state.current_step = 1
     state.quick_mode = args.quick
-    state.started_at = now_iso()
+    state.started_at = state.started_at or now_iso()
     state.custom["mode"] = mode
     state.custom["target"] = target
     state.custom["handoff_content"] = handoff_content
     state.custom["plan_path"] = plan_path
 
-    sp = _state_path()
     save_state(state, sp)
 
     # Print state path so Codex knows where it is

@@ -31,12 +31,15 @@ from scripts.shared.orchestrator import (
     build_next_command,
     build_skill_handoff_menu,
     clear_state_file,
+    find_state_file,
     forge_session_opt_in_banner,
     load_state,
     now_iso,
+    resolve_step1_state_path,
     runtime_memory_dir,
     runtime_state_path,
     save_state,
+    validate_state_path,
     validate_step_or_complete,
 )
 
@@ -371,7 +374,13 @@ def _write_iterate_terminal_artifacts(
 def handle_step_1(args: argparse.Namespace, sp: Path) -> None:
     gates_dir().mkdir(parents=True, exist_ok=True)
 
-    state = _init_state()
+    if sp.exists():
+        try:
+            state = load_state(sp)
+        except Exception:
+            state = _init_state()
+    else:
+        state = _init_state()
     goal = (getattr(args, "goal", None) or "").strip()
     target_raw = (getattr(args, "target", None) or "").strip()
     max_loops = getattr(args, "max_loops", None)
@@ -725,7 +734,16 @@ def main() -> None:
     if validate_step_or_complete(args.step, MAX_STEP, SKILL_NAME):
         return
 
-    sp = runtime_state_path(SKILL_NAME)
+    if args.step == 1:
+        sp = resolve_step1_state_path(
+            SKILL_NAME,
+            args.state,
+            parallel=getattr(args, "parallel", False),
+        )
+    else:
+        sp = validate_state_path(args.state, SKILL_NAME) if args.state else None
+        if sp is None:
+            sp = find_state_file(SKILL_NAME) or runtime_state_path(SKILL_NAME)
     if args.step == 1:
         handle_step_1(args, sp)
         return

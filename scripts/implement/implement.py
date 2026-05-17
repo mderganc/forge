@@ -39,6 +39,7 @@ from scripts.shared.orchestrator import (
     load_state,
     now_iso,
     render_dashboard,
+    resolve_step1_state_path,
     runtime_state_path,
     save_state,
     validate_state_path,
@@ -223,16 +224,22 @@ def _feature_branch_placeholder(state: SkillState) -> str:
     return f"{pfx}/[short-description]"
 
 
-def _load_or_init_state(state_file: str | None, quick: bool = False) -> tuple[SkillState, Path]:
+def _load_or_init_state(
+    state_file: str | None,
+    quick: bool = False,
+    *,
+    parallel: bool = False,
+) -> tuple[SkillState, Path]:
     """Load existing state or initialize a new one.
 
     Returns (state, state_path).
     """
-    # Try explicit path first
-    if state_file:
-        sp = Path(state_file)
+    # Explicit/custom path handling for step 1.
+    if state_file or parallel:
+        sp = resolve_step1_state_path(SKILL_NAME, state_file, parallel=parallel)
         if sp.exists():
             return load_state(sp), sp
+        return _init_state(quick=quick), sp
 
     # Search for existing state
     found = find_state_file(SKILL_NAME)
@@ -492,7 +499,11 @@ def handle_step_1(args) -> None:
         if conflicting_sessions:
             print(format_active_session_warning(conflicting_sessions, SKILL_NAME), file=sys.stderr)
 
-    state, sp = _load_or_init_state(args.state, quick=args.quick)
+    state, sp = _load_or_init_state(
+        args.state,
+        quick=args.quick,
+        parallel=getattr(args, "parallel", False),
+    )
 
     # Load template before mutating state — a missing template must not leave
     # state half-written.

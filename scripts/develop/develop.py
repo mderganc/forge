@@ -50,6 +50,7 @@ from scripts.shared.orchestrator import (
     load_state,
     now_iso,
     render_dashboard,
+    resolve_step1_state_path,
     runtime_memory_dir,
     runtime_state_path,
     save_state,
@@ -290,11 +291,19 @@ def _parse_autonomy(args: argparse.Namespace) -> int:
 
 def handle_step_1(args: argparse.Namespace) -> None:
     """Step 1: Startup -- dependency detection, autonomy, session resume, init."""
-    sp = _state_path()
+    sp = resolve_step1_state_path(
+        SKILL_NAME,
+        args.state,
+        parallel=getattr(args, "parallel", False),
+    )
     sp.parent.mkdir(parents=True, exist_ok=True)
 
     # Check for existing state (session resume)
-    existing = find_state_file(SKILL_NAME)
+    existing = None
+    if args.state:
+        existing = validate_state_path(args.state, SKILL_NAME)
+    elif not getattr(args, "parallel", False):
+        existing = find_state_file(SKILL_NAME)
     if existing is not None:
         try:
             state = load_state(existing)

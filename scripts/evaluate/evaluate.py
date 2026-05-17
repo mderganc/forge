@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
@@ -22,12 +23,13 @@ PLUGIN_ROOT = SCRIPT_DIR.parent.parent  # scripts/evaluate/ -> scripts/ -> forge
 if str(PLUGIN_ROOT) not in sys.path:
     sys.path.insert(0, str(PLUGIN_ROOT))
 
-from scripts.evaluate.state import EvalState, load_state, save_state, state_path_for_plan, STATE_FILENAME
+from scripts.evaluate.state import EvalState, load_state, save_state, STATE_FILENAME
 from scripts.evaluate.state import clear_state
 from scripts.evaluate.plan_resolver import extract_title, format_native_plan_hints, resolve_plan
 from scripts.evaluate.mode_detector import extract_file_references, detect_mode
 from scripts.evaluate.template_engine import load_template, render_template
 from scripts.shared.orchestrator import (
+    auto_parallel_on_conflict_enabled,
     append_skill_run_memory,
     build_next_command,
     build_skill_handoff_menu,
@@ -39,6 +41,7 @@ from scripts.shared.orchestrator import (
     format_phase_todos,
     format_same_skill_continuation,
     get_conflicting_sessions,
+    is_evaluate_state_stale,
     parse_continuation_command,
     validate_step_or_complete,
 )
@@ -372,14 +375,30 @@ def handle_step_1(args: argparse.Namespace) -> None:
     else:
         mode, matched, total = detect_mode(refs, str(cwd), plan_mtime)
 
-    state = EvalState(
-        plan_path=str(plan_path.resolve()),
-        plan_name=plan_name,
+    sp = _resolve_evaluate_state_path(
+        base_dir=plan_path.parent,
+        state_file=args.state,
+        parallel=getattr(args, "parallel", False),
     )
+
+    if sp.exists():
+        try:
+            state = load_state(sp)
+        except Exception:
+            state = EvalState(
+                plan_path=str(plan_path.resolve()),
+                plan_name=plan_name,
+            )
+    else:
+        state = EvalState(
+            plan_path=str(plan_path.resolve()),
+            plan_name=plan_name,
+        )
+    state.plan_path = str(plan_path.resolve())
+    state.plan_name = plan_name
     state.mode = mode
     state.current_step = 1
     state.referenced_files = refs
-    sp = state_path_for_plan(str(plan_path))
     save_state(state, sp)
 
     # Print state path so user/Codex knows where it is
@@ -421,15 +440,30 @@ def handle_step_1_review(args: argparse.Namespace) -> None:
     """Step 1 for review mode: team dispatch (no plan needed)."""
     cwd = Path.cwd()
 
-    state = EvalState(
-        plan_path="(review mode)",
-        plan_name="review",
+    sp = _resolve_evaluate_state_path(
+        base_dir=cwd,
+        state_file=args.state,
+        parallel=getattr(args, "parallel", False),
     )
+
+    if sp.exists():
+        try:
+            state = load_state(sp)
+        except Exception:
+            state = EvalState(
+                plan_path="(review mode)",
+                plan_name="review",
+            )
+    else:
+        state = EvalState(
+            plan_path="(review mode)",
+            plan_name="review",
+        )
+    state.plan_path = "(review mode)"
+    state.plan_name = "review"
     state.mode = "review"
     state.current_step = 1
     state.review_round = 0
-
-    sp = cwd / STATE_FILENAME
     save_state(state, sp)
 
     print(f"STATE FILE: {sp}\n", file=sys.stderr)
@@ -455,31 +489,98 @@ def handle_step_1_review(args: argparse.Namespace) -> None:
     print(_format_output(title, body, next_cmd, phase_todos=phase_todos, mode="review", step=1))
 
 
-def _find_state_file() -> Path | None:
-    """Search for the state file near cwd or in docs/ tree."""
-    from scripts.evaluate.state import STATE_FILENAME
+def _is_evaluate_state_name(name: str) -> bool:
+    return bool(re.match(r"^\.evaluate-state(?:-[^.\\/]+)?\.json$", name))
 
-    # 1. Current working directory (fast path)
-    cwd_candidate = Path.cwd() / STATE_FILENAME
-    if cwd_candidate.exists():
-        return cwd_candidate
 
-    # 2. Search docs/ tree only (state is written alongside the plan)
-    docs_dir = Path.cwd() / "docs"
+def _resolve_evaluate_state_path(base_dir: Path, state_file: str | None, parallel: bool) -> Path:
+    """Resolve where evaluate step 1 should write state."""
+    repo_root = _detect_repo_root().resolve()
+    if state_file:
+        sp = Path(state_file).resolve()
+        try:
+            sp.relative_to(repo_root)
+        except ValueError:
+            sys.exit(f"ERROR: --state path is outside the repository: {state_file}")
+        if not _is_evaluate_state_name(sp.name):
+            sys.exit(
+                "ERROR: --state must look like `.evaluate-state.json` or "
+                "`.evaluate-state-<id>.json`."
+            )
+        return sp
+
+    base_dir = base_dir.resolve()
+    if not parallel:
+        existing = _find_state_file(include_stale=False)
+        if existing is not None and auto_parallel_on_conflict_enabled():
+            parallel = True
+        else:
+            return base_dir / STATE_FILENAME
+
+    stamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
+    candidate = base_dir / f".evaluate-state-{stamp}.json"
+    idx = 2
+    while candidate.exists():
+        candidate = base_dir / f".evaluate-state-{stamp}-{idx}.json"
+        idx += 1
+    return candidate
+
+
+def _find_state_file(*, include_stale: bool = False) -> Path | None:
+    """Search for evaluate state files and return the most recent one."""
+    cwd = Path.cwd()
+    repo_root = _detect_repo_root()
+    candidates: list[Path] = []
+
+    def _collect(dir_path: Path) -> None:
+        if not dir_path.exists():
+            return
+        direct = dir_path / STATE_FILENAME
+        if direct.exists():
+            candidates.append(direct)
+        candidates.extend(sorted(dir_path.glob(".evaluate-state-*.json")))
+
+    _collect(cwd)
+    _collect(repo_root / ".codex" / "forge" / "state")
+    _collect(repo_root / ".codex" / "forge-codex" / "state")
+
+    docs_dir = cwd / "docs"
     if docs_dir.is_dir():
-        candidates = list(docs_dir.rglob(STATE_FILENAME))
-        if len(candidates) == 1:
-            return candidates[0]
-        if len(candidates) > 1:
-            # Multiple evaluations — pick most recently modified
-            return max(candidates, key=lambda p: p.stat().st_mtime)
+        candidates.extend(docs_dir.rglob(STATE_FILENAME))
+        candidates.extend(docs_dir.rglob(".evaluate-state-*.json"))
 
-    return None
+    existing = []
+    for p in candidates:
+        if not p.exists():
+            continue
+        if not include_stale:
+            try:
+                data = json.loads(p.read_text(encoding="utf-8"))
+            except Exception:
+                continue
+            if is_evaluate_state_stale(data, p):
+                continue
+        existing.append(p)
+    if not existing:
+        return None
+    return max(existing, key=lambda p: p.stat().st_mtime)
 
 
 def handle_step_n(step: int, state_file: str | None = None) -> None:
     """Steps 2-6: Load state, render appropriate template, output prompt."""
-    sp = Path(state_file) if state_file else None
+    sp = Path(state_file).resolve() if state_file else None
+
+    if sp is not None:
+        repo_root = _detect_repo_root().resolve()
+        try:
+            sp.relative_to(repo_root)
+        except ValueError:
+            print(f"WARNING: --state path is outside the repository, ignoring: {state_file}", file=sys.stderr)
+            sp = None
+        else:
+            if not _is_evaluate_state_name(sp.name):
+                print(f"WARNING: --state path doesn't look like an evaluate state file, ignoring: {state_file}", file=sys.stderr)
+                sp = None
 
     # Search for state file if not provided or doesn't exist
     if sp is None or not sp.exists():
@@ -580,6 +681,11 @@ def main():
     parser.add_argument("--step", type=int, required=True, help="Phase number (1-7 for pre, 1-8 for post, 1-5 for review)")
     parser.add_argument("--plan", type=str, help="Plan file path or keywords (step 1 only, pre/post modes)")
     parser.add_argument("--state", type=str, help="Path to .evaluate-state.json (auto-detected if omitted)")
+    parser.add_argument(
+        "--parallel",
+        action="store_true",
+        help="Start a parallel evaluate session using a suffixed .evaluate-state file.",
+    )
     parser.add_argument("--mode", choices=["pre", "post", "review"], help="Force evaluation mode")
     parser.add_argument("--team", action="store_true", help="Enable team dispatch in pre/post modes")
 
@@ -592,7 +698,7 @@ def main():
     # validate_step_or_complete would say "ends at step 7" using pre's default.
     effective_mode = args.mode
     if effective_mode is None and args.step > 1:
-        sp = Path(args.state) if args.state else _find_state_file()
+        sp = Path(args.state).resolve() if args.state else _find_state_file()
         if sp is not None and sp.exists():
             try:
                 effective_mode = load_state(sp).mode

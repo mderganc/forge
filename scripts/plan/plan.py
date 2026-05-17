@@ -49,6 +49,7 @@ from scripts.shared.orchestrator import (
     consume_handoff,
     read_memory_file,
     render_dashboard,
+    resolve_step1_state_path,
     runtime_memory_dir,
     runtime_state_path,
     save_state,
@@ -364,8 +365,17 @@ def _next_command(step: int, state_path: str = "") -> str:
 
 def handle_step_1(args: argparse.Namespace) -> None:
     """Step 1: Context Detection — check for handoff, read memory, init state."""
+    sp = resolve_step1_state_path(
+        SKILL_NAME,
+        args.state,
+        parallel=getattr(args, "parallel", False),
+    )
     # Same-skill abort: refuse to silently overwrite an in-progress session.
-    check_same_skill_clobber(SKILL_NAME)
+    check_same_skill_clobber(
+        SKILL_NAME,
+        allow_parallel=bool(getattr(args, "parallel", False) or args.state),
+        target_state_path=sp,
+    )
 
     handoff_content = consume_handoff("develop")
 
@@ -381,7 +391,6 @@ def handle_step_1(args: argparse.Namespace) -> None:
     # so we don't orphan the prior skeleton at a new timestamp. The
     # check_same_skill_clobber call above already aborted on in-progress
     # state; if we got here the prior state was either absent or completed.
-    sp = _state_path()
     plan_file = None
     resumed_session = False
     prior_mode: str | None = None

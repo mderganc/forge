@@ -47,6 +47,7 @@ from scripts.shared.orchestrator import (
     format_step_output,
     load_state,
     now_iso,
+    resolve_step1_state_path,
     runtime_state_path,
     save_state,
     validate_state_path,
@@ -289,8 +290,17 @@ def _build_variables(state: SkillState) -> dict[str, str]:
 
 def handle_step_1(args) -> None:
     """Step 1: Initialize state, render Define & Classify prompt."""
+    sp = resolve_step1_state_path(
+        SKILL_NAME,
+        args.state,
+        parallel=getattr(args, "parallel", False),
+    )
     # Same-skill abort: refuse to silently overwrite an in-progress session.
-    check_same_skill_clobber(SKILL_NAME)
+    check_same_skill_clobber(
+        SKILL_NAME,
+        allow_parallel=bool(getattr(args, "parallel", False) or args.state),
+        target_state_path=sp,
+    )
 
     # Cross-skill detection: warn only.
     conflicting_sessions = get_conflicting_sessions(
@@ -303,10 +313,15 @@ def handle_step_1(args) -> None:
     mode = getattr(args, "mode", "guided") or "guided"
     quick = getattr(args, "quick", False)
 
-    state = _init_state(mode, quick)
+    if sp.exists():
+        try:
+            state = load_state(sp)
+        except Exception:
+            state = _init_state(mode, quick)
+    else:
+        state = _init_state(mode, quick)
 
     ensure_runtime_dirs()
-    sp = runtime_state_path(SKILL_NAME)
     save_state(state, sp)
 
     print(f"STATE FILE: {sp}\n", file=sys.stderr)

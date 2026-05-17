@@ -9,7 +9,9 @@ from __future__ import annotations
 import json
 import tempfile
 from dataclasses import dataclass, field
+from datetime import datetime, timezone
 from pathlib import Path
+from uuid import uuid4
 
 from scripts.shared.findings import FindingsTracker
 
@@ -35,6 +37,8 @@ class EvalState:
     review_round: int = 0
     review_findings: list[dict] = field(default_factory=list)
     failure_count: int = 0
+    last_touched_at: str | None = None
+    session_id: str = field(default_factory=lambda: str(uuid4()))
 
     def mark_step_complete(self, step: int) -> None:
         """Mark a step as completed and reset the retry-failure counter."""
@@ -63,11 +67,16 @@ class EvalState:
             "review_round": self.review_round,
             "review_findings": self.review_findings,
             "failure_count": self.failure_count,
+            "last_touched_at": self.last_touched_at,
+            "session_id": self.session_id,
         }
 
 
 def save_state(state: EvalState, path: Path = DEFAULT_STATE_PATH) -> None:
     """Write state to JSON file atomically (write-to-temp-then-rename)."""
+    state.last_touched_at = datetime.now(timezone.utc).isoformat()
+    if not state.session_id:
+        state.session_id = str(uuid4())
     content = json.dumps(state.to_dict(), indent=2)
     # Write to temp file in same directory, then rename for atomicity
     fd, tmp = tempfile.mkstemp(dir=path.parent, suffix=".tmp")
@@ -147,6 +156,8 @@ def load_state(path: Path = DEFAULT_STATE_PATH) -> EvalState:
     state.review_round = data.get("review_round", 0)
     state.review_findings = data.get("review_findings", [])
     state.failure_count = data.get("failure_count", 0)
+    state.last_touched_at = data.get("last_touched_at")
+    state.session_id = data.get("session_id", state.session_id)
     return state
 
 

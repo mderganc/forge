@@ -261,6 +261,238 @@ def test_check_same_skill_clobber_passes_when_no_state(fresh_state_dir):
     check_same_skill_clobber("plan")
 
 
+def test_check_same_skill_clobber_allows_parallel_target_path(fresh_state_dir):
+    from scripts.shared.orchestrator import (
+        SkillState,
+        check_same_skill_clobber,
+        runtime_state_path,
+        save_state,
+    )
+
+    # Existing active canonical session.
+    canonical = runtime_state_path("plan", fresh_state_dir)
+    canonical.parent.mkdir(parents=True, exist_ok=True)
+    state = SkillState(skill_name="plan", max_step=7)
+    state.current_step = 3
+    save_state(state, canonical)
+
+    # Parallel mode with a different target path should not abort.
+    parallel_target = canonical.parent / "plan-20260517-093900.json"
+    check_same_skill_clobber(
+        "plan",
+        allow_parallel=True,
+        target_state_path=parallel_target,
+    )
+
+
+def test_skill_state_persists_session_id_and_last_touched(fresh_state_dir):
+    from scripts.shared.orchestrator import SkillState, runtime_state_path, save_state
+
+    sp = runtime_state_path("plan", fresh_state_dir)
+    sp.parent.mkdir(parents=True, exist_ok=True)
+    state = SkillState(skill_name="plan")
+    save_state(state, sp)
+    raw = json.loads(sp.read_text(encoding="utf-8"))
+    assert raw.get("session_id")
+    assert raw.get("last_touched_at")
+
+
+def test_find_state_file_ignores_stale_active_by_default(fresh_state_dir, monkeypatch):
+    from scripts.shared.orchestrator import SkillState, find_state_file, runtime_state_dir, save_state
+
+    monkeypatch.setenv("FORGE_STALE_SESSION_HOURS", "0.00001")
+    state_dir = runtime_state_dir(fresh_state_dir)
+    state_dir.mkdir(parents=True, exist_ok=True)
+    stale_path = state_dir / "plan-stale.json"
+    stale = SkillState(skill_name="plan", max_step=7)
+    stale.current_step = 2
+    stale.last_touched_at = "2000-01-01T00:00:00+00:00"
+    save_state(stale, stale_path)
+    # Force stale timestamp after save_state heartbeat update.
+    raw = json.loads(stale_path.read_text(encoding="utf-8"))
+    raw["last_touched_at"] = "2000-01-01T00:00:00+00:00"
+    stale_path.write_text(json.dumps(raw), encoding="utf-8")
+
+    assert find_state_file("plan", fresh_state_dir) is None
+    assert find_state_file("plan", fresh_state_dir, include_stale=True) == stale_path
+
+
+def test_resolve_step1_state_path_auto_parallel_on_fresh_conflict(fresh_state_dir, monkeypatch):
+    from scripts.shared.orchestrator import (
+        SkillState,
+        resolve_step1_state_path,
+        runtime_state_path,
+        save_state,
+    )
+
+    monkeypatch.chdir(fresh_state_dir)
+    monkeypatch.setenv("FORGE_AUTO_PARALLEL_ON_CONFLICT", "1")
+    canonical = runtime_state_path("plan", fresh_state_dir)
+    canonical.parent.mkdir(parents=True, exist_ok=True)
+    active = SkillState(skill_name="plan", max_step=7)
+    active.current_step = 3
+    save_state(active, canonical)
+
+    resolved = resolve_step1_state_path("plan", None, parallel=False, search_dir=fresh_state_dir)
+    assert resolved.name.startswith("plan-")
+    assert resolved.name.endswith(".json")
+    assert resolved != canonical
+
+
+def test_resolve_step1_state_path_ignores_stale_conflict(fresh_state_dir, monkeypatch):
+    from scripts.shared.orchestrator import (
+        SkillState,
+        resolve_step1_state_path,
+        runtime_state_path,
+        save_state,
+    )
+
+    monkeypatch.chdir(fresh_state_dir)
+    monkeypatch.setenv("FORGE_AUTO_PARALLEL_ON_CONFLICT", "1")
+    monkeypatch.setenv("FORGE_STALE_SESSION_HOURS", "0.00001")
+    canonical = runtime_state_path("plan", fresh_state_dir)
+    canonical.parent.mkdir(parents=True, exist_ok=True)
+    stale = SkillState(skill_name="plan", max_step=7)
+    stale.current_step = 3
+    save_state(stale, canonical)
+    raw = json.loads(canonical.read_text(encoding="utf-8"))
+    raw["last_touched_at"] = "2000-01-01T00:00:00+00:00"
+    canonical.write_text(json.dumps(raw), encoding="utf-8")
+
+    resolved = resolve_step1_state_path("plan", None, parallel=False, search_dir=fresh_state_dir)
+    assert resolved == canonical
+
+
+def test_validate_state_path_accepts_suffixed_skill_state(fresh_state_dir):
+    from scripts.shared.orchestrator import validate_state_path
+
+    state_dir = fresh_state_dir / ".codex" / "forge-codex" / "state"
+    state_dir.mkdir(parents=True, exist_ok=True)
+    sp = state_dir / "plan-session-a.json"
+    sp.write_text(
+        json.dumps(
+            {
+                "skill_name": "plan",
+                "current_step": 2,
+                "last_completed_step": 1,
+                "max_step": 7,
+            }
+        )
+    )
+    resolved = validate_state_path(str(sp), "plan")
+    assert resolved == sp.resolve()
+
+
+def test_find_state_file_prefers_latest_active_suffix_state(fresh_state_dir):
+    from scripts.shared.orchestrator import (
+        SkillState,
+        find_state_file,
+        runtime_state_dir,
+        save_state,
+    )
+    import time
+
+    state_dir = runtime_state_dir(fresh_state_dir)
+    state_dir.mkdir(parents=True, exist_ok=True)
+    old_path = state_dir / "plan-older.json"
+    new_path = state_dir / "plan-newer.json"
+
+    s_old = SkillState(skill_name="plan", max_step=7)
+    s_old.current_step = 2
+    save_state(s_old, old_path)
+    time.sleep(0.01)  # Ensure mtime ordering on all platforms.
+    s_new = SkillState(skill_name="plan", max_step=7)
+    s_new.current_step = 3
+    save_state(s_new, new_path)
+
+    assert find_state_file("plan", fresh_state_dir) == new_path
+
+
+def test_find_state_file_ignores_completed_by_default(fresh_state_dir):
+    from scripts.shared.orchestrator import (
+        SkillState,
+        find_state_file,
+        runtime_state_dir,
+        save_state,
+    )
+
+    state_dir = runtime_state_dir(fresh_state_dir)
+    state_dir.mkdir(parents=True, exist_ok=True)
+    completed = state_dir / "plan-complete.json"
+
+    done = SkillState(skill_name="plan", max_step=7)
+    done.current_step = 7
+    done.last_completed_step = 7
+    done.completed_at = "2026-05-17T00:00:00+00:00"
+    save_state(done, completed)
+
+    assert find_state_file("plan", fresh_state_dir) is None
+
+
+def test_find_state_file_can_include_completed(fresh_state_dir):
+    from scripts.shared.orchestrator import (
+        SkillState,
+        find_state_file,
+        runtime_state_dir,
+        save_state,
+    )
+
+    state_dir = runtime_state_dir(fresh_state_dir)
+    state_dir.mkdir(parents=True, exist_ok=True)
+    completed = state_dir / "plan-complete.json"
+
+    done = SkillState(skill_name="plan", max_step=7)
+    done.current_step = 7
+    done.last_completed_step = 7
+    done.completed_at = "2026-05-17T00:00:00+00:00"
+    save_state(done, completed)
+
+    assert find_state_file("plan", fresh_state_dir, include_completed=True) == completed
+
+
+def test_validate_state_path_accepts_suffixed_evaluate_state(fresh_state_dir):
+    from scripts.shared.orchestrator import validate_state_path
+
+    eval_state = fresh_state_dir / "docs" / ".evaluate-state-branch-a.json"
+    eval_state.parent.mkdir(parents=True, exist_ok=True)
+    eval_state.write_text(
+        json.dumps(
+            {
+                "plan_path": str(fresh_state_dir / "docs" / "plan.md"),
+                "plan_name": "plan",
+                "mode": "pre",
+                "current_step": 2,
+                "last_completed_step": 1,
+            }
+        )
+    )
+    resolved = validate_state_path(str(eval_state), "evaluate")
+    assert resolved == eval_state.resolve()
+
+
+def test_detect_active_sessions_includes_suffixed_evaluate_states(fresh_state_dir):
+    from scripts.shared.orchestrator import detect_active_sessions
+
+    docs = fresh_state_dir / "docs"
+    docs.mkdir(parents=True, exist_ok=True)
+    eval_state = docs / ".evaluate-state-session-1.json"
+    eval_state.write_text(
+        json.dumps(
+            {
+                "plan_path": str(docs / "plan.md"),
+                "plan_name": "plan",
+                "mode": "review",
+                "current_step": 3,
+                "last_completed_step": 2,
+            }
+        )
+    )
+
+    sessions = detect_active_sessions(fresh_state_dir)
+    eval_sessions = [s for s in sessions if s["skill"] == "evaluate"]
+    assert any(s["path"] == eval_state for s in eval_sessions)
+
+
 # ---------------------------------------------------------------------------
 # Fix 4 — Evaluate findings sidecar ingestion (V14)
 # ---------------------------------------------------------------------------

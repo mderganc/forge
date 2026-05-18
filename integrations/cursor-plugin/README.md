@@ -51,8 +51,12 @@ Folder to link/copy:
 
 - `integrations/cursor-plugin/`
 
-After installing, run:
+After installing, run (slash picker should show `/forge:doctor`, `/forge:evaluate`, etc.):
 
-- `forge:doctor`
-- `forge:evaluate`
+- `/forge:doctor`
+- `/forge:evaluate`
+
+Command files live in `commands/` as `<subcommand>.md` (not `forge-<subcommand>.md`). The plugin namespace is `forge`.
+
+**Aliases:** Cursor’s plugin command schema does not document alias fields. This bundle does not provide `/f:<subcommand>` or bare `/diagnose`; use `/forge:<subcommand>`.
 

@@ -48,7 +48,7 @@ def test_spec_commands_have_matching_cursor_and_claude_files(spec_commands: dict
     missing_claude: list[str] = []
     for cmd in spec_commands["commands"]:
         sub = cmd["cli_subcommand"]
-        name = f"forge-{sub}.md"
+        name = f"{sub}.md"
         cpath = REPO_ROOT / "integrations" / "cursor-plugin" / "commands" / name
         lpath = REPO_ROOT / "integrations" / "claude" / "commands" / name
         if not cpath.is_file():

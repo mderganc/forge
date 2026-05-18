@@ -20,7 +20,9 @@ This repository is the **source tree** for prompts, templates, agent briefs, and
 
 **Terminal / CI** uses a space, not a colon: `forge plan`, `forge diagnose` (see [Advanced](#advanced-terminal-and-ci)).
 
-**Note:** In Cursor or Claude, typing `/diagn…` finds slash commands quickly. In Codex, type `$forge:` or pick the skill — user-facing IDs match `$forge:<subcommand>` (same spelling as `/forge:<subcommand>`, with `$` instead of `/`).
+**Note:** In Cursor or Claude, type `/forge:` then the subcommand (for example `/forge:diagnose`). In Codex, type `$forge:` or pick the skill — user-facing IDs match `$forge:<subcommand>` (same spelling as `/forge:<subcommand>`, with `$` instead of `/`).
+
+**Slash command files:** Cursor and Claude command packs use `<subcommand>.md` under their install trees (plugin namespace `forge`), so the picker shows `/forge:<subcommand>`. Shorter aliases such as `/f:diagnose` or bare `/diagnose` are not provided — see [`integrations/README.md`](integrations/README.md).
 
 ---
 

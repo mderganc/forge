@@ -23,9 +23,10 @@ Expected:
 ## 3) Cursor plugin (local)
 
 - Install the plugin from `integrations/cursor-plugin/` in Cursor.
+- Confirm command files are `<subcommand>.md` under `commands/` (not `forge-<subcommand>.md`).
 - Run:
-  - `forge:doctor`
-  - `forge:evaluate`
+  - `/forge:doctor`
+  - `/forge:evaluate`
 
 ## 4) Claude command pack
 

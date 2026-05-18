@@ -31,7 +31,7 @@ Restart Claude Code after installing so `/help` picks up new commands.
 
 ## Commands
 
-Definitions live in `integrations/claude/commands/` as `forge-<subcommand>.md`. They align with `integrations/spec/commands.json`:
+Definitions live in `integrations/claude/commands/` as `<subcommand>.md` (for example `diagnose.md`, `code-review.md`). They align with `integrations/spec/commands.json`:
 
 | Slash command (frontmatter `name`) | Runs |
 | --- | --- |
@@ -47,3 +47,5 @@ Definitions live in `integrations/claude/commands/` as `forge-<subcommand>.md`. 
 | `forge:doctor` | `forge doctor …` |
 
 How Claude surfaces these depends on version/UI (often under a `forge` namespace from the install directory). If a command does not appear, confirm files are under `~/.claude/commands/forge/` and each file begins with `---` frontmatter plus a non-empty markdown body.
+
+**Aliases:** Claude does not load separate `/f:…` or bare `/diagnose` aliases from this pack; use the `forge:<subcommand>` id in frontmatter (same as Cursor’s `/forge:<subcommand>` intent).

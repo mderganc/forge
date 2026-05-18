@@ -7,6 +7,10 @@ description: Structured root-cause analysis for bugs and incidents.
 
 **Never show terminal commands** for this workflow. Speak in outcomes and phase names only.
 
+## Hard rule — Graphify
+
+If `graphify-out/` exists: read `graphify-out/GRAPH_REPORT.md` **before** grep/glob/semantic search; follow every **GRAPHIFY** block the orchestrator prints on each step; after code edits run `graphify update .`.
+
 ## What to tell the user first
 
 - **Diagnose** phases through definition, evidence, decomposition, analysis, solutions, optional validation, report.

@@ -26,6 +26,10 @@ Invoking any `forge:*` skill implicitly authorizes the agent dispatch required b
 Read `templates/codex-runtime.md` before executing the workflow if you need a
 tooling reminder.
 
+## CRITICAL: Graphify before raw search
+
+When `graphify-out/` exists, **every orchestrator step** prints a **GRAPHIFY** block — follow it before grep/glob/semantic search or bulk source reads. Read `graphify-out/GRAPH_REPORT.md` first; prefer `graphify query` / `path` / `explain` for cross-module questions. After code edits, run `graphify update .`. See `templates/graphify-contract.md`.
+
 ## CRITICAL: Progress Tracking
 
 **The orchestrator outputs a phase-todo JSON block at the start of every phase.**

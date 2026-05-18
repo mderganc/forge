@@ -7,6 +7,10 @@ description: Turn direction into a detailed implementation plan.
 
 **Never show terminal commands** for this workflow. No argv, no flag dumps—only plain-English progress and choices.
 
+## Hard rule — Graphify
+
+If `graphify-out/` exists: read `graphify-out/GRAPH_REPORT.md` **before** grep/glob/semantic search; follow every **GRAPHIFY** block the orchestrator prints on each step; after code edits run `graphify update .`.
+
 ## What to tell the user first
 
 - **Plan** produces architecture, tasks, waves, risks, rollback, and documentation scope.

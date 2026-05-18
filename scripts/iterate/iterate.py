@@ -32,6 +32,7 @@ from scripts.shared.orchestrator import (
     build_skill_handoff_menu,
     clear_state_file,
     find_state_file,
+    forge_graphify_context_block,
     forge_session_opt_in_banner,
     load_state,
     now_iso,
@@ -303,9 +304,10 @@ def _init_state() -> SkillState:
     return st
 
 
-def _format_out(title: str, body: str, next_cmd: str | None) -> str:
+def _format_out(title: str, body: str, next_cmd: str | None, *, step: int = 1) -> str:
     bar = "=" * len(title)
-    out = f"{title}\n{bar}\n\n{body}"
+    graphify = forge_graphify_context_block(SKILL_NAME, step)
+    out = f"{title}\n{bar}\n\n{graphify}{body}"
     if next_cmd:
         out += "\n\n---\n**Continuation token (for tooling):** next step is indicated by your forge launcher."
     return out
@@ -468,7 +470,7 @@ def handle_step_1(args: argparse.Namespace, sp: Path) -> None:
     next_cmd = build_next_command(SCRIPT_DIR / "iterate.py", 1, MAX_STEP)
     title = f"{SKILL_NAME.upper()} — Initialize (Step 1 of {MAX_STEP})"
     body = forge_session_opt_in_banner(SKILL_NAME, 1) + "\n".join(body_parts)
-    print(_format_out(title, body, next_cmd))
+    print(_format_out(title, body, next_cmd, step=1))
 
 
 def handle_step_n(step: int, sp: Path, _args: argparse.Namespace) -> None:
@@ -671,7 +673,7 @@ def handle_step_n(step: int, sp: Path, _args: argparse.Namespace) -> None:
             append_skill_run_memory(SKILL_NAME, 9, "Complete", "Target met.", state=state, state_path=sp)
             clear_state_file(sp)
             menu = build_skill_handoff_menu(SKILL_NAME, state, sp)
-            print(_format_out(f"{SKILL_NAME.upper()} — Complete", "\n".join(parts) + "\n\n" + menu, None))
+            print(_format_out(f"{SKILL_NAME.upper()} — Complete", "\n".join(parts) + "\n\n" + menu, None, step=9))
             return
 
         if outer + 1 >= max_outer:
@@ -682,7 +684,7 @@ def handle_step_n(step: int, sp: Path, _args: argparse.Namespace) -> None:
             append_skill_run_memory(SKILL_NAME, 9, "Complete", "Max loops.", state=state, state_path=sp)
             clear_state_file(sp)
             menu = build_skill_handoff_menu(SKILL_NAME, state, sp)
-            print(_format_out(f"{SKILL_NAME.upper()} — Complete", "\n".join(parts) + "\n\n" + menu, None))
+            print(_format_out(f"{SKILL_NAME.upper()} — Complete", "\n".join(parts) + "\n\n" + menu, None, step=9))
             return
 
         # Outer loop continues
@@ -697,7 +699,7 @@ def handle_step_n(step: int, sp: Path, _args: argparse.Namespace) -> None:
         parts.append("### Next\nOuter loop continues — proceed from **step 2** (diagnose).")
         _log("Outer loop advance")
         next_cmd = build_next_command(SCRIPT_DIR / "iterate.py", 8, MAX_STEP, next_step=2)
-        print(_format_out(f"{SKILL_NAME.upper()} — Step 9", "\n".join(parts), next_cmd))
+        print(_format_out(f"{SKILL_NAME.upper()} — Step 9", "\n".join(parts), next_cmd, step=9))
         return
 
     else:
@@ -711,6 +713,7 @@ def handle_step_n(step: int, sp: Path, _args: argparse.Namespace) -> None:
                 f"{SKILL_NAME.upper()} — Step {step} of {MAX_STEP}",
                 body,
                 next_cmd,
+                step=step,
             )
         )
 

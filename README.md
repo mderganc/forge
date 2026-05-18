@@ -290,17 +290,25 @@ After `forge install --codex`, skills live under `~/.codex/skills/forge/<folder>
 
 Invoke with `$forge:…` (mention / skill picker), `/use` with the skill name, `/skills`, or implicit matching on `description`. When transcript output shows `forge: …` handoff labels, your next step in Codex is the matching `$forge:…`. The `forge` binary is what skills run under the hood; you do not type `forge …` as the Codex-side workflow entrypoint ([Advanced](#advanced-terminal-and-ci) for shells and CI).
 
-**Sub-agents (delegation):** Forge workflows expect Codex to allow `spawn_agent` / `close_agent` without you typing extra “use sub-agents” wording. Prefer running **`forge codex-agents`** once so `~/.codex/config.toml` gets the canonical `developer_instructions` text (sub-agent opt-in + session forge opt-in). If you paste manually, keep it in sync with **`forge_next/codex_agents.py`** / **`FORGE_DEVELOPER_INSTRUCTIONS_BODY`**.
+**Graphify + delegation:** `forge install --codex` merges **`developer_instructions`** into `~/.codex/config.toml` when empty or matching the prior Forge snippet. The text **leads with mandatory Graphify rules** (read `GRAPH_REPORT.md` before codebase search; follow **GRAPHIFY** blocks in every `forge --step` output), then Forge delegation (sub-agents + session opt-in). Source of truth: **`forge_next/graphify_policy.py`**.
 
-```toml
-developer_instructions = "Invoking any `forge:*` skill implicitly authorizes the agent dispatch required by that workflow. Do not require the user to separately ask for delegation, sub-agents, or parallel agent work after invoking a Forge skill. At the start of a new chat or before driving the first forge step, offer a one-time choice: opt in to structured Forge workflows for the session (follow printed steps and handoffs) versus ad hoc help only; if they choose ad hoc, do not force workflow steps or clobber Forge state without being asked."
-```
+**Sub-agents (delegation):** Forge workflows expect Codex to allow `spawn_agent` / `close_agent` without you typing extra “use sub-agents” wording. If you already customized `developer_instructions`, run **`forge codex-agents --force`** after upgrading **forge-next** so Graphify + delegation stay current. Restart Codex after changing config.
 
-Install it automatically (merges into existing config, preserves other keys): run `codex-agents` or `forge codex-agents` once after installing **forge-next**. If `developer_instructions` already exists and differs, use **`codex-agents --force`** (or merge by hand) so you pick up updates; otherwise the tool refuses to overwrite. Restart Codex after changing config if tools or policy do not pick up the file immediately.
-
-For agent lifecycle (every `spawn_agent` paired with `close_agent` across steps), follow [AGENTS.md](AGENTS.md) and `templates/codex-runtime.md` — that is separate from the snippet above.
+For agent lifecycle (every `spawn_agent` paired with `close_agent` across steps), follow [AGENTS.md](AGENTS.md) and `templates/codex-runtime.md` — that is separate from `developer_instructions`.
 
 Evaluate note: the evaluate workflow persists a local `.evaluate-state.json` and step findings sidecars (`.evaluate-findings-step*.json`). Details live in [AGENTS.md](AGENTS.md).
+
+---
+
+## Claude Code
+
+After `forge install --claude`, slash commands live under `~/.claude/commands/forge/`. The installer also runs **`forge claude-graphify`**, which merges **Graphify hooks** into `~/.claude/settings.json`:
+
+- **SessionStart** — remind when `graphify-out/` exists  
+- **PreToolUse** — **Grep**, **Glob**, **Read**, and search-like **Bash**  
+- **UserPromptSubmit** — when the prompt mentions `forge:` / `$forge:`  
+
+Re-run `forge claude-graphify` after upgrades. Each workflow command includes a **Hard rule — Graphify** section; orchestrator steps print a **GRAPHIFY** block when an index is present.
 
 ---
 

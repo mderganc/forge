@@ -25,6 +25,10 @@ developer_instructions = "Invoking any `forge:*` skill implicitly authorizes the
 Read `templates/codex-runtime.md` before executing the workflow if you need a
 tooling reminder.
 
+## CRITICAL: Graphify before raw search
+
+When `graphify-out/` exists, **every orchestrator step** prints a **GRAPHIFY** block — follow it before grep/glob/semantic search or bulk source reads. Read `graphify-out/GRAPH_REPORT.md` first; prefer `graphify query` / `path` / `explain` for cross-module questions. After code edits, run `graphify update .`. See `templates/graphify-contract.md`.
+
 ## Process-first routing
 
 - **Unclear root cause**, flaky failures, or incident triage → use **`forge:diagnose`** before speculative refactors or big **`forge:plan`** work.

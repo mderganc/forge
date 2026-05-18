@@ -224,6 +224,19 @@ def build_parser() -> argparse.ArgumentParser:
     ca.add_argument("--force", action="store_true", help="Replace existing developer_instructions")
     ca.add_argument("--dry-run", action="store_true", help="Print actions without writing")
 
+    # claude-graphify — merge Graphify hooks into ~/.claude/settings.json
+    cg = sub.add_parser(
+        "claude-graphify",
+        help="Install Graphify hooks in Claude Code settings.json (Grep/Glob/Read/Bash + forge prompts)",
+    )
+    cg.add_argument(
+        "--settings",
+        type=str,
+        default=None,
+        help="Path to settings.json (default: ~/.claude/settings.json)",
+    )
+    cg.add_argument("--dry-run", action="store_true", help="Print actions without writing")
+
     # uninstall
     un = sub.add_parser("uninstall", help="Uninstall integrations (Cursor/Claude/Codex) for this user")
     add_common_output_flags(un)
@@ -272,6 +285,17 @@ def main(argv: list[str] | None = None) -> None:
             force=bool(getattr(args, "force", False)),
             dry_run=bool(getattr(args, "dry_run", False)),
         )
+        raise SystemExit(rc)
+
+    if cmd == "claude-graphify":
+        from forge_next.claude_graphify import apply_claude_graphify_settings, default_claude_settings_path
+
+        sp = (
+            Path(getattr(args, "settings", None)).expanduser()
+            if getattr(args, "settings", None)
+            else default_claude_settings_path()
+        )
+        rc = apply_claude_graphify_settings(sp, dry_run=bool(getattr(args, "dry_run", False)))
         raise SystemExit(rc)
 
     if cmd == "graphify":
@@ -682,6 +706,29 @@ def _run_install(
     except Exception as e:
         raise SystemExit(f"forge install failed (download/unpack): {e}")
 
+    if install_claude:
+        from forge_next.claude_graphify import apply_claude_graphify_settings, default_claude_settings_path
+
+        rc = apply_claude_graphify_settings(default_claude_settings_path())
+        if rc == 0:
+            installed["claude_graphify_hooks"] = str(default_claude_settings_path())
+        else:
+            warnings.append(
+                "Claude Graphify hooks were not written; run `forge claude-graphify` after fixing settings.json."
+            )
+
+    if install_codex:
+        from forge_next.codex_agents import apply_codex_agents_config, default_codex_config_path
+
+        rc = apply_codex_agents_config(default_codex_config_path(), force=False)
+        if rc == 0:
+            installed["codex_developer_instructions"] = str(default_codex_config_path())
+        elif rc == 1:
+            warnings.append(
+                "Codex developer_instructions not updated (existing value differs). "
+                "Run `forge codex-agents --force` to pick up Graphify + delegation text."
+            )
+
     from forge_next.graphify import graphify_install_notice_lines
 
     payload = {
@@ -712,6 +759,10 @@ def _run_install(
     print("Next steps:")
     print("- Restart your editor/agent environment(s) so new commands are picked up.")
     print("- Run: forge doctor")
+    if install_claude:
+        print("- Claude: Graphify hooks merged into ~/.claude/settings.json (re-run: forge claude-graphify)")
+    if install_codex:
+        print("- Codex: run `forge codex-agents --force` if developer_instructions were not updated")
     for line in graphify_install_notice_lines():
         print(line.rstrip())
 

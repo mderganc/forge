@@ -7,4 +7,6 @@ This project has a graphify knowledge graph at graphify-out/.
 
 - Before answering architecture or codebase questions, read graphify-out/GRAPH_REPORT.md for god nodes and community structure
 - If graphify-out/wiki/index.md exists, navigate it instead of reading raw files
+- For cross-module questions, prefer `graphify query`, `graphify path`, or `graphify explain` over grep/glob scans
 - After modifying code files in this session, run `graphify update .` to keep the graph current (AST-only, no API cost)
+- When running Forge workflow skills, follow the **GRAPHIFY** block printed on every orchestrator step (suppress in CI with `FORGE_SKIP_GRAPHIFY=1`)

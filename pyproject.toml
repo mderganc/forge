@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "forge-next"
-version = "0.9.5"
+version = "0.9.7"
 description = "Forge Codex: install-once workflow orchestrators for Cursor/Codex"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -18,6 +18,7 @@ dependencies = [
 [project.scripts]
 forge = "forge_next.cli:main"
 codex-agents = "forge_next.codex_agents:main"
+claude-graphify = "forge_next.claude_graphify:main"
 
 [tool.setuptools]
 include-package-data = true

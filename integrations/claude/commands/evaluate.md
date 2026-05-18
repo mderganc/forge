@@ -9,6 +9,10 @@ description: Review work against a plan (evaluate workflow).
 
 If they explicitly ask “exact command for my terminal,” answer once, briefly.
 
+## Hard rule — Graphify
+
+If `graphify-out/` exists: read `graphify-out/GRAPH_REPORT.md` **before** grep/glob/semantic search; follow every **GRAPHIFY** block the orchestrator prints on each step; after code edits run `graphify update .`.
+
 ## What to tell the user first
 
 - **Evaluate** walks through structured review phases (plan understanding, completeness, correctness, quality, operational readiness, discussion, report).

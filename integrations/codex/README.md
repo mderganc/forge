@@ -46,6 +46,14 @@ Override with `forge install --codex-dir <path>`.
 
 Restart Codex after installing so skills appear in the picker.
 
-## Delegation (sub-agents)
+## Delegation (sub-agents) and Graphify
 
-Run `codex-agents` or `forge codex-agents` once so `~/.codex/config.toml` includes the Forge `developer_instructions` snippet that permits agent dispatch for `$forge:…` skills. Exact wording is in the repository **[README.md](../../README.md)** under **OpenAI Codex**.
+`forge install --codex` attempts to merge **`developer_instructions`** into `~/.codex/config.toml` (Graphify rules **first**, then Forge delegation). If you already had custom instructions, run:
+
+```bash
+forge codex-agents --force
+```
+
+The canonical text lives in **`forge_next/graphify_policy.py`** (`FORGE_DEVELOPER_INSTRUCTIONS_BODY`). Every `forge-*` skill body reminds agents to follow **GRAPHIFY** blocks in step output when `graphify-out/` exists.
+
+See **[README.md](../../README.md)** under **OpenAI Codex** for invocation details.

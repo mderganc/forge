@@ -666,6 +666,13 @@ def skip_forge_session_opt_in() -> bool:
     return v in ("1", "true", "yes", "on")
 
 
+def forge_graphify_context_block(skill_name: str, step: int) -> str:
+    """Per-step Graphify reminder when the repo has an index (see graphify_contract)."""
+    from scripts.shared.graphify_contract import forge_graphify_banner
+
+    return forge_graphify_banner(skill_name, step, REPO_ROOT)
+
+
 def forge_session_opt_in_banner(skill_name: str, step: int) -> str:
     """Prompt agents to offer structured Forge workflows vs ad-hoc help (step 1 only).
 
@@ -1152,6 +1159,7 @@ def format_step_output(
     title = f"{skill_name.upper()} — {phase_name} (Step {step} of {max_step})"
     header = f"{title}\n{'=' * len(title)}\n\n"
     opt_in_section = forge_session_opt_in_banner(skill_name, step)
+    graphify_section = forge_graphify_context_block(skill_name, step)
 
     # Step 1 may insert a session opt-in block, then phase todos (for Codex plan
     # mirroring), then body.
@@ -1173,7 +1181,7 @@ def format_step_output(
         todos_section = format_phase_todos(phase_todos)
     else:
         todos_section = ""
-    output = header + opt_in_section + todos_section + body
+    output = header + opt_in_section + graphify_section + todos_section + body
 
     if handoff_menu:
         output += "\n\n" + handoff_menu

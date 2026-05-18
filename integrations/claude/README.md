@@ -29,6 +29,22 @@ Override with `forge install --claude-dir <path>`.
 
 Restart Claude Code after installing so `/help` picks up new commands.
 
+### Graphify hooks (codebase map)
+
+`forge install --claude` also merges **Graphify hooks** into `~/.claude/settings.json` (or re-run anytime):
+
+```bash
+forge claude-graphify
+```
+
+Hooks run cross-platform via `python -m forge_next.hooks.claude_graphify_hook` and:
+
+- Remind on **SessionStart** when `graphify-out/` exists
+- Inject context on **PreToolUse** for **Grep**, **Glob**, **Read**, and search-like **Bash**
+- Nudge on **UserPromptSubmit** when the prompt mentions `forge:` / `$forge:`
+
+Workflow slash commands repeat the same contract in each command body. Forge step output prints a **GRAPHIFY** block on every `--step` when an index is present.
+
 ## Commands
 
 Definitions live in `integrations/claude/commands/` as `<subcommand>.md` (for example `diagnose.md`, `code-review.md`). They align with `integrations/spec/commands.json`:

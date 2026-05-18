@@ -90,7 +90,7 @@ From the target repo (or with `--repo`), run:
 |----------|----------|-------------|
 | `--step` | Yes | Current phase (1–6 for run mode, 1–7 for flows mode) |
 | `--mode` | No | `run` (default) or `flows` — choose execution vs. authoring pipeline |
-| `--target` | No | Test command, path, or pattern (auto-detected from handoff if omitted; run mode only) |
+| `--target` | No | Test command, path, or pattern; supports one-or-more path tokens (auto-detected from handoff if omitted; run mode only) |
 | `--flow-type` | No | Override type recommendation: `scenario`, `bdd`, `http-replay`, `workflow-dryrun` (flows mode only) |
 | `--framework` | No | Override framework detection when confidence is low (flows mode) |
 | `--entry-point` | No | Override entry-point detection: `ui`, `http`, `cli`, `module` (flows mode) |

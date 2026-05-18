@@ -133,7 +133,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     cr.add_argument(
         "--target",
-        type=str,
+        nargs="+",
         default=None,
         help="PR number, branch name, or paths to review",
     )
@@ -146,6 +146,12 @@ def build_parser() -> argparse.ArgumentParser:
     ts.add_argument("--state", type=str)
     ts.add_argument("--quick", action="store_true")
     ts.add_argument("--mode", choices=["run", "flows"])
+    ts.add_argument(
+        "--target",
+        nargs="+",
+        default=None,
+        help="Test command, path, or pattern to run",
+    )
 
     # diagnose
     dg = sub.add_parser("diagnose", help="Run the diagnose orchestrator")
@@ -343,6 +349,12 @@ def main(argv: list[str] | None = None) -> None:
             if value:
                 out.append(flag)
             return
+        if isinstance(value, (list, tuple)):
+            if not value:
+                return
+            out.append(flag)
+            out.extend(str(v) for v in value)
+            return
         out.extend([flag, str(value)])
 
     passthrough: list[str] = []
@@ -366,7 +378,6 @@ def main(argv: list[str] | None = None) -> None:
     add_flag(passthrough, "--metric-command", getattr(args, "metric_command", None))
     add_flag(passthrough, "--harness", getattr(args, "harness", None))
     add_flag(passthrough, "--text", getattr(args, "text", None))
-    add_flag(passthrough, "--target", getattr(args, "target", None))
 
     if getattr(args, "json_output", False):
         human_out, rc = _capture_human_output(module_name, passthrough, repo_root)

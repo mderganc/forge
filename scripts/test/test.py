@@ -132,6 +132,16 @@ def _state_path() -> Path:
     return runtime_state_path(SKILL_NAME)
 
 
+def _normalize_target(target_arg: str | list[str] | None) -> tuple[str, list[str]]:
+    """Normalize target CLI input into canonical string and raw tokens."""
+    if target_arg is None:
+        return "", []
+    if isinstance(target_arg, list):
+        tokens = [tok for tok in target_arg if tok]
+        return " ".join(tokens), tokens
+    return target_arg, [target_arg] if target_arg else []
+
+
 
 
 def _build_variables(state: SkillState) -> dict[str, str]:
@@ -499,7 +509,7 @@ def handle_step_1(args) -> None:
     project_md = read_memory_file("project.md")
 
     # Determine target
-    target = getattr(args, "target", None) or ""
+    target, target_tokens = _normalize_target(getattr(args, "target", None))
 
     # Determine mode and set max_step
     mode = getattr(args, "mode", "run")
@@ -518,6 +528,7 @@ def handle_step_1(args) -> None:
     state.started_at = state.started_at or now_iso()
     state.custom["mode"] = mode
     state.custom["target"] = target
+    state.custom["target_tokens"] = target_tokens
     state.custom["handoff_code_review"] = handoff_cr
     state.custom["handoff_implement"] = handoff_impl
     state.custom["project_context"] = project_md
@@ -728,7 +739,7 @@ def handle_step_n(step: int, state_file: str | None = None) -> None:
 def main():
     parser = build_base_parser(SKILL_NAME, MAX_STEP)
     parser.add_argument(
-        "--target", type=str, default=None,
+        "--target", nargs="+", default=None,
         help="Test command, path, or pattern to run"
     )
     # Flow-mode flags (Fix 1)

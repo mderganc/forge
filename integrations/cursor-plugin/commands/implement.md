@@ -7,6 +7,10 @@ description: Execute an implementation plan in waves with reviews.
 
 **Never show terminal commands** for this workflow.
 
+## Hard rule — Graphify
+
+If `graphify-out/` exists: read `graphify-out/GRAPH_REPORT.md` **before** grep/glob/semantic search; follow every **GRAPHIFY** block the orchestrator prints on each step; after code edits run `graphify update .`.
+
 ## What to tell the user first
 
 - **Implement** covers branch setup, waves, reviews, integration, documentation, handoff.

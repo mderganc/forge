@@ -749,6 +749,34 @@ def test_forge_session_opt_in_banner_step1_only(monkeypatch: pytest.MonkeyPatch)
     assert forge_session_opt_in_banner("develop", 1) == ""
 
 
+def test_forge_graphify_banner_when_index_present(monkeypatch: pytest.MonkeyPatch) -> None:
+    from scripts.shared.graphify_contract import forge_graphify_banner, graph_index_present
+
+    repo = Path(__file__).resolve().parents[1]
+    if not graph_index_present(repo):
+        pytest.skip("forge repo has no graphify index in this checkout")
+    banner = forge_graphify_banner("develop", 2, repo)
+    assert "GRAPHIFY" in banner
+    assert "GRAPH_REPORT.md" in banner
+    assert "mandatory" in banner.lower()
+    monkeypatch.setenv("FORGE_SKIP_GRAPHIFY", "1")
+    assert forge_graphify_banner("develop", 2, repo) == ""
+
+
+def test_format_step_output_includes_graphify_on_every_step() -> None:
+    from scripts.shared.graphify_contract import graph_index_present
+    from scripts.shared.orchestrator import format_step_output
+
+    repo = Path(__file__).resolve().parents[1]
+    if not graph_index_present(repo):
+        pytest.skip("forge repo has no graphify index in this checkout")
+
+    out1 = format_step_output("develop", 1, 7, "Startup", "BODY")
+    out2 = format_step_output("develop", 2, 7, "Scope", "BODY")
+    assert "GRAPHIFY" in out1
+    assert "GRAPHIFY" in out2
+
+
 def test_format_step_output_includes_session_opt_in_on_step1_only() -> None:
     from scripts.shared.orchestrator import format_step_output
 

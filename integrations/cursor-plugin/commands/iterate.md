@@ -7,6 +7,10 @@ description: Run the Forge iterate meta-workflow (chained skills with quality lo
 
 **Never show terminal commands** for this workflow. Summarize the current phase, gate files, and next action in plain English.
 
+## Hard rule — Graphify
+
+If `graphify-out/` exists: read `graphify-out/GRAPH_REPORT.md` **before** grep/glob/semantic search; follow every **GRAPHIFY** block the orchestrator prints on each step; after code edits run `graphify update .`.
+
 ## What to tell the user first
 
 - **Iterate** coordinates diagnose → plan → evaluate (pre) → implement → evaluate (post) → code-review → test, with inner loops for clean reviews and outer loops until a target metric is met or a max loop count.

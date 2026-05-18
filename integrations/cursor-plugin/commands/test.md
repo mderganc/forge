@@ -7,6 +7,10 @@ description: Run or author tests (including flows mode).
 
 **Never show terminal commands** for this workflow.
 
+## Hard rule — Graphify
+
+If `graphify-out/` exists: read `graphify-out/GRAPH_REPORT.md` **before** grep/glob/semantic search; follow every **GRAPHIFY** block the orchestrator prints on each step; after code edits run `graphify update .`.
+
 ## What to tell the user first
 
 - **Test** supports default suite runs or flows-style authoring—confirm which they need and what’s failing or risky.

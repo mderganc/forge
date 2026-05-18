@@ -27,6 +27,14 @@ The `(stop)` option is always last. The state file persists, and workflows can r
 
 Orchestrator output for **step 1** of workflow skills includes a **SESSION OPT-IN** block: the agent should confirm whether the user wants structured Forge for the chat vs ad hoc help, **before** mirroring phase todos. Suppress the block in automation with **`FORGE_SKIP_SESSION_OPTIN=1`** (see README Advanced). Codex installs should run **`forge codex-agents`** so `developer_instructions` includes the same expectation.
 
+## Graphify in skill steps
+
+When the repo has `graphify-out/` or `GRAPH_REPORT.md`, **every orchestrator step** prints a **GRAPHIFY** block (before phase todos and the step body). Agents must read `graphify-out/GRAPH_REPORT.md` before grep/glob/semantic search or bulk source reads for architecture questions. Suppress the block in automation with **`FORGE_SKIP_GRAPHIFY=1`**. Cursor/Claude workflow commands and Codex `forge:*` skills repeat the same contract; see `templates/graphify-contract.md`.
+
+**Claude Code:** `forge install --claude` or **`forge claude-graphify`** merges hooks into `~/.claude/settings.json` (SessionStart, PreToolUse for Grep/Glob/Read/Bash, UserPromptSubmit for `forge:` prompts). Implementation: `forge_next/hooks/claude_graphify_hook.py`.
+
+**Codex:** `forge install --codex` or **`forge codex-agents`** merges `developer_instructions` in `~/.codex/config.toml` with **Graphify rules first** (`forge_next/graphify_policy.py`). Use **`--force`** after upgrades if you previously customized that field.
+
 ## Process-first skill choice (Superpowers-style)
 
 When unsure which workflow to drive, prefer **investigation / diagnosis** before locking execution:

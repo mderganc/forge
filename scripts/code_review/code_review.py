@@ -162,6 +162,16 @@ def _detect_mode(target: str, handoff_content: str) -> str:
     return "pr"
 
 
+def _normalize_target(target_arg: str | list[str] | None) -> tuple[str, list[str]]:
+    """Normalize target CLI input into canonical string and raw tokens."""
+    if target_arg is None:
+        return "", []
+    if isinstance(target_arg, list):
+        tokens = [tok for tok in target_arg if tok]
+        return " ".join(tokens), tokens
+    return target_arg, [target_arg] if target_arg else []
+
+
 def _build_variables(state: SkillState) -> dict[str, str]:
     """Build template variable dict from state."""
     mode = state.custom.get("mode", "pr")
@@ -301,7 +311,7 @@ def handle_step_1(args) -> None:
             sys.exit(1)
 
     # Determine target
-    target = getattr(args, "target", None) or ""
+    target, target_tokens = _normalize_target(getattr(args, "target", None))
 
     # Determine mode
     mode = getattr(args, "mode", None) or ""
@@ -320,6 +330,7 @@ def handle_step_1(args) -> None:
     state.started_at = state.started_at or now_iso()
     state.custom["mode"] = mode
     state.custom["target"] = target
+    state.custom["target_tokens"] = target_tokens
     state.custom["handoff_content"] = handoff_content
     state.custom["plan_path"] = plan_path
 
@@ -470,7 +481,7 @@ def main():
         help="Review mode: pr (PR diff), deep (troubleshooting), architecture (design patterns)"
     )
     parser.add_argument(
-        "--target", type=str, default=None,
+        "--target", nargs="+", default=None,
         help="PR number, branch name, or file paths to review"
     )
     parser.add_argument(

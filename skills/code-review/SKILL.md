@@ -66,7 +66,7 @@ This file is your lifeline if context compaction occurs. Always update it.
 |----------|----------|-------------|
 | `--step` | Yes | Current phase (1-6) |
 | `--mode` | No | Review mode: `pr`, `deep`, or `architecture` (auto-detected if omitted) |
-| `--target` | Step 1 only | PR number, branch name, or file paths to review |
+| `--target` | Step 1 only | PR number, branch name, or one-or-more file paths to review (space-separated or quoted) |
 | `--quick` | No | Quick mode: minimal review loops, lead agents only |
 
 ## Subsequent steps

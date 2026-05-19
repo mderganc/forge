@@ -37,7 +37,7 @@ Restart Claude Code after installing so `/help` picks up new commands.
 forge claude-graphify
 ```
 
-Hooks call **`forge_next.hooks.claude_graphify_hook`** using the **absolute Python from your pipx `forge` install** (written into `settings.json` by `forge claude-graphify` — not bare `python` or `/usr/bin/python`).
+Hooks invoke **`/path/to/forge claude-graphify-hook <event>`** (absolute pipx `forge` binary written by `forge claude-graphify` — never bare `python -m forge_next` on `/usr/bin/python`).
 
 - **SessionStart** — remind when `graphify-out/` exists
 - **PreToolUse** — **Grep**, **Glob**, **Read**, and search-like **Bash**

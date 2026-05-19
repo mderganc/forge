@@ -10,8 +10,10 @@ import sys
 from forge_next.claude_graphify import (
     HOOK_MARKER,
     apply_claude_graphify_settings,
+    audit_claude_graphify_hooks,
     hook_command,
     merge_graphify_hooks,
+    resolve_forge_executable,
 )
 from forge_next.graphify_policy import (
     FORGE_DEVELOPER_INSTRUCTIONS_BODY,
@@ -20,11 +22,38 @@ from forge_next.graphify_policy import (
 from forge_next.hooks import claude_graphify_hook as hook
 
 
-def test_hook_command_uses_absolute_interpreter_not_bare_python() -> None:
-    cmd = hook_command("SessionStart")
-    assert "forge_next.hooks.claude_graphify_hook SessionStart" in cmd
-    py_token = cmd.split(" -m ", 1)[0].strip()
-    assert Path(json.loads(py_token)) == Path(sys.executable).resolve()
+def test_hook_command_uses_forge_executable_not_python_module(tmp_path: Path) -> None:
+    forge = tmp_path / "forge"
+    forge.write_text("", encoding="utf-8")
+    cmd = hook_command("SessionStart", forge_exe=forge)
+    assert "claude-graphify-hook SessionStart" in cmd
+    assert " -m forge_next" not in cmd
+    assert json.loads(cmd.split(" claude-graphify-hook", 1)[0]) == str(forge)
+
+
+def test_audit_warns_on_python_module_hooks(tmp_path: Path) -> None:
+    cfg = tmp_path / "settings.json"
+    cfg.write_text(
+        json.dumps(
+            {
+                "hooks": {
+                    "SessionStart": [
+                        {
+                            "hooks": [
+                                {
+                                    "type": "command",
+                                    "command": '/usr/bin/python3.12 -m forge_next.hooks.claude_graphify_hook SessionStart',
+                                }
+                            ]
+                        }
+                    ]
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+    warns = audit_claude_graphify_hooks(cfg)
+    assert any("python -m forge_next" in w for w in warns)
 
 
 def test_merge_graphify_hooks_adds_managed_entries() -> None:
@@ -36,11 +65,27 @@ def test_merge_graphify_hooks_adds_managed_entries() -> None:
     assert any(HOOK_MARKER in str(h) for h in hooks["PreToolUse"])
 
 
-def test_apply_claude_graphify_settings_writes_file(tmp_path: Path) -> None:
+def test_apply_claude_graphify_settings_writes_file(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    fake_forge = tmp_path / "bin" / "forge"
+    fake_forge.parent.mkdir(parents=True)
+    fake_forge.write_text("", encoding="utf-8")
+
+    monkeypatch.setattr(
+        "forge_next.claude_graphify.resolve_forge_executable",
+        lambda: fake_forge,
+    )
+    monkeypatch.setattr(
+        "forge_next.claude_graphify._verify_hook_launcher",
+        lambda _f: None,
+    )
+
     cfg = tmp_path / "settings.json"
     assert apply_claude_graphify_settings(cfg) == 0
     data = json.loads(cfg.read_text(encoding="utf-8"))
     assert HOOK_MARKER in json.dumps(data)
+    assert "claude-graphify-hook" in json.dumps(data)
 
 
 def test_codex_body_leads_with_graphify() -> None:

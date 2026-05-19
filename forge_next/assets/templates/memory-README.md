@@ -7,6 +7,8 @@ This directory contains the shared memory files for a forge-codex team session.
 | File | Owner | Purpose |
 |------|-------|---------|
 | `project.md` | PM | Shared context, stage markers, autonomy log, findings tracker, Skill Flow section, completion summary |
+| `studio-log.md` | Studio (auto) | Append-only browser gate feedback (clicks, probes, freeform). Read via `{{STUDIO_LOG}}` in develop/plan; summarize into `project.md` when gates close |
+| `studio-approved-index.md` | Studio (auto) | Index of user-approved locked HTML under `.codex/forge/studio/approved/`. Read via `{{STUDIO_APPROVED}}` in develop/plan/implement |
 | `investigation.md` | Architect | Five-why analysis, findings, root causes with evidence |
 | `investigator.md` | Investigator | Evidence gathered, five-why chains, MECE trees, barrier analysis |
 | `solution-requirements.md` | Architect | Brainstorming Phase 1 output — Requirements Context + How-Might-We framings. Written in Dispatch 1, consumed by brainstorming Gate 1 |

@@ -16,6 +16,12 @@ Detect and load the implementation plan.
 3. Count total tasks and identify assigned agents
 4. Record plan summary in `.codex/forge-codex/memory/project.md`
 
+## Approved UI reference (Studio)
+
+If the user approved visual gates during develop/plan, read the locked HTML paths below before implementing UI work:
+
+{{STUDIO_APPROVED}}
+
 ## Team Composition
 
 Based on plan agent assignments, activate:

@@ -1,0 +1,59 @@
+<div data-studio-gate="gate1_hmw">
+<section class="studio-design-notes" data-gate="gate1_hmw">
+  <h2>Design context</h2>
+  <p class="subtitle">Pick an HMW framing, then answer the probing questions.</p>
+  <dl class="studio-notes-grid">
+    <dt>Goal</dt><dd>Choose the driver HMW framing.</dd>
+    <dt>Recommendation</dt><dd><strong>Option B — Depth</strong></dd>
+  </dl>
+</section>
+
+<h2>Which HMW framing?</h2>
+<div class="options">
+  <div class="option" data-gate="gate1_hmw" data-choice="hmw_a" onclick="studioToggle(this)">
+    <div class="letter">A</div>
+    <div class="content"><h3>Breadth</h3><p>More options</p></div>
+  </div>
+  <div class="option" data-gate="gate1_hmw" data-choice="hmw_b" onclick="studioToggle(this)">
+    <div class="letter">B</div>
+    <div class="content"><h3>Depth</h3><p>Narrower scope</p></div>
+  </div>
+  <div class="option" data-gate="gate1_hmw" data-choice="hmw_c" onclick="studioToggle(this)">
+    <div class="letter">C</div>
+    <div class="content"><h3>Risk</h3><p>De-risk first</p></div>
+  </div>
+</div>
+
+<section class="studio-probes" data-gate="gate1_hmw">
+  <h2>Refine this screen</h2>
+  <p class="subtitle">Answer each question so the agent knows exactly what you mean.</p>
+
+  <article class="studio-probe" data-probe-id="visual_controls"
+    data-probe-prompt="Is the color scheme fine? Different structure? Radio buttons or something else?">
+    <header class="studio-probe-header"><span class="studio-probe-num">1</span>
+    <p class="studio-probe-prompt">Is the color scheme fine? Different structure? Radio buttons or something else?</p></header>
+    <ul class="studio-probe-hints"><li>Color</li><li>Layout</li><li>Control type</li></ul>
+    <label class="studio-probe-label" for="studio-probe-visual_controls">Your answer</label>
+    <textarea id="studio-probe-visual_controls" class="studio-probe-answer" rows="3"
+      placeholder="e.g. Yes, color is fine; use radio buttons; smaller Continue button"></textarea>
+    <button type="button" class="studio-probe-send">Send answer</button>
+    <p class="studio-probe-status" role="status" aria-live="polite"></p>
+  </article>
+
+  <article class="studio-probe" data-probe-id="hmw_labels"
+    data-probe-prompt="Are Breadth / Depth / Risk clear? What would you rename?">
+    <header class="studio-probe-header"><span class="studio-probe-num">2</span>
+    <p class="studio-probe-prompt">Are Breadth / Depth / Risk clear? What would you rename?</p></header>
+    <ul class="studio-probe-hints"><li>Option titles</li><li>Missing alternatives</li></ul>
+    <label class="studio-probe-label" for="studio-probe-hmw_labels">Your answer</label>
+    <textarea id="studio-probe-hmw_labels" class="studio-probe-answer" rows="2"
+      placeholder="e.g. Rename Breadth to Width"></textarea>
+    <button type="button" class="studio-probe-send">Send answer</button>
+    <p class="studio-probe-status" role="status" aria-live="polite"></p>
+  </article>
+
+<div class="studio-probes-actions studio-actions">
+    <button type="button" class="studio-probes-submit-all">Send all answers</button>
+</div>
+</section>
+</div>

@@ -2,6 +2,10 @@
 
 {{DEVELOP_NO_EDIT_POLICY}}
 
+**Studio (internal):** {{STUDIO_STATUS}} — see `templates/studio.md`. If enabling, use a **separate** opt-in message; users open a URL only, never run `forge studio`.
+
+**Studio log (if any):** {{STUDIO_LOG}}
+
 ## Dialogue before labels
 
 Treat this step as **discovery**, not a form to fill. Before fixing task type and layers:

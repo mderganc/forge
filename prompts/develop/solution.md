@@ -2,6 +2,12 @@
 
 {{DEVELOP_NO_EDIT_POLICY}}
 
+**Studio:** {{STUDIO_STATUS}} — visual gates (Gate 1, Gate 2 Q1) per `templates/studio.md` + `templates/brainstorming-gates.md` Visual gate mode.
+
+**Studio log (read before gates):** {{STUDIO_LOG}}
+
+**Approved UI reference (locked):** {{STUDIO_APPROVED}}
+
 ## Brainstorming protocol (Superpowers-style guards)
 
 - **No implementation** in Stage 2 — only investigation-backed design, memory artifacts, and user-facing choices.

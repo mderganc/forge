@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{TITLE}}</title>
+  <style>
+    :root { color-scheme: light dark; --accent: #2563eb; --border: #e5e7eb; }
+    body { font-family: system-ui, -apple-system, sans-serif; margin: 0; padding: 1.5rem 2rem; line-height: 1.5; max-width: 56rem; margin-inline: auto; color: canvastext; background: canvas; }
+    .option .content h3, .option .content p { color: canvastext; }
+    h1, h2 { line-height: 1.2; }
+    .subtitle { color: #6b7280; margin-top: -0.5rem; }
+    .options { display: flex; flex-direction: column; gap: 0.75rem; margin: 1.5rem 0; }
+    .option { display: flex; gap: 1rem; padding: 1rem 1.25rem; border: 2px solid var(--border); border-radius: 0.5rem; cursor: pointer; transition: border-color 0.15s, background 0.15s; }
+    .option:hover { border-color: var(--accent); }
+    .option.selected { border-color: var(--accent); background: rgba(37, 99, 235, 0.08); }
+    .option .letter { font-weight: 700; color: var(--accent); min-width: 1.5rem; }
+    .mockup { border: 1px solid var(--border); border-radius: 0.5rem; overflow: hidden; margin: 1rem 0; }
+    .mockup-header { background: #f3f4f6; padding: 0.5rem 1rem; font-size: 0.875rem; font-weight: 600; }
+    .mockup-body { padding: 1rem; }
+    .studio-actions { margin-top: 1.5rem; display: flex; gap: 0.75rem; flex-wrap: wrap; }
+    button.studio-submit, button.studio-submit-feedback, button.studio-approve-screen, button.studio-mark-done {
+      background: var(--accent); color: #fff; border: none; padding: 0.6rem 1.2rem;
+      border-radius: 0.375rem; font-size: 1rem; cursor: pointer;
+    }
+    button.studio-approve-screen { background: #15803d; }
+    button.studio-unlock-screen { background: #b45309; }
+    button.studio-unlock-screen[hidden] { display: none; }
+    button.studio-mark-done { background: #4b5563; }
+    button.studio-submit:disabled { opacity: 0.5; cursor: not-allowed; }
+    .studio-design-notes {
+      background: color-mix(in srgb, canvastext 4%, canvas);
+      border: 1px solid var(--border); border-radius: 0.5rem;
+      padding: 1rem 1.25rem; margin-bottom: 1.5rem;
+    }
+    .studio-design-notes h2 { margin-top: 0; font-size: 1.125rem; }
+    .studio-notes-grid { display: grid; grid-template-columns: auto 1fr; gap: 0.35rem 1rem; margin: 0.75rem 0; }
+    .studio-notes-grid dt { font-weight: 600; margin: 0; }
+    .studio-notes-grid dd { margin: 0; }
+    .studio-notes-detail { margin-top: 0.75rem; }
+    .studio-notes-detail summary { cursor: pointer; font-weight: 600; }
+    .studio-feedback {
+      margin-top: 2rem; padding-top: 1.5rem; border-top: 2px solid var(--border);
+    }
+    .studio-feedback-input {
+      width: 100%; box-sizing: border-box; margin-top: 0.5rem;
+      padding: 0.75rem; border: 1px solid var(--border); border-radius: 0.375rem;
+      font: inherit; color: canvastext; background: canvas; resize: vertical;
+    }
+    .studio-feedback-status { min-height: 1.25rem; font-size: 0.875rem; margin: 0.5rem 0 0; }
+    .studio-sr-only {
+      position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+      overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0;
+    }
+    .studio-probes {
+      margin: 2rem 0 1.5rem; padding: 1.25rem 1.5rem;
+      border: 2px solid var(--border); border-radius: 0.5rem;
+      background: color-mix(in srgb, canvastext 3%, canvas);
+    }
+    .studio-probes > h2 { margin-top: 0; font-size: 1.125rem; }
+    .studio-probe {
+      margin-top: 1.25rem; padding-top: 1.25rem;
+      border-top: 1px solid var(--border);
+    }
+    .studio-probe:first-of-type { border-top: none; padding-top: 0; margin-top: 0.75rem; }
+    .studio-probe-header { display: flex; gap: 0.75rem; align-items: flex-start; }
+    .studio-probe-num {
+      font-weight: 700; color: var(--accent); min-width: 1.5rem; line-height: 1.4;
+    }
+    .studio-probe-prompt { margin: 0; font-weight: 600; }
+    .studio-probe-hints {
+      margin: 0.5rem 0 0.75rem 2.25rem; padding-left: 1rem;
+      color: #6b7280; font-size: 0.9rem;
+    }
+    .studio-probe-label { display: block; font-weight: 600; margin-bottom: 0.35rem; }
+    .studio-probe-answer {
+      width: 100%; box-sizing: border-box; padding: 0.65rem 0.75rem;
+      border: 1px solid var(--border); border-radius: 0.375rem;
+      font: inherit; color: canvastext; background: canvas; resize: vertical;
+    }
+    .studio-probe-send {
+      margin-top: 0.5rem; background: var(--accent); color: #fff; border: none;
+      padding: 0.45rem 0.9rem; border-radius: 0.375rem; font-size: 0.9rem; cursor: pointer;
+    }
+    .studio-probe-status { min-height: 1.1rem; font-size: 0.8rem; margin: 0.35rem 0 0; }
+    .studio-probe-answered .studio-probe-answer { border-color: #15803d; }
+    .studio-probes-actions { margin-top: 1rem; }
+    button.studio-probes-submit-all {
+      background: #1d4ed8; color: #fff; border: none; padding: 0.6rem 1.2rem;
+      border-radius: 0.375rem; font-size: 1rem; cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+{{CONTENT}}
+</body>
+</html>

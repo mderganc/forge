@@ -138,3 +138,7 @@ Rules:
 - IF graphify-out/wiki/index.md EXISTS, navigate it instead of reading raw files
 - For cross-module "how does X relate to Y" questions, prefer `graphify query "<question>"`, `graphify path "<A>" "<B>"`, or `graphify explain "<concept>"` over grep — these traverse the graph's EXTRACTED + INFERRED edges instead of scanning files
 - After modifying code, run `graphify update .` to keep the graph current (AST-only, no API cost).
+
+## Forge Studio (internal)
+
+Studio is **not** a user-facing workflow. Agents use it during **develop** / **plan** visual gates (localhost browser UI). Users only open a URL when opted in. See [`templates/studio.md`](templates/studio.md) and [`docs/studio.md`](docs/studio.md). Do not add Studio to README workflows or `commands.json`.

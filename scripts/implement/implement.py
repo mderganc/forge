@@ -266,10 +266,17 @@ def _build_team_composition() -> str:
     return "\n".join(lines)
 
 
+def _studio_template_vars() -> dict[str, str]:
+    from forge_next.studio.context import orchestrator_studio_variables
+
+    return orchestrator_studio_variables()
+
+
 def _build_step1_variables(state: SkillState) -> dict[str, str]:
     """Build template variables for step 1 (plan detection)."""
     return {
         "TEAM_COMPOSITION": _build_team_composition(),
+        **_studio_template_vars(),
     }
 
 
@@ -281,6 +288,7 @@ def _build_step2_variables(state: SkillState) -> dict[str, str]:
         "BRANCH_PREFIX": pfx,
         "FEATURE_BRANCH_PATTERN": f"{pfx}/<short-slug>",
         "TASK_BRANCH_PATTERN": f"{pfx}/<short-slug>/task-<n>-<short-slug>",
+        **_studio_template_vars(),
     }
 
 
@@ -374,6 +382,7 @@ def _build_wave_variables(state: SkillState) -> dict[str, str]:
         "BRANCH_PREFIX": pfx,
         "FEATURE_BRANCH_PATTERN": f"{pfx}/<short-slug>",
         "TASK_BRANCH_PATTERN": f"{pfx}/<short-slug>/task-<n>-<short-slug>",
+        **_studio_template_vars(),
     }
 
 
@@ -399,6 +408,7 @@ def _build_doc_variables(state: SkillState, state_path: Path | None = None) -> d
     return {
         "QUICK_MODE_NOTE": quick_note,
         "STATE_DIR": state_dir,
+        **_studio_template_vars(),
     }
 
 
@@ -412,6 +422,7 @@ def _build_handoff_variables(state: SkillState) -> dict[str, str]:
         "BRANCH_PREFIX": state.custom.get("branch_prefix") or DEFAULT_BRANCH_PREFIX,
         "WAVES_COMPLETED": str(state.custom.get("waves_completed", 0)),
         "TOTAL_WAVES": str(state.custom.get("total_waves", 0)),
+        **_studio_template_vars(),
     }
 
 

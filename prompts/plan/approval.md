@@ -2,6 +2,12 @@ Present the plan to the user for approval.
 
 {{MODE_CONTRACT}}
 
+**Studio (internal):** {{STUDIO_STATUS}} — optional visual summary per `templates/studio.md` (user opens URL; agents run `forge studio` internally).
+
+**Studio log (if any):** {{STUDIO_LOG}}
+
+**Approved UI reference (locked — use when planning):** {{STUDIO_APPROVED}}
+
 ## Plan-Phase Safety Contract (mandatory)
 
 - This is a planning-only phase. Do not edit product code.

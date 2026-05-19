@@ -1,0 +1,44 @@
+<!-- Example Studio screen — copy/adapt into content/*.html (fragment) -->
+<div data-studio-gate="gate1_hmw">
+
+<section class="studio-design-notes" data-gate="gate1_hmw">
+  <h2>Design context</h2>
+  <p class="subtitle">Agent notes — edit per gate before pushing the screen.</p>
+  <dl class="studio-notes-grid">
+    <dt>Goal</dt>
+    <dd>Help the user pick which HMW framing should drive solution exploration.</dd>
+    <dt>Constraints</dt>
+    <dd>Must work with existing develop gates; no implementation in this phase.</dd>
+    <dt>Recommendation</dt>
+    <dd><strong>Option B</strong> — smallest slice to validate assumptions.</dd>
+  </dl>
+  <details class="studio-notes-detail">
+    <summary>Tradeoffs and open questions</summary>
+    <ul>
+      <li>Option A widens scope but surfaces more solution families.</li>
+      <li>Option B may under-explore if the problem space is still fuzzy.</li>
+    </ul>
+  </details>
+</section>
+
+<h2>Which HMW framing should drive divergence?</h2>
+<p class="subtitle">Click one option, add feedback below, then Done reviewing.</p>
+
+<div class="options">
+  <div class="option" data-gate="gate1_hmw" data-choice="hmw_explore" onclick="studioToggle(this)">
+    <span class="letter">A</span>
+    <span class="content">
+      <h3>Explore breadth</h3>
+      <p>Maximize option space before committing.</p>
+    </span>
+  </motion>
+  <div class="option" data-gate="gate1_hmw" data-choice="hmw_focus" onclick="studioToggle(this)">
+    <span class="letter">B</span>
+    <span class="content">
+      <h3>Focus delivery</h3>
+      <p>Ship the smallest valuable slice fast.</p>
+    </span>
+  </span>
+</div>
+
+</motion>

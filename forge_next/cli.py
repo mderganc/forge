@@ -202,6 +202,8 @@ def build_parser() -> argparse.ArgumentParser:
     gfu = gf_sub.add_parser("uninstall-hook", help="Remove Forge Graphify block from .git/hooks/post-commit")
     add_common_repo_flag(gfu)
 
+    # Studio is dispatched in main() before build_parser() so it never appears in `forge --help`.
+
     # install
     ins = sub.add_parser("install", help="Install integrations (Cursor/Claude/Codex) for this user")
     add_common_output_flags(ins)
@@ -282,8 +284,14 @@ def main(argv: list[str] | None = None) -> None:
     except Exception:
         pass
 
+    raw_argv = list(argv) if argv is not None else sys.argv[1:]
+    if raw_argv and raw_argv[0] == "studio":
+        from forge_next.studio.cli_commands import parse_studio_argv, run_studio_command
+
+        raise SystemExit(run_studio_command(parse_studio_argv(raw_argv[1:])))
+
     parser = build_parser()
-    args = parser.parse_args(argv)
+    args = parser.parse_args(raw_argv)
 
     cmd = args.command
     if getattr(args, "ascii", False):
@@ -536,6 +544,16 @@ def _run_doctor(repo_root: Path, json_output: bool = False) -> None:
         warnings.append(str(exc))
     except Exception as exc:
         warnings.append(f"Claude Graphify hook audit failed: {exc}")
+
+    try:
+        from forge_next.studio.assets import asset_text
+
+        asset_text("frame.html")
+        asset_text("studio.js")
+        checks["studio_assets"] = "ok"
+    except Exception as exc:
+        checks["studio_assets"] = "missing"
+        warnings.append(f"Forge Studio assets unavailable: {exc}")
 
     payload = {
         "command": "doctor",
@@ -865,4 +883,8 @@ def _run_uninstall(
         print("Warnings:")
         for w in warnings:
             print(f"- {w}")
+
+
+if __name__ == "__main__":
+    main()
 

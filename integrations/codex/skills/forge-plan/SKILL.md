@@ -16,6 +16,8 @@ If mode is not specified, step 1 asks the user to confirm with a recommendation.
 
 See `templates/plan-modes.md`.
 
+**Forge Studio** is agent-internal only (optional visual approval) — see `templates/studio.md`.
+
 ## Safety Guardrails (plan phase)
 
 - `forge:plan` is planning-only: do not edit product source code.

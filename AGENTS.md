@@ -35,6 +35,8 @@ When the repo has `graphify-out/` or `GRAPH_REPORT.md`, **every orchestrator ste
 
 **Codex:** `forge install --codex` or **`forge codex-agents`** merges `developer_instructions` in `~/.codex/config.toml` with **Graphify rules first** (`forge_next/graphify_policy.py`). Use **`--force`** after upgrades if you previously customized that field.
 
+**Docs:** [`docs/graphify.md`](docs/graphify.md) is the canonical user guide (refresh, hooks, orchestrator banners, CI flags, upgrade path).
+
 ## Process-first skill choice (Superpowers-style)
 
 When unsure which workflow to drive, prefer **investigation / diagnosis** before locking execution:

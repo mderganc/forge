@@ -1,8 +1,10 @@
 ---
 name: forge:graphify
-description: Optional Graphify integration — refresh codebase index metadata for forge resume, or manage a fail-soft git post-commit hook. Use when setting up or troubleshooting Graphify with Forge.
+description: Graphify setup — refresh index for forge resume, post-commit hook, or troubleshooting. When graphify-out/ exists, other forge skills print GRAPHIFY blocks each step; see docs/graphify.md.
 ---
 
 <invoke cmd="forge graphify refresh" />
 
-Subcommands (run via launcher with the same `forge graphify …` prefix): `refresh` (default above), `install-hook`, `uninstall-hook`. Pass `--repo` when the project root is not the current directory.
+Subcommands: `refresh` (default), `install-hook`, `uninstall-hook`. Pass `--repo` when not at the project root.
+
+When `graphify-out/` exists, workflow skills enforce reading `GRAPH_REPORT.md` before codebase search. Claude: `forge claude-graphify`. Codex: `forge codex-agents --force`. Full guide in Forge repo **`docs/graphify.md`**.

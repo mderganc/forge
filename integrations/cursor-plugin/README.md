@@ -34,8 +34,10 @@ curl -fsSL https://raw.githubusercontent.com/mderganc/forge/main/integrations/cu
 
 This installs:
 - Cursor plugin (`forge:*` commands)
-- Claude command pack
-- Codex skill pack
+- Claude command pack (+ `forge claude-graphify` hooks when using `forge install`)
+- Codex skill pack (+ `forge codex-agents` policy when using `forge install`)
+
+When the repo has `graphify-out/`, workflow commands include **Hard rule — Graphify** and each `forge … --step` prints a **GRAPHIFY** block. See [`docs/graphify.md`](../../docs/graphify.md).
 
 Uninstall:
 

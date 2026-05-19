@@ -30,3 +30,16 @@ Layout for Cursor/Claude slash commands and Codex skills is enforced by `pytest 
 - **Supported:** `/forge:<subcommand>` (for example `/forge:diagnose`). Command files are named `<subcommand>.md`; the plugin namespace is `forge` (see `cursor-plugin/.cursor-plugin/plugin.json`).
 - **Not supported** by current Cursor plugin schema: alias fields, `/f:<subcommand>`, or unscoped `/diagnose`. Codex uses `$forge:<subcommand>` via skill `name:` in each `SKILL.md` (skill folders remain `forge-<subcommand>/` on disk).
 
+### Graphify (optional codebase map)
+
+When a repo has `graphify-out/`, Forge enforces Graphify during workflow skills:
+
+| Environment | Setup |
+|-------------|--------|
+| **All** | Every `forge <skill> --step N` prints a **GRAPHIFY** block; see [`docs/graphify.md`](../docs/graphify.md) |
+| **Claude** | `forge install --claude` or `forge claude-graphify` → `~/.claude/settings.json` hooks |
+| **Codex** | `forge install --codex` or `forge codex-agents --force` → `~/.codex/config.toml` |
+| **Cursor** | Command bodies + repo `.cursor/rules/graphify.mdc`; no global hook installer |
+
+After upgrading **forge-next**: `pipx upgrade forge-next`, then re-run `forge claude-graphify` and `forge codex-agents --force`.
+

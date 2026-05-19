@@ -9,9 +9,10 @@ description: Optional Graphify setup — refresh index metadata for forge resume
 
 ## What to tell the user first
 
-- **Graphify** is optional: it feeds **codebase structure** into `forge resume` (status file + `GRAPH_REPORT` excerpt when present).
+- **Graphify** is optional: it feeds **codebase structure** into `forge resume` and enforces **GRAPHIFY** blocks on every workflow step when `graphify-out/` exists.
 - Default flow: **refresh** metadata once per clone; optionally **install-hook** so each commit re-refreshes in the background (fail-soft).
-- They need Graphify installed **or** a configured **`FORGE_GRAPHIFY_COMMAND`**. Full steps print after **`forge install`** and live in **`docs/graphify.md`** in the Forge repo.
+- **Codex / Claude policy:** `forge codex-agents --force`, `forge claude-graphify` (see **`docs/graphify.md`**).
+- They need Graphify installed **or** **`FORGE_GRAPHIFY_COMMAND`**. Full guide: **`docs/graphify.md`** in the Forge repo.
 
 ## What you run (agent)
 

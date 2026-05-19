@@ -98,10 +98,10 @@ Restart Claude Code after changing `~/.claude/settings.json`.
 
 ### What hooks do
 
-`forge claude-graphify` merges into **`~/.claude/settings.json`** using the **same Python interpreter as your `forge` CLI** (pipx venv), not bare `/usr/bin/python`:
+`forge claude-graphify` merges into **`~/.claude/settings.json`** using the **absolute path to your `forge` executable** (pipx), not `python -m forge_next` on `/usr/bin/python`:
 
 ```json
-"/home/you/.local/pipx/venvs/forge-next/bin/python" -m forge_next.hooks.claude_graphify_hook SessionStart
+"/home/you/.local/bin/forge" claude-graphify-hook SessionStart
 ```
 
 Events:
@@ -114,14 +114,15 @@ Events:
 
 Each workflow slash command includes **Hard rule — Graphify** in its body.
 
-**Troubleshooting:** If hooks error with `No module named 'forge_next'`, upgrade Forge and re-run hooks **via pipx** (so the correct interpreter is recorded):
+**Troubleshooting:** If hooks error with `No module named 'forge_next'`, your `settings.json` still points at system Python. Fix:
 
 ```bash
 pipx upgrade forge-next
-forge claude-graphify
+pipx run forge-next claude-graphify   # or: forge claude-graphify if pipx bin is on PATH
+forge doctor                          # warns if hooks still use python -m forge_next
 ```
 
-Debug manually: `forge claude-graphify-hook SessionStart` (reads hook JSON from stdin).
+Restart Claude Code. Debug manually: `forge claude-graphify-hook SessionStart` (reads hook JSON from stdin).
 
 Details: [`integrations/claude/README.md`](../integrations/claude/README.md).
 

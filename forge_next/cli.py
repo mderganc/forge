@@ -527,6 +527,16 @@ def _run_doctor(repo_root: Path, json_output: bool = False) -> None:
     except Exception as e:
         warnings.append(f"Failed to create runtime state dir: {e}")
 
+    try:
+        from forge_next.claude_graphify import audit_claude_graphify_hooks, resolve_forge_executable
+
+        checks["forge_executable"] = str(resolve_forge_executable())
+        warnings.extend(audit_claude_graphify_hooks())
+    except FileNotFoundError as exc:
+        warnings.append(str(exc))
+    except Exception as exc:
+        warnings.append(f"Claude Graphify hook audit failed: {exc}")
+
     payload = {
         "command": "doctor",
         "repo_root": str(repo_root),

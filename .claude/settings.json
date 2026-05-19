@@ -1,46 +1,4 @@
 {
   "_forge_graphify": "forge-graphify-hooks (managed by forge-next; re-run forge claude-graphify)",
-  "hooks": {
-    "SessionStart": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "python -m forge_next.hooks.claude_graphify_hook SessionStart"
-          }
-        ]
-      }
-    ],
-    "UserPromptSubmit": [
-      {
-        "matcher": "*",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "python -m forge_next.hooks.claude_graphify_hook UserPromptSubmit"
-          }
-        ]
-      }
-    ],
-    "PreToolUse": [
-      {
-        "matcher": "Grep|Glob|Read",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "python -m forge_next.hooks.claude_graphify_hook PreToolUse"
-          }
-        ]
-      },
-      {
-        "matcher": "Bash",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "python -m forge_next.hooks.claude_graphify_hook PreToolUse"
-          }
-        ]
-      }
-    ]
-  }
+  "_note": "Hook commands are written by `forge claude-graphify` using the absolute pipx `forge` path on your machine — do not hand-edit to use /usr/bin/python."
 }

@@ -237,6 +237,19 @@ def build_parser() -> argparse.ArgumentParser:
     )
     cg.add_argument("--dry-run", action="store_true", help="Print actions without writing")
 
+    # claude-graphify-hook — Claude Code hook entrypoint (stdin JSON → stdout JSON)
+    cgh = sub.add_parser(
+        "claude-graphify-hook",
+        help="Run a Claude Code Graphify hook event (used from ~/.claude/settings.json)",
+    )
+    cgh.add_argument(
+        "event",
+        nargs="?",
+        default="SessionStart",
+        choices=("SessionStart", "PreToolUse", "UserPromptSubmit"),
+        help="Claude hook event name",
+    )
+
     # uninstall
     un = sub.add_parser("uninstall", help="Uninstall integrations (Cursor/Claude/Codex) for this user")
     add_common_output_flags(un)
@@ -297,6 +310,12 @@ def main(argv: list[str] | None = None) -> None:
         )
         rc = apply_claude_graphify_settings(sp, dry_run=bool(getattr(args, "dry_run", False)))
         raise SystemExit(rc)
+
+    if cmd == "claude-graphify-hook":
+        from forge_next.hooks import claude_graphify_hook
+
+        event = getattr(args, "event", None) or "SessionStart"
+        raise SystemExit(claude_graphify_hook.main([event]))
 
     if cmd == "graphify":
         from forge_next import graphify as forge_graphify

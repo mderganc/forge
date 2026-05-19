@@ -9,7 +9,9 @@ import sys
 from pathlib import Path
 from typing import Any
 
-HOOK_MARKER = "forge_next.hooks.claude_graphify_hook"
+# Substrings matched when replacing prior Forge hook installs.
+HOOK_MARKERS = ("forge_next.hooks.claude_graphify_hook", "claude-graphify-hook")
+HOOK_MARKER = HOOK_MARKERS[0]  # primary (tests / docs)
 MANAGED_NOTE = "forge-graphify-hooks (managed by forge-next; re-run forge claude-graphify)"
 
 
@@ -18,8 +20,21 @@ def default_claude_settings_path() -> Path:
     return home / ".claude" / "settings.json"
 
 
-def _hook_command(event: str) -> str:
-    return f'python -m forge_next.hooks.claude_graphify_hook {event}'
+def hook_command(event: str) -> str:
+    """Shell command for Claude settings.json.
+
+    Uses the same Python interpreter as the running ``forge`` CLI (pipx/venv),
+    not bare ``python`` / ``/usr/bin/python`` — Claude's hook environment often
+    lacks forge-next on the default interpreter.
+    """
+    py = str(Path(sys.executable).resolve())
+    return f"{json.dumps(py)} -m forge_next.hooks.claude_graphify_hook {event}"
+
+
+def hook_launcher_description() -> str:
+    """Human-readable note about which launcher hook_command() will write."""
+    py = str(Path(sys.executable).resolve())
+    return f"Python module hook ({py})"
 
 
 def _managed_hook_block(event: str) -> dict[str, Any]:
@@ -27,7 +42,7 @@ def _managed_hook_block(event: str) -> dict[str, Any]:
         "hooks": [
             {
                 "type": "command",
-                "command": _hook_command(event),
+                "command": hook_command(event),
             }
         ]
     }
@@ -43,7 +58,7 @@ def graphify_hooks_fragment() -> dict[str, list[dict[str, Any]]]:
                 "hooks": [
                     {
                         "type": "command",
-                        "command": _hook_command("UserPromptSubmit"),
+                        "command": hook_command("UserPromptSubmit"),
                     }
                 ],
             }
@@ -54,7 +69,7 @@ def graphify_hooks_fragment() -> dict[str, list[dict[str, Any]]]:
                 "hooks": [
                     {
                         "type": "command",
-                        "command": _hook_command("PreToolUse"),
+                        "command": hook_command("PreToolUse"),
                     }
                 ],
             },
@@ -63,7 +78,7 @@ def graphify_hooks_fragment() -> dict[str, list[dict[str, Any]]]:
                 "hooks": [
                     {
                         "type": "command",
-                        "command": _hook_command("PreToolUse"),
+                        "command": hook_command("PreToolUse"),
                     }
                 ],
             },
@@ -78,7 +93,7 @@ def _entry_is_managed(entry: object) -> bool:
     if not isinstance(hooks, list):
         return False
     for h in hooks:
-        if isinstance(h, dict) and HOOK_MARKER in str(h.get("command", "")):
+        if isinstance(h, dict) and any(m in str(h.get("command", "")) for m in HOOK_MARKERS):
             return True
     return False
 
@@ -136,6 +151,7 @@ def apply_claude_graphify_settings(
 
     settings_path.write_text(out, encoding="utf-8", newline="\n")
     print(f"Updated {settings_path} with Graphify hooks ({MANAGED_NOTE}).")
+    print(f"Hook launcher: {hook_launcher_description()}")
     return 0
 
 

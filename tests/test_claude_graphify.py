@@ -5,9 +5,12 @@ from pathlib import Path
 
 import pytest
 
+import sys
+
 from forge_next.claude_graphify import (
     HOOK_MARKER,
     apply_claude_graphify_settings,
+    hook_command,
     merge_graphify_hooks,
 )
 from forge_next.graphify_policy import (
@@ -15,6 +18,13 @@ from forge_next.graphify_policy import (
     GRAPHIFY_DEVELOPER_INSTRUCTIONS_LEAD,
 )
 from forge_next.hooks import claude_graphify_hook as hook
+
+
+def test_hook_command_uses_absolute_interpreter_not_bare_python() -> None:
+    cmd = hook_command("SessionStart")
+    assert "forge_next.hooks.claude_graphify_hook SessionStart" in cmd
+    py_token = cmd.split(" -m ", 1)[0].strip()
+    assert Path(json.loads(py_token)) == Path(sys.executable).resolve()
 
 
 def test_merge_graphify_hooks_adds_managed_entries() -> None:

@@ -308,7 +308,7 @@ After `forge install --claude`, slash commands live under `~/.claude/commands/fo
 - **PreToolUse** — **Grep**, **Glob**, **Read**, and search-like **Bash**  
 - **UserPromptSubmit** — when the prompt mentions `forge:` / `$forge:`  
 
-Re-run `forge claude-graphify` after upgrades. Each workflow command includes a **Hard rule — Graphify** section; orchestrator steps print a **GRAPHIFY** block when an index is present.
+Re-run `forge claude-graphify` after `pipx upgrade forge-next` (hooks use your pipx Python path, not `/usr/bin/python`). Each workflow command includes a **Hard rule — Graphify** section; orchestrator steps print a **GRAPHIFY** block when an index is present. See [`docs/graphify.md`](docs/graphify.md).
 
 ---
 
@@ -327,9 +327,14 @@ Source: [github.com/mderganc/forge](https://github.com/mderganc/forge)
 
 Outside Codex chat, hooks and automation call `forge <subcommand>` with a space (e.g. `forge plan --step 1`). That is the same engine as `/forge:plan` (Cursor/Claude) and `$forge:plan` (Codex skills invoke this binary for you). `forge --help` lists flags.
 
-**Automation / CI:** Set **`FORGE_SKIP_SESSION_OPTIN=1`** (or `true`, `yes`, `on`) to suppress the **session opt-in** banner that step 1 of each forge skill prints above phase todos.
+**Automation / CI:**
 
-**Graphify (optional):** `forge graphify refresh` runs your Graphify command (or `FORGE_GRAPHIFY_COMMAND`) and writes `graphify-status.json` under the Forge runtime state directory. `forge graphify install-hook` / `uninstall-hook` manage a **fail-soft** fragment in `.git/hooks/post-commit`. Pass `--repo <path>` when not running from the project root. See [`docs/graphify.md`](docs/graphify.md).
+| Variable | Effect |
+|----------|--------|
+| **`FORGE_SKIP_SESSION_OPTIN=1`** | Suppress step-1 **session opt-in** banner |
+| **`FORGE_SKIP_GRAPHIFY=1`** | Suppress per-step **GRAPHIFY** banner (when `graphify-out/` exists) |
+
+**Graphify (optional):** Build the graph with `forge graphify refresh` (or `FORGE_GRAPHIFY_COMMAND`); optional `forge graphify install-hook` for post-commit refresh. During workflow skills, Forge prints a **GRAPHIFY** block every step, merges **Claude hooks** (`forge claude-graphify`), and **Codex policy** (`forge codex-agents`). After `pipx upgrade forge-next`, re-run those two commands. Full guide: [`docs/graphify.md`](docs/graphify.md).
 
 ---
 

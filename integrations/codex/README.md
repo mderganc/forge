@@ -54,6 +54,15 @@ Restart Codex after installing so skills appear in the picker.
 forge codex-agents --force
 ```
 
-The canonical text lives in **`forge_next/graphify_policy.py`** (`FORGE_DEVELOPER_INSTRUCTIONS_BODY`). Every `forge-*` skill body reminds agents to follow **GRAPHIFY** blocks in step output when `graphify-out/` exists.
+The canonical text lives in **`forge_next/graphify_policy.py`** (`FORGE_DEVELOPER_INSTRUCTIONS_BODY`). Every `forge-*` skill body and YAML `description` remind agents to follow **GRAPHIFY** blocks in step output when `graphify-out/` exists.
 
-See **[README.md](../../README.md)** under **OpenAI Codex** for invocation details.
+### Upgrade after a new forge-next release
+
+```bash
+pipx upgrade forge-next
+forge codex-agents --force
+```
+
+Restart Codex. Re-run `forge install --codex` if you need refreshed skill files.
+
+See **[README.md](../../README.md)** (OpenAI Codex) and **[`docs/graphify.md`](../../docs/graphify.md)** for orchestrator banners, `FORGE_SKIP_GRAPHIFY`, and Claude hooks.

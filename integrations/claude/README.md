@@ -37,13 +37,17 @@ Restart Claude Code after installing so `/help` picks up new commands.
 forge claude-graphify
 ```
 
-Hooks run cross-platform via `python -m forge_next.hooks.claude_graphify_hook` and:
+Hooks call **`forge_next.hooks.claude_graphify_hook`** using the **absolute Python from your pipx `forge` install** (written into `settings.json` by `forge claude-graphify` — not bare `python` or `/usr/bin/python`).
 
-- Remind on **SessionStart** when `graphify-out/` exists
-- Inject context on **PreToolUse** for **Grep**, **Glob**, **Read**, and search-like **Bash**
-- Nudge on **UserPromptSubmit** when the prompt mentions `forge:` / `$forge:`
+- **SessionStart** — remind when `graphify-out/` exists
+- **PreToolUse** — **Grep**, **Glob**, **Read**, and search-like **Bash**
+- **UserPromptSubmit** — when the prompt mentions `forge:` / `$forge:`
 
-Workflow slash commands repeat the same contract in each command body. Forge step output prints a **GRAPHIFY** block on every `--step` when an index is present.
+After `pipx upgrade forge-next`, re-run `forge claude-graphify` and restart Claude Code.
+
+Workflow slash commands include **Hard rule — Graphify**. Forge step output prints a **GRAPHIFY** block on every `--step` when an index is present.
+
+See [`docs/graphify.md`](../../docs/graphify.md) for the full picture (Codex policy, `FORGE_SKIP_GRAPHIFY`, troubleshooting).
 
 ## Commands
 

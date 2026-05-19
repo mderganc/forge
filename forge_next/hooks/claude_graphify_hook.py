@@ -1,10 +1,9 @@
 #!/usr/bin/env python3
 """Claude Code hook: inject Graphify context when a knowledge graph exists.
 
-Usage (from Claude settings.json):
-  python -m forge_next.hooks.claude_graphify_hook SessionStart
-  python -m forge_next.hooks.claude_graphify_hook PreToolUse
-  python -m forge_next.hooks.claude_graphify_hook UserPromptSubmit
+Usage (written by ``forge claude-graphify`` into ~/.claude/settings.json):
+  forge claude-graphify-hook SessionStart
+  <pipx-python> -m forge_next.hooks.claude_graphify_hook PreToolUse
 
 Reads hook JSON from stdin; prints hookSpecificOutput JSON to stdout when applicable.
 """

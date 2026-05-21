@@ -10,6 +10,16 @@ SKIP_CLI_INSTALL="${SKIP_CLI_INSTALL:-0}"
 
 info() { echo "[forge-install] $*"; }
 
+show_graphify_status() {
+  if [ -n "${FORGE_GRAPHIFY_COMMAND:-}" ]; then
+    info "Graphify: available (FORGE_GRAPHIFY_COMMAND is set)"
+  elif command -v graphify >/dev/null 2>&1; then
+    info "Graphify: available (\`graphify\` on PATH)"
+  else
+    info "Graphify: not available (\`graphify\` not on PATH; FORGE_GRAPHIFY_COMMAND unset)"
+  fi
+}
+
 ensure_cli() {
   if [ "$SKIP_CLI_INSTALL" = "1" ]; then
     info "Skipping CLI install (SKIP_CLI_INSTALL=1)."
@@ -41,6 +51,8 @@ ensure_cli
 download_and_install
 
 info "Done."
+show_graphify_status
+info "Graphify setup (after Graphify is available): forge graphify refresh in each app repo; see docs/graphify.md"
 info "Next steps:"
 echo "  1) Restart Cursor"
 echo "  2) Run: forge:doctor"

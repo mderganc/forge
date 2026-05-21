@@ -216,19 +216,51 @@ def uninstall_post_commit_hook(repo_root: Path) -> tuple[bool, str]:
     return True, f"Removed Forge Graphify block from {hook_path}."
 
 
+def graphify_availability() -> tuple[bool, str]:
+    """Return whether Graphify can be invoked and a one-line summary for install output."""
+    custom = (os.environ.get("FORGE_GRAPHIFY_COMMAND") or "").strip()
+    if custom:
+        return True, "available (FORGE_GRAPHIFY_COMMAND is set)"
+    if shutil.which("graphify"):
+        return True, "available (`graphify` on PATH)"
+    return False, "not available (`graphify` not on PATH; FORGE_GRAPHIFY_COMMAND unset)"
+
+
 def graphify_install_notice_lines() -> list[str]:
-    """Human-readable onboarding for `forge install` output."""
-    return [
+    """Human-readable onboarding for `forge install` output (status first, then steps)."""
+    available, summary = graphify_availability()
+    lines = [
+        "",
+        f"Graphify: {summary}",
         "",
         "Graphify (optional — gives `forge resume` a codebase map, not your chat history):",
-        "  1) Install Graphify so a `graphify` command works on your PATH, **or** set environment variable",
-        "     FORGE_GRAPHIFY_COMMAND to exactly how you run it (defaults to `graphify update .`).",
-        "  2) In each **git clone** of your app repo, run **forge graphify refresh** once from that repo",
-        "     (or `forge graphify refresh --repo \"C:/path/to/repo\"` from any directory).",
-        "     That writes **graphify-status.json** under your Forge runtime state folder (e.g. `.codex/forge/state/`).",
-        "  3) Optional: **forge graphify install-hook** in the same repo adds a **post-commit** snippet so every",
-        "     commit re-runs refresh in the background (`|| true` so commits never fail).",
-        "     Remove later with **forge graphify uninstall-hook**.",
-        "  4) Open **docs/graphify.md** in the Forge package/repo for the full picture.",
-        "",
     ]
+    if available:
+        lines.extend(
+            [
+                "  1) In each **git clone** of your app repo, run **forge graphify refresh** once from that repo",
+                "     (or `forge graphify refresh --repo \"C:/path/to/repo\"` from any directory).",
+                "     That writes **graphify-status.json** under your Forge runtime state folder (e.g. `.codex/forge/state/`).",
+                "  2) Optional: **forge graphify install-hook** in the same repo adds a **post-commit** snippet so every",
+                "     commit re-runs refresh in the background (`|| true` so commits never fail).",
+                "     Remove later with **forge graphify uninstall-hook**.",
+                "  3) Open **docs/graphify.md** in the Forge package/repo for the full picture.",
+                "",
+            ]
+        )
+    else:
+        lines.extend(
+            [
+                "  1) Install Graphify so a `graphify` command works on your PATH, **or** set environment variable",
+                "     FORGE_GRAPHIFY_COMMAND to exactly how you run it (defaults to `graphify update .`).",
+                "  2) In each **git clone** of your app repo, run **forge graphify refresh** once from that repo",
+                "     (or `forge graphify refresh --repo \"C:/path/to/repo\"` from any directory).",
+                "     That writes **graphify-status.json** under your Forge runtime state folder (e.g. `.codex/forge/state/`).",
+                "  3) Optional: **forge graphify install-hook** in the same repo adds a **post-commit** snippet so every",
+                "     commit re-runs refresh in the background (`|| true` so commits never fail).",
+                "     Remove later with **forge graphify uninstall-hook**.",
+                "  4) Open **docs/graphify.md** in the Forge package/repo for the full picture.",
+                "",
+            ]
+        )
+    return lines

@@ -504,30 +504,41 @@ def _state_file_age_days(path: Path) -> float:
 
 def _has_matching_handoff(skill: str) -> bool:
     """True if a handoff file for this skill exists in either memory dir."""
-    for memory_dir in (runtime_memory_dir(), legacy_memory_dir()):
-        if (memory_dir / f"handoff-{skill}.md").exists():
-            return True
-    return False
+    from scripts.shared.orchestrator import has_matching_handoff
+
+    return has_matching_handoff(skill)
 
 
 def _all_state_files(cwd: Path) -> list[tuple[Path, str]]:
-    """Walk runtime+legacy state dirs and return (path, skill) for every state file.
+    """Walk all skill state paths (canonical + parallel) and return (path, skill).
 
     Unlike `detect_active_sessions`, this includes files where `completed_at`
     is set — those are exactly the leaked-but-finished files cleanup targets.
+    Skill name comes from JSON when parseable, else from filename heuristics.
     """
+    from scripts.shared.orchestrator import _iter_skill_state_paths, load_state
+
     found: list[tuple[Path, str]] = []
     seen: set[Path] = set()
-    candidate_dirs = [runtime_state_dir(cwd), legacy_state_dir(cwd), cwd]
-    for skill in KNOWN_SKILLS:
-        if skill == "evaluate":
+    for path in _iter_skill_state_paths(cwd):
+        resolved = path.resolve()
+        if resolved in seen or not path.exists():
             continue
-        for dir_path in candidate_dirs:
-            for fname in (state_filename(skill), legacy_state_filename(skill)):
-                p = dir_path / fname
-                if p.exists() and p not in seen:
-                    found.append((p, skill))
-                    seen.add(p)
+        seen.add(resolved)
+        skill: str | None = None
+        try:
+            skill = load_state(path).skill_name
+        except Exception:
+            pass
+        if not skill:
+            stem = path.stem
+            if stem.endswith("-state"):
+                skill = stem[: -len("-state")].replace("_", "-")
+            elif "-" in stem and not stem.endswith(".json"):
+                skill = stem.split("-", 1)[0]
+            else:
+                skill = stem.replace("_", "-")
+        found.append((path, skill))
     return found
 
 
@@ -563,8 +574,8 @@ def _cleanup_candidates(all_stale: bool) -> list[tuple[dict, str]]:
             candidates.append((info, f"file age {age:.1f}d > {STALE_THRESHOLD_DAYS}d"))
             continue
 
-        if _has_matching_handoff(skill):
-            candidates.append((info, f"handoff-{skill}.md exists"))
+        if skill and _has_matching_handoff(skill):
+            candidates.append((info, f"handoff-{skill}.md exists (parallel session superseded)"))
             continue
 
     return candidates

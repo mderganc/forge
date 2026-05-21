@@ -41,12 +41,12 @@ from scripts.shared.orchestrator import (
     build_base_parser,
     build_next_command,
     build_skill_handoff_menu,
+    check_same_skill_clobber,
     clear_state_file,
-    detect_active_sessions,
     find_state_file,
-    format_active_session_warning,
     format_step_output,
-    get_conflicting_sessions,
+    print_remaining_session_warning,
+    run_step1_session_hygiene,
     load_state,
     now_iso,
     render_dashboard,
@@ -316,6 +316,13 @@ def handle_step_1(args: argparse.Namespace) -> None:
     )
     sp.parent.mkdir(parents=True, exist_ok=True)
 
+    check_same_skill_clobber(
+        SKILL_NAME,
+        allow_parallel=bool(getattr(args, "parallel", False) or args.state),
+        target_state_path=sp,
+    )
+    run_step1_session_hygiene(SKILL_NAME, sp)
+
     # Check for existing state (session resume). Important: honor the resolved
     # step-1 path so auto-parallel fan-out is not overwritten by broad
     # find_state_file() fallback.
@@ -344,21 +351,11 @@ def handle_step_1(args: argparse.Namespace) -> None:
         state = SkillState(skill_name=SKILL_NAME, max_step=MAX_STEP)
         state.started_at = now_iso()
 
-        # Fresh start - check for active sessions from other skills
-        conflicting_sessions = get_conflicting_sessions(
-            SKILL_NAME,
-            sessions=detect_active_sessions(),
-        )
-        if conflicting_sessions:
-            print(
-                format_active_session_warning(conflicting_sessions, SKILL_NAME),
-                file=sys.stderr,
-            )
-
     _ensure_develop_custom(state)
     state.autonomy_level = _parse_autonomy(args)
     state.quick_mode = getattr(args, "quick", False)
     save_state(state, sp)
+    print_remaining_session_warning(SKILL_NAME)
 
     print(f"STATE FILE: {sp}\n", file=sys.stderr)
 

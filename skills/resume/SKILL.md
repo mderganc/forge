@@ -37,6 +37,14 @@ script and follow its output.
 
 `forge resume --cleanup` lists state files eligible for
 cleanup (dry-run by default). Add `--force` to delete; `--all-stale --force`
-clears every state file regardless of age. After two consecutive same-step
-failures (`failure_count >= 2`), the resume command emits an "inspect logs"
-hint instead of a third retry.
+clears every state file regardless of age. Cleanup scans canonical and parallel
+state files (`plan-*.json`, custom `--state` paths under the repo). After two
+consecutive same-step failures (`failure_count >= 2`), the resume command emits
+an "inspect logs" hint instead of a third retry.
+
+## Auto-close on skill switch
+
+When you start a pipeline skill at **step 1**, Forge auto-closes leaked sessions
+(handoff on disk, upstream pipeline position, or step-1 abandoned >1h). Switching
+from plan to implement in the same chat should not require manual `resume --cleanup`.
+Use `forge resume --cleanup --force` once to migrate repos with old leaks.

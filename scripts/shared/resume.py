@@ -368,6 +368,16 @@ def render_single_session(session: dict) -> str:
     ]
     lines.extend(ctx_lines)
 
+    if skill == "diagnose" and current >= 4:
+        reg_file = Path(session["path"]).parent / ".diagnose-hypotheses.json"
+        if not reg_file.exists():
+            lines.extend([
+                "",
+                "**Diagnose note:** No `.diagnose-hypotheses.json` beside state — "
+                "run **Phase 3** (step 3) to create the hypothesis register before "
+                "analysis or solution phases.",
+            ])
+
     conflict = bool(snap and resume_context.snapshot_memory_conflict(session, snap))
     conf = resume_context.continuation_confidence(session, snap, mem_summary)
     sugg = resume_context.suggested_continuation_lines(

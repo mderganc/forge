@@ -1,23 +1,40 @@
 # Phase 4: Analyze & Rank Causes
 
+{{HYPOTHESIS_GATE}}
+
+## Register status
+{{HYPOTHESIS_REGISTER_SUMMARY}}
+
+(Minimum **{{HYPOTHESIS_MIN}}** hypotheses required at register creation.)
+
 ## Agents to Dispatch
-- **Investigator (lead):** FMEA scoring, Bayesian reasoning, hypothesis testing
+- **Investigator (lead):** Full-register elimination, FMEA, Bayesian reasoning
 - **Critic:** Challenge rankings, look for bias
 
+## Full-register elimination (mandatory)
+
+Work through **every** non-`deferred` hypothesis in the register, in **discriminating-test order** (highest signal / fastest falsification first — not list order).
+
+For **each** hypothesis:
+1. State hypothesis → predict observable evidence → run falsification test → conclude
+2. Update register `status`: `ruled_out` (with non-empty `ruled_out_reason`), `plausible`, or `confirmed`
+3. Record `evidence` with source pointers
+
+`deferred` is allowed only when the user explicitly time-boxes further testing (document in investigator memory).
+
+**Persist `.diagnose-hypotheses.json` before advancing to step 5.**
+
 ## FMEA Scoring
-Use: python3 {{SCRIPT_DIR}}/fmea_score.py
+Use: python3 {{SCRIPT_DIR}}/fmea_score.py on the **full** candidate list (all register entries).
+
 | Cause | Severity (S) | Occurrence (O) | Detection (D) | RPN |
 |-------|-------------|----------------|---------------|-----|
 
-## Hypothesis Testing
-For top-3 causes by RPN: state hypothesis → predict → test → conclude
-
 ## Counterfactual Validation
-For each top-5 cause by RPN, apply the **but-for test**:
+For **each** hypothesis still `plausible` after falsification, apply the **but-for test**:
 - "If this cause had been absent, would the failure still have occurred?"
-- If YES → the cause is a contributor but not the root cause. Look deeper.
-- If NO → the cause passes the counterfactual test. It is a valid root cause candidate.
-- Demote causes that fail the counterfactual to "contributing factors."
+- If YES → contributor, not root cause — look deeper or rule out.
+- If NO → valid root cause candidate; prefer `confirmed` when evidence is decisive.
 
 ## Data-Driven Correlation
 Use `templates/data-analysis.md` techniques:
@@ -26,13 +43,13 @@ Use `templates/data-analysis.md` techniques:
 - Log pattern analysis if logs are available: `python3 {{SCRIPT_DIR}}/log_analyzer.py --file <logfile>`
 
 ## Pareto
-Which 20% of causes explain 80% of symptoms?
+Which 20% of causes explain 80% of symptoms? (After full elimination, not instead of it.)
 
 ## Hypothesis ranking tied to principles
 
-For each top hypothesis, state:
+For each surviving hypothesis, state:
 - Which **first-principles invariant** it violates if true.
-- Predictions for evidence (hypothesis-driven loop).
+- Predictions vs observed evidence (hypothesis-driven loop).
 
 ## Technique Coverage Matrix (update)
 

@@ -11,8 +11,14 @@ Before selecting a fix, run a pre-mortem per `templates/pre-mortem.md`:
 - Focus on: unintended side effects, data migration risks, rollback viability, edge cases the fix doesn't cover.
 - Add any new failure modes to findings.
 
+## Confirmed root causes only
+
+Generate solution options **only** for hypotheses with register `status: confirmed`. Do not design fixes for `plausible`, `open`, or `ruled_out` entries unless the user explicitly expands scope.
+
+Register summary: {{HYPOTHESIS_REGISTER_SUMMARY}}
+
 ## Solution Types
-For each root cause, generate at least 3:
+For each **confirmed** root cause, generate at least 3:
 1. Quick fix — minimum viable, lowest effort
 2. Proper fix — addresses root cause correctly
 3. Systemic fix — addresses root cause AND prevents recurrence

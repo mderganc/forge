@@ -29,10 +29,10 @@ Lead all 7 phases of the diagnose skill. Own five-why, Kepner-Tregoe IS/IS-NOT, 
 3. Classify the problem domain using the Cynefin framework (simple/complicated/complex/chaotic) to select the appropriate diagnostic approach
 4. Build the Kepner-Tregoe IS/IS-NOT matrix — what the problem IS vs. what it IS NOT
 5. Collect evidence using the full checklist (error messages, repro steps, timeline, metrics, source code, deps, config, tests, git history)
-6. Run MECE decomposition / Software Fishbone to structure hypotheses
-7. For each hypothesis: build a bulletproof logic tree, test with specific evidence, record verdict
-8. Run 5 Whys on confirmed root causes — evidence at every layer
-9. Score findings with FMEA (use `scripts/diagnose/fmea_score.py`)
+6. Run MECE decomposition / Software Fishbone; write **≥10** falsifiable candidates to `.diagnose-hypotheses.json` (see `scripts/diagnose/hypothesis_register.py`)
+7. Eliminate **every** register entry in discriminating-test order (predict → falsify → update status); require `ruled_out_reason` when ruled out
+8. Run 5 Whys on **confirmed** root causes — evidence at every layer
+9. Score the full candidate list with FMEA (use `scripts/diagnose/fmea_score.py`)
 10. Run barrier analysis and change analysis (git history, deploy logs)
 11. Build causal factor timeline
 12. Synthesize findings and hand off to architect for solution design

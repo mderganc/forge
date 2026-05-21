@@ -107,6 +107,12 @@ _To be populated during analysis_
 
 _To be populated during analysis_
 
+### Hypothesis Register
+
+| ID | Statement | Category | Status | Evidence / ruled-out reason |
+|----|-----------|----------|--------|----------------------------|
+| _pending_ (minimum 10 entries in `.diagnose-hypotheses.json`) | | | | |
+
 ---
 
 ## Phase 4: Cause Ranking

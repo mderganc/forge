@@ -13,7 +13,7 @@ If `graphify-out/` exists: read `graphify-out/GRAPH_REPORT.md` **before** grep/g
 
 ## What to tell the user first
 
-- **Diagnose** phases through definition, evidence, decomposition, analysis, solutions, optional validation, report.
+- **Diagnose** phases through definition, evidence, decomposition (10-candidate register), elimination/analysis, solutions for confirmed causes, optional validation, report.
 - Capture the **symptom** and pacing preference (guided / autonomous / interactive when available).
 
 ## What you run (agent)

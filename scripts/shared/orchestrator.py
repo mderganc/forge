@@ -1137,6 +1137,8 @@ def format_step_output(
     all_phase_names: dict[int, str] | None = None,
     all_phase_todos: dict[int, list[dict]] | None = None,
     handoff_menu: str | None = None,
+    *,
+    require_confirmation: bool | None = None,
 ) -> str:
     """Format step output with title, todos, body, and continuation directive.
 
@@ -1155,6 +1157,8 @@ def format_step_output(
         all_phase_todos: Full dict of {step: [todo_dicts]} for the skill.
             Used alongside all_phase_names for sub-task detail.
         handoff_menu: Optional numbered handoff menu for final-step transitions.
+        require_confirmation: When set, overrides auto-continue for same-skill
+            continuation (e.g. workflow gates that must wait for user approval).
     """
     title = f"{skill_name.upper()} — {phase_name} (Step {step} of {max_step})"
     header = f"{title}\n{'=' * len(title)}\n\n"
@@ -1187,13 +1191,13 @@ def format_step_output(
         output += "\n\n" + handoff_menu
     elif next_cmd:
         ns, sp_ = parse_continuation_command(next_cmd)
-        require_confirmation = ns is None
+        confirm = require_confirmation if require_confirmation is not None else (ns is None)
         if ns is None:
             ns = step + 1
         output += format_same_skill_continuation(
             ns,
             sp_,
-            require_confirmation=require_confirmation,
+            require_confirmation=confirm,
         )
     elif cross_skill_next:
         output += "\n\nWORKFLOW COMPLETE — this skill has finished."

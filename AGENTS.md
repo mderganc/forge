@@ -129,6 +129,15 @@ The recommendation sidecar persists at `<state-dir>/.test-recommendation-step2.j
 
 The scenario-index update at `<scenarios_dir>/README.md` is parser-gated; on parse failure, report step aborts and leaves file unchanged. Backup written to `.codex/forge-codex/memory/scenario-index.bak` before any rewrite.
 
+### Diagnose — Hypothesis register
+
+- **Sidecar:** `<state-dir>/.diagnose-hypotheses.json` beside diagnose `state.json` (under `.codex/forge-codex/state/`).
+- **Phase 3:** Create ≥10 falsifiable root-cause hypotheses (`status: open`); span ≥4 fishbone categories; persist before step 4.
+- **Phase 4:** Eliminate all entries; update statuses and `ruled_out_reason`; persist before step 5.
+- **Gates:** Step 4 validates register count/quality; step 5 requires ≥1 `confirmed`. Failures inject a **HYPOTHESIS REGISTER GATE** and pause for user confirmation (no `sys.exit`). One automatic retry to step 3 (register) or step 4 (elimination) per gate type.
+- **Override:** If the user approves proceeding under minimum after retry, set `state.custom["hypothesis_override_reason"]` (non-empty).
+- **Resume:** Resuming diagnose at step ≥4 without a register triggers the gate — backfill via step 3.
+
 ## graphify
 
 This project has a knowledge graph at graphify-out/ with god nodes, community structure, and cross-file relationships.

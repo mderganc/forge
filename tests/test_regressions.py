@@ -651,6 +651,150 @@ def test_resume_cleanup_handles_legacy_complete_without_completed_at(fresh_state
 
 
 # ---------------------------------------------------------------------------
+# Session auto-close lifecycle
+# ---------------------------------------------------------------------------
+
+def _runtime_dirs(tmp_path: Path) -> tuple[Path, Path]:
+    from datetime import datetime, timezone
+    from scripts.shared.orchestrator import ensure_runtime_dirs, runtime_memory_dir, runtime_state_dir
+
+    ensure_runtime_dirs(tmp_path)
+    return runtime_state_dir(tmp_path), runtime_memory_dir(tmp_path)
+
+
+def _write_active_state(
+    state_dir: Path,
+    skill: str,
+    *,
+    filename: str | None = None,
+    current_step: int = 1,
+    last_completed_step: int = 1,
+    max_step: int = 7,
+    last_touched_at: str | None = None,
+) -> Path:
+    state_dir.mkdir(parents=True, exist_ok=True)
+    from datetime import datetime, timezone
+
+    path = state_dir / (filename or f"{skill}.json")
+    now = datetime.now(timezone.utc).isoformat()
+    payload: dict = {
+        "skill_name": skill,
+        "current_step": current_step,
+        "last_completed_step": last_completed_step,
+        "max_step": max_step,
+        "started_at": now,
+        "completed_at": None,
+        "last_touched_at": last_touched_at if last_touched_at is not None else now,
+    }
+    path.write_text(json.dumps(payload), encoding="utf-8")
+    return path
+
+
+def test_auto_close_removes_plan_when_handoff_exists(fresh_state_dir):
+    from scripts.shared.orchestrator import auto_close_superseded_sessions
+
+    state_dir, mem_dir = _runtime_dirs(fresh_state_dir)
+    plan_path = _write_active_state(state_dir, "plan")
+    (mem_dir / "handoff-plan.md").write_text("# handoff\n", encoding="utf-8")
+
+    closed = auto_close_superseded_sessions("diagnose", search_dir=fresh_state_dir)
+    reasons = {str(p): r for p, r in closed}
+    assert str(plan_path) in reasons or plan_path in [p for p, _ in closed]
+    assert not plan_path.exists()
+
+
+def test_auto_close_upstream_plan_when_starting_implement(fresh_state_dir):
+    from scripts.shared.orchestrator import auto_close_superseded_sessions
+
+    state_dir, _mem = _runtime_dirs(fresh_state_dir)
+    plan_path = _write_active_state(
+        state_dir, "plan", current_step=2, last_completed_step=2, max_step=7
+    )
+    impl_target = state_dir / "implement.json"
+
+    closed = auto_close_superseded_sessions(
+        "implement",
+        search_dir=fresh_state_dir,
+        preserve_paths={impl_target.resolve()},
+    )
+    assert any(p == plan_path for p, _ in closed)
+    assert not plan_path.exists()
+
+
+def test_auto_close_does_not_close_downstream_diagnose_when_starting_plan(fresh_state_dir):
+    from scripts.shared.orchestrator import auto_close_superseded_sessions
+
+    state_dir, _mem = _runtime_dirs(fresh_state_dir)
+    diag_path = _write_active_state(
+        state_dir, "diagnose", current_step=4, last_completed_step=3, max_step=7
+    )
+    plan_target = state_dir / "plan.json"
+
+    closed = auto_close_superseded_sessions(
+        "plan",
+        search_dir=fresh_state_dir,
+        preserve_paths={plan_target.resolve()},
+    )
+    assert diag_path.exists()
+    assert not any(p == diag_path for p, _ in closed)
+
+
+def test_auto_close_step1_abandoned(fresh_state_dir, monkeypatch):
+    from datetime import datetime, timedelta, timezone
+    from scripts.shared.orchestrator import auto_close_superseded_sessions
+
+    monkeypatch.setenv("FORGE_STEP1_ABANDON_HOURS", "1")
+    state_dir, _mem = _runtime_dirs(fresh_state_dir)
+    old_touch = (datetime.now(timezone.utc) - timedelta(hours=3)).isoformat()
+    stale_path = _write_active_state(
+        state_dir,
+        "code-review",
+        max_step=6,
+        last_touched_at=old_touch,
+    )
+    plan_target = state_dir / "plan.json"
+
+    closed = auto_close_superseded_sessions(
+        "plan",
+        search_dir=fresh_state_dir,
+        preserve_paths={plan_target.resolve()},
+    )
+    assert any(p == stale_path for p, _ in closed)
+    assert not stale_path.exists()
+
+
+def test_auto_close_respects_skip_env(fresh_state_dir, monkeypatch):
+    from scripts.shared.orchestrator import auto_close_superseded_sessions
+
+    monkeypatch.setenv("FORGE_SKIP_AUTO_CLOSE", "1")
+    state_dir, mem_dir = _runtime_dirs(fresh_state_dir)
+    plan_path = _write_active_state(state_dir, "plan")
+    (mem_dir / "handoff-plan.md").write_text("# handoff\n", encoding="utf-8")
+
+    closed = auto_close_superseded_sessions("diagnose", search_dir=fresh_state_dir)
+    assert closed == []
+    assert plan_path.exists()
+
+
+def test_resume_cleanup_finds_parallel_plan_variant(fresh_state_dir):
+    state_dir, mem_dir = _runtime_dirs(fresh_state_dir)
+    parallel = _write_active_state(
+        state_dir, "plan", filename="plan-outstanding-cqa.json"
+    )
+    (mem_dir / "handoff-plan.md").write_text("# handoff\n", encoding="utf-8")
+
+    result = subprocess.run(
+        [sys.executable, str(SCRIPTS / "shared" / "resume.py"), "--cleanup", "--force"],
+        cwd=fresh_state_dir,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+    )
+    assert result.returncode == 0
+    assert not parallel.exists()
+
+
+# ---------------------------------------------------------------------------
 # Fix 1 — Step over-cap (V1)
 # ---------------------------------------------------------------------------
 
@@ -1879,6 +2023,43 @@ def test_snapshot_memory_conflict_detects_skill_mismatch():
         "state_path": "/repo/.codex/forge/state/implement.json",
     }
     assert resume_context.snapshot_memory_conflict(session, snap) is True
+
+
+def test_graphify_availability_detects_path_and_env(monkeypatch):
+    from forge_next import graphify
+
+    monkeypatch.delenv("FORGE_GRAPHIFY_COMMAND", raising=False)
+    monkeypatch.setattr(graphify.shutil, "which", lambda exe: None)
+    ok, summary = graphify.graphify_availability()
+    assert ok is False
+    assert "not available" in summary
+
+    monkeypatch.setattr(graphify.shutil, "which", lambda exe: "/usr/bin/graphify" if exe == "graphify" else None)
+    ok, summary = graphify.graphify_availability()
+    assert ok is True
+    assert "on PATH" in summary
+
+    monkeypatch.setenv("FORGE_GRAPHIFY_COMMAND", "graphify update .")
+    monkeypatch.setattr(graphify.shutil, "which", lambda exe: None)
+    ok, summary = graphify.graphify_availability()
+    assert ok is True
+    assert "FORGE_GRAPHIFY_COMMAND" in summary
+
+
+def test_graphify_install_notice_leads_with_status(monkeypatch):
+    from forge_next import graphify
+
+    monkeypatch.delenv("FORGE_GRAPHIFY_COMMAND", raising=False)
+    monkeypatch.setattr(graphify.shutil, "which", lambda exe: None)
+    lines = graphify.graphify_install_notice_lines()
+    assert lines[1].startswith("Graphify: not available")
+    assert any("Install Graphify" in line for line in lines)
+
+    monkeypatch.setattr(graphify.shutil, "which", lambda exe: "graphify" if exe == "graphify" else None)
+    lines = graphify.graphify_install_notice_lines()
+    assert lines[1].startswith("Graphify: available")
+    assert not any("Install Graphify so a" in line for line in lines)
+    assert any("forge graphify refresh" in line for line in lines)
 
 
 def test_graphify_refresh_writes_status(monkeypatch):

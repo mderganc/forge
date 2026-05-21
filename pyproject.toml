@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "forge-next"
-version = "0.9.9"
+version = "0.10.9"
 description = "Forge Codex: install-once workflow orchestrators for Cursor/Codex"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -28,5 +28,5 @@ where = ["."]
 include = ["forge_next*", "scripts*"]
 
 [tool.setuptools.package-data]
-forge_next = ["assets/**/*.md"]
+forge_next = ["assets/**/*.md", "assets/studio/**"]
 

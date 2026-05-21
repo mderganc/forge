@@ -39,11 +39,10 @@ from scripts.shared.orchestrator import (
     build_skill_handoff_menu,
     check_same_skill_clobber,
     clear_state_file,
-    detect_active_sessions,
     find_state_file,
-    format_active_session_warning,
     format_step_output,
-    get_conflicting_sessions,
+    print_remaining_session_warning,
+    run_step1_session_hygiene,
     load_state,
     now_iso,
     consume_handoff,
@@ -322,6 +321,11 @@ def _build_variables(state: SkillState) -> dict[str, str]:
     if mode_migrated:
         mode_contract += f"\n\n**Note:** {mode_migrated}\n"
 
+    studio_status = _studio_status_block(state)
+    from forge_next.studio.context import orchestrator_studio_variables
+
+    studio_vars = orchestrator_studio_variables()
+
     return {
         "HANDOFF_CONTENT": handoff_section,
         "PLAN_CONTEXT": plan_context,
@@ -342,7 +346,20 @@ def _build_variables(state: SkillState) -> dict[str, str]:
         "SKILL_NAME": SKILL_NAME,
         "PLAN_FILE": plan_file,
         "HANDOFF_FILE": handoff_file,
+        "STUDIO_STATUS": studio_status,
+        "STUDIO_LOG": studio_vars["STUDIO_LOG"],
+        "STUDIO_APPROVED": studio_vars["STUDIO_APPROVED"],
     }
+
+
+def _studio_status_block(state: SkillState) -> str:
+    if state.custom.get("studio_declined"):
+        return "Studio: declined — approval in chat only."
+    if state.custom.get("studio_enabled"):
+        sid = state.custom.get("studio_session_id", "")
+        extra = f" Session: `{sid}`." if sid else ""
+        return f"Studio: enabled for visual approval screens.{extra} See `templates/studio.md`."
+    return "Studio: optional for step 5 approval — see `templates/studio.md`."
 
 
 def _upgrade_plan_max_step(state: SkillState) -> None:
@@ -379,13 +396,8 @@ def handle_step_1(args: argparse.Namespace) -> None:
 
     handoff_content = consume_handoff("develop")
 
-    # Cross-skill detection: warn only (different skills don't conflict).
-    conflicting_sessions = get_conflicting_sessions(
-        SKILL_NAME,
-        sessions=detect_active_sessions(),
-    )
-    if conflicting_sessions:
-        print(format_active_session_warning(conflicting_sessions, SKILL_NAME), file=sys.stderr)
+    run_step1_session_hygiene(SKILL_NAME, sp)
+    print_remaining_session_warning(SKILL_NAME)
 
     # If a prior fresh start left a state file with a plan_file path, reuse it
     # so we don't orphan the prior skeleton at a new timestamp. The

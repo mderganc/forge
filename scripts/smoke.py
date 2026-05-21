@@ -47,7 +47,7 @@ RESUME = REPO / "scripts/shared/resume.py"
 def run(args, cwd=REPO):
     return subprocess.run(
         [sys.executable] + args, cwd=cwd,
-        capture_output=True, text=True, timeout=30,
+        capture_output=True, text=True, timeout=30, encoding="utf-8", errors="replace",
     )
 
 
@@ -106,6 +106,7 @@ def smoke_skill(name, script):
             # Find the state file (REPO_ROOT/.forge/state/<skill>.json or .codex/...)
             paths = [
                 REPO / ".codex/forge-codex/state" / f"{name}.json",
+                REPO / ".codex/forge/state" / f"{name}.json",
                 REPO / ".forge/state" / f"{name}.json",
                 REPO / f".forge-{name}-state.json",
             ]
@@ -195,6 +196,57 @@ def smoke_evaluate():
     return fails[0]
 
 
+def smoke_diagnose_hypothesis_gate():
+    """Step 4 gate fires when register has fewer than 10 hypotheses."""
+    print("\n=== diagnose hypothesis gate ===")
+    cleanup_repo()
+    fails = [0]
+
+    r = run([str(SCRIPTS["diagnose"]), "--step", "1"])
+    assert_eq(r.returncode, 0, "diagnose step 1 ran", fails)
+    if r.returncode != 0:
+        return fails[0]
+
+    paths = [
+        REPO / ".codex/forge-codex/state/diagnose.json",
+        REPO / ".codex/forge/state/diagnose.json",
+        REPO / ".forge/state/diagnose.json",
+    ]
+    state_path = next((p for p in paths if p.exists()), None)
+    if state_path is None:
+        print(f"  {FAIL} no diagnose state file")
+        return fails[0] + 1
+
+    state_dir = state_path.parent
+    reg = {
+        "min_required": 10,
+        "hypotheses": [
+            {
+                "id": f"H{i:02d}",
+                "statement": f"Root cause candidate {i} for smoke gate test",
+                "category": cat,
+                "status": "open",
+            }
+            for i, cat in enumerate(
+                ["CODE", "CONFIG", "DATA", "INFRASTRUCTURE", "DEPENDENCIES", "ENVIRONMENT", "CODE"],
+                start=1,
+            )
+        ],
+    }
+    (state_dir / ".diagnose-hypotheses.json").write_text(
+        json.dumps(reg), encoding="utf-8"
+    )
+
+    r = run([str(SCRIPTS["diagnose"]), "--step", "4", "--state", str(state_path)])
+    assert_eq(r.returncode, 0, "diagnose step 4 ran", fails)
+    out = r.stdout + r.stderr
+    assert_contains(out, "HYPOTHESIS REGISTER GATE", "gate block present", fails)
+    assert_contains(out, "step 3", "retry step 3 suggested", fails)
+
+    cleanup_repo()
+    return fails[0]
+
+
 def smoke_test_flows_mode():
     """Smoke: --mode flows walks through 7 steps with override sidecar.
 
@@ -246,6 +298,7 @@ def main():
                  "test", "diagnose"):
         total += smoke_skill(name, SCRIPTS[name])
     total += smoke_evaluate()
+    total += smoke_diagnose_hypothesis_gate()
     total += smoke_test_flows_mode()
     cleanup_repo()  # final cleanup
 

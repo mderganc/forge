@@ -35,11 +35,10 @@ from scripts.shared.orchestrator import (
     build_skill_handoff_menu,
     check_same_skill_clobber,
     clear_state_file,
-    detect_active_sessions,
     find_state_file,
-    format_active_session_warning,
-    get_conflicting_sessions,
     format_step_output,
+    print_remaining_session_warning,
+    run_step1_session_hygiene,
     load_state,
     now_iso,
     consume_handoff,
@@ -495,13 +494,8 @@ def handle_step_1(args) -> None:
         target_state_path=sp,
     )
 
-    # Cross-skill detection: warn only.
-    conflicting_sessions = get_conflicting_sessions(
-        SKILL_NAME,
-        sessions=detect_active_sessions(),
-    )
-    if conflicting_sessions:
-        print(format_active_session_warning(conflicting_sessions, SKILL_NAME), file=sys.stderr)
+    run_step1_session_hygiene(SKILL_NAME, sp)
+    print_remaining_session_warning(SKILL_NAME)
 
     # Read handoffs
     handoff_cr = consume_handoff("code-review")

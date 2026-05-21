@@ -498,6 +498,17 @@ PIPELINE_SKILLS = {
     "diagnose",
 }
 
+# Explicit pipeline order (PIPELINE_SKILLS is a set — never iterate it for ordering).
+PIPELINE_SKILL_ORDER = (
+    "develop",
+    "plan",
+    "implement",
+    "code-review",
+    "test",
+    "diagnose",
+)
+PIPELINE_SKILL_INDEX = {name: idx for idx, name in enumerate(PIPELINE_SKILL_ORDER)}
+
 # Pipeline flow: which skill comes next after each skill completes
 PIPELINE_FLOW = {
     "develop": "plan",
@@ -630,6 +641,214 @@ def detect_active_sessions(search_dir: Path | None = None) -> list[dict]:
     return sessions
 
 
+def skip_forge_auto_close() -> bool:
+    """Return True when step-1 auto-close of superseded sessions is suppressed."""
+    v = os.environ.get("FORGE_SKIP_AUTO_CLOSE", "").strip().lower()
+    return v in ("1", "true", "yes", "on")
+
+
+def step1_abandon_threshold_seconds() -> float:
+    """Inactivity threshold for step-1-only abandoned sessions."""
+    raw = os.environ.get("FORGE_STEP1_ABANDON_HOURS", "1").strip()
+    try:
+        hours = float(raw)
+    except ValueError:
+        hours = 1.0
+    if hours <= 0:
+        hours = 1.0
+    return hours * 3600.0
+
+
+def has_matching_handoff(skill: str, search_dir: Path | None = None) -> bool:
+    """True if handoff-{skill}.md exists in runtime or legacy memory."""
+    for memory_dir in (runtime_memory_dir(search_dir), legacy_memory_dir(search_dir)):
+        if (memory_dir / f"handoff-{skill}.md").exists():
+            return True
+    return False
+
+
+def is_step1_abandoned(state: SkillState, path: Path) -> bool:
+    """True when a session never left step 1 and has been idle past the threshold."""
+    if state.current_step > 1 or state.last_completed_step > 1:
+        return False
+    touched = (
+        _parse_iso_timestamp(state.last_touched_at)
+        or _parse_iso_timestamp(state.started_at)
+        or datetime.fromtimestamp(path.stat().st_mtime, tz=timezone.utc)
+    )
+    age_seconds = (datetime.now(timezone.utc) - touched).total_seconds()
+    return age_seconds > step1_abandon_threshold_seconds()
+
+
+def _auto_close_reason(
+    starting_skill: str,
+    session_skill: str,
+    state: SkillState,
+    path: Path,
+    search_dir: Path | None,
+) -> str | None:
+    """Return a close reason string, or None if the session should stay active."""
+    if has_matching_handoff(session_skill, search_dir):
+        return f"handoff-{session_skill}.md exists"
+
+    start_idx = PIPELINE_SKILL_INDEX.get(starting_skill)
+    session_idx = PIPELINE_SKILL_INDEX.get(session_skill)
+    if (
+        start_idx is not None
+        and session_idx is not None
+        and session_idx < start_idx
+    ):
+        return f"upstream of {starting_skill} in pipeline"
+
+    if is_step1_abandoned(state, path):
+        return "step-1-only session abandoned past threshold"
+
+    return None
+
+
+def _iter_skill_state_paths(search_dir: Path | None = None) -> list[Path]:
+    """All plausible on-disk skill state paths (canonical + parallel variants)."""
+    cwd = search_dir or _detect_repo_root()
+    paths: list[Path] = []
+    seen: set[Path] = set()
+    for skill in KNOWN_SKILLS:
+        if skill in ("evaluate", "iterate"):
+            continue
+        for candidate in _state_path_candidates(skill, cwd):
+            resolved = candidate.resolve()
+            if resolved in seen:
+                continue
+            seen.add(resolved)
+            paths.append(candidate)
+    return paths
+
+
+def auto_close_superseded_sessions(
+    starting_skill: str,
+    *,
+    search_dir: Path | None = None,
+    preserve_paths: set[Path] | None = None,
+    dry_run: bool = False,
+) -> list[tuple[Path, str]]:
+    """Close leaked sessions when starting a pipeline skill at step 1.
+
+    Applies handoff-backed, upstream-pipeline, and step-1-abandoned rules.
+    Never closes paths in ``preserve_paths`` (typically the new step-1 target).
+    """
+    if skip_forge_auto_close():
+        return []
+
+    preserve = {p.resolve() for p in (preserve_paths or set())}
+    closed: list[tuple[Path, str]] = []
+
+    for path in _iter_skill_state_paths(search_dir):
+        resolved = path.resolve()
+        if resolved in preserve:
+            continue
+        if not path.exists():
+            continue
+        try:
+            state = load_state(path)
+        except Exception:
+            continue
+        if is_state_effectively_complete(state):
+            continue
+        if is_state_stale(state, path):
+            continue
+
+        session_skill = state.skill_name
+        if session_skill == starting_skill and resolved in preserve:
+            continue
+
+        reason = _auto_close_reason(starting_skill, session_skill, state, path, search_dir)
+        if reason is None:
+            continue
+
+        if not dry_run:
+            clear_state_file(path)
+        closed.append((path, reason))
+
+    return closed
+
+
+def print_auto_closed_audit(closed: list[tuple[Path, str]]) -> None:
+    """Emit stderr lines for sessions removed by auto-close."""
+    for path, reason in closed:
+        print(f"AUTO-CLOSED: {path} — {reason}", file=sys.stderr)
+
+
+def hint_cleanup_if_still_active(search_dir: Path | None = None) -> None:
+    """Suggest manual cleanup when active sessions remain after auto-close."""
+    if skip_forge_auto_close():
+        return
+    remaining = detect_active_sessions(search_dir)
+    if not remaining:
+        return
+    cmd = "forge resume --cleanup" if os.environ.get("FORGE_USE_LAUNCHER") == "1" else (
+        "python3 scripts/shared/resume.py --cleanup"
+    )
+    print(
+        f"HINT: {len(remaining)} active session(s) remain. "
+        f"Dry-run cleanup: `{cmd}` (add `--force` to delete).",
+        file=sys.stderr,
+    )
+
+
+def run_step1_session_hygiene(
+    starting_skill: str,
+    target_state_path: Path | None,
+    *,
+    search_dir: Path | None = None,
+) -> list[tuple[Path, str]]:
+    """Auto-close superseded sessions, audit to stderr, hint if leaks remain."""
+    preserve: set[Path] = set()
+    if target_state_path is not None:
+        preserve.add(target_state_path.resolve())
+    closed = auto_close_superseded_sessions(
+        starting_skill,
+        search_dir=search_dir,
+        preserve_paths=preserve,
+    )
+    print_auto_closed_audit(closed)
+    hint_cleanup_if_still_active(search_dir)
+    return closed
+
+
+def collect_session_leak_hints(search_dir: Path | None = None) -> list[str]:
+    """Human-readable warnings for leaked or misplaced workflow state."""
+    cwd = search_dir or _detect_repo_root()
+    hints: list[str] = []
+    state_dir = runtime_state_dir(cwd).resolve()
+
+    for session in detect_active_sessions(cwd):
+        skill = session["skill"]
+        path = Path(session["path"])
+        if has_matching_handoff(skill, cwd):
+            hints.append(
+                f"{skill}: active state with handoff present — {path} "
+                f"(run `forge resume --cleanup --force`)"
+            )
+        if is_step1_abandoned(load_state(path), path):
+            hints.append(f"{skill}: step-1-only session idle >1h — {path}")
+        try:
+            path.resolve().relative_to(state_dir)
+        except ValueError:
+            hints.append(f"{skill}: state file outside runtime state dir — {path}")
+
+    return hints
+
+
+def print_remaining_session_warning(starting_skill: str, search_dir: Path | None = None) -> None:
+    """Warn about active sessions that auto-close did not remove."""
+    conflicting = get_conflicting_sessions(
+        starting_skill,
+        sessions=detect_active_sessions(search_dir),
+        search_dir=search_dir,
+    )
+    if conflicting:
+        print(format_active_session_warning(conflicting, starting_skill), file=sys.stderr)
+
+
 def get_conflicting_sessions(
     starting_skill: str,
     sessions: list[dict] | None = None,
@@ -726,6 +945,10 @@ def format_active_session_warning(sessions: list[dict], starting_skill: str) -> 
             f"(last completed: {s['last_completed_step']}) — {s['path']}"
         )
     lines.extend([
+        "",
+        "Eligible sessions may have been **auto-closed** on this step-1 start "
+        "(handoff present, upstream in pipeline, or step-1 abandoned). "
+        "See `AUTO-CLOSED:` lines above.",
         "",
         "**PAUSE.** Ask the user a concise question before proceeding:",
         f'- Resume `{sessions[0]["skill"]}` and continue the in-progress session',
@@ -1137,6 +1360,8 @@ def format_step_output(
     all_phase_names: dict[int, str] | None = None,
     all_phase_todos: dict[int, list[dict]] | None = None,
     handoff_menu: str | None = None,
+    *,
+    require_confirmation: bool | None = None,
 ) -> str:
     """Format step output with title, todos, body, and continuation directive.
 
@@ -1155,6 +1380,8 @@ def format_step_output(
         all_phase_todos: Full dict of {step: [todo_dicts]} for the skill.
             Used alongside all_phase_names for sub-task detail.
         handoff_menu: Optional numbered handoff menu for final-step transitions.
+        require_confirmation: When set, overrides auto-continue for same-skill
+            continuation (e.g. workflow gates that must wait for user approval).
     """
     title = f"{skill_name.upper()} — {phase_name} (Step {step} of {max_step})"
     header = f"{title}\n{'=' * len(title)}\n\n"
@@ -1187,13 +1414,13 @@ def format_step_output(
         output += "\n\n" + handoff_menu
     elif next_cmd:
         ns, sp_ = parse_continuation_command(next_cmd)
-        require_confirmation = ns is None
+        confirm = require_confirmation if require_confirmation is not None else (ns is None)
         if ns is None:
             ns = step + 1
         output += format_same_skill_continuation(
             ns,
             sp_,
-            require_confirmation=require_confirmation,
+            require_confirmation=confirm,
         )
     elif cross_skill_next:
         output += "\n\nWORKFLOW COMPLETE — this skill has finished."

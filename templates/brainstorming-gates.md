@@ -17,6 +17,18 @@ Together, `brainstorming.md` + `brainstorming-gates.md` turn Stage 2 into a **th
 
 This ordering guarantees that every user decision arrives *before* the Architect work it influences — Gate 1 is genuinely pre-divergence, Gate 2 Q1/Q2 is genuinely pre-scoring.
 
+## Visual gate mode (Forge Studio)
+
+When `studio_enabled` is true (see `templates/studio.md`):
+
+1. Push HTML screens with **`studio-design-notes`** (agent context) plus gate options — see `templates/studio.md` and `forge_next/assets/studio/screen-example.html`.
+2. User opens the local URL; they pick options and can **Send feedback** / **Done reviewing** on the page.
+3. Read `forge studio events --json` for `click`, `submit`, `feedback` (free text), and `done`.
+4. **Record answers and feedback in `project.md` and `current-step.md`** — Studio is transport only.
+5. Fall back to AskQuestion if bind fails, events are empty, or gate id mismatches.
+
+Gate 2 Q2 (priority dimension) and Q3 (tiebreak) stay **chat-only** unless the user asks for a visual summary.
+
 ## PM clarification micro-loop
 
 When the user’s answer is ambiguous or contradictory:

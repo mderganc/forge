@@ -155,7 +155,8 @@ pipx uninstall forge-next
 - **Audit linkage:** Run-memory records include `state_path`/`session_ref` and `handoff_path`/`handoff_ref` (when a handoff exists), plus timestamp and summary.
 - **Handoff closure:** Handoffs are consumed on step-1 intake of downstream skills (for example plan consumes develop handoff, code-review consumes implement handoff, test consumes code-review/implement handoffs).
 - **Session completeness:** Active-session detection treats a run as complete when either `completed_at` is set or legacy state reached max step (`current_step >= max_step` and `last_completed_step >= max_step`).
-- **Cleanup behavior:** `forge resume --cleanup` also recognizes legacy max-step state files as cleanup-eligible, even when `completed_at` is missing.
+- **Cleanup behavior:** `forge resume --cleanup` also recognizes legacy max-step state files as cleanup-eligible, even when `completed_at` is missing. It scans parallel state files (`plan-foo.json`, etc.), not only `plan.json`.
+- **Auto-close on step 1:** Starting a pipeline skill removes superseded session JSON when a handoff exists, when you move forward in the pipeline, or when a step-1-only session was abandoned (see [AGENTS.md](AGENTS.md) State Lifecycle). `forge status` / `forge doctor` report remaining leaks.
 
 ---
 
@@ -262,7 +263,7 @@ Runs **diagnose → plan → evaluate (pre) → implement → evaluate (post) �
 
 Evidence-led root-cause analysis and reporting. When the workflow classifies the fix as **`large`** (systemic / needs design before planning), the closing handoff menu defaults to **develop** first, then plan; for **`complex`** (broad but plannable), it defaults to **plan**.
 
-**Methodologies:** IS/IS-NOT matrix; Cynefin classification; change analysis (last known good, deltas); first-principles baseline (invariants vs observations); MECE cause tree; software fishbone (CODE/CONFIG/DATA/INFRA/DEPS/ENV); mandatory core quartet — first-principles, hypothesis-driven solving, 5 Whys, MECE tree — plus **Technique Coverage Matrix** for all 20 methods in `prompts/diagnose/technique_catalog.md` (applied/skipped/deferred with rationale); use-case-first routing from the catalog before arbitrary breadth; FMEA RPN scoring; hypothesis test cycles; counterfactual (“but-for”) checks; Pareto; git hotspots and log patterns where applicable; solution options and structured report.
+**Methodologies:** IS/IS-NOT matrix; Cynefin classification; change analysis (last known good, deltas); first-principles baseline (invariants vs observations); MECE cause tree; software fishbone (CODE/CONFIG/DATA/INFRA/DEPS/ENV); **10-candidate hypothesis register** (`.diagnose-hypotheses.json`) with falsification-driven elimination before confirmation; mandatory core quartet — first-principles, hypothesis-driven solving, 5 Whys, MECE tree — plus **Technique Coverage Matrix** for all 20 methods in `prompts/diagnose/technique_catalog.md` (applied/skipped/deferred with rationale); use-case-first routing from the catalog before arbitrary breadth; FMEA RPN scoring on the full register; counterfactual (“but-for”) checks on plausible survivors; Pareto; git hotspots and log patterns where applicable; solution options only for confirmed causes; structured report.
 
 ### Status
 

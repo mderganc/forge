@@ -16,6 +16,16 @@ $ErrorActionPreference = "Stop"
 
 function Write-Info([string]$msg) { Write-Host "[forge-install] $msg" }
 
+function Show-GraphifyStatus {
+  if ($env:FORGE_GRAPHIFY_COMMAND -and $env:FORGE_GRAPHIFY_COMMAND.Trim().Length -gt 0) {
+    Write-Info "Graphify: available (FORGE_GRAPHIFY_COMMAND is set)"
+  } elseif (Get-Command graphify -ErrorAction SilentlyContinue) {
+    Write-Info "Graphify: available (`graphify` on PATH)"
+  } else {
+    Write-Info "Graphify: not available (`graphify` not on PATH; FORGE_GRAPHIFY_COMMAND unset)"
+  }
+}
+
 function Ensure-Cli {
   if ($SkipCliInstall) {
     Write-Info "Skipping CLI install (SkipCliInstall set)."
@@ -74,6 +84,8 @@ if ($AlsoWsl) {
 }
 
 Write-Info "Done."
+Show-GraphifyStatus
+Write-Info "Graphify setup (after Graphify is available): forge graphify refresh in each app repo; see docs/graphify.md"
 Write-Info "Next steps:"
 Write-Host "  1) Restart Cursor"
 Write-Host "  2) Run: forge:doctor"

@@ -41,12 +41,12 @@ from scripts.shared.orchestrator import (
     build_base_parser,
     build_next_command,
     build_skill_handoff_menu,
+    check_same_skill_clobber,
     clear_state_file,
-    detect_active_sessions,
     find_state_file,
-    format_active_session_warning,
     format_step_output,
-    get_conflicting_sessions,
+    print_remaining_session_warning,
+    run_step1_session_hygiene,
     load_state,
     now_iso,
     render_dashboard,
@@ -243,6 +243,10 @@ def _build_variables(state: SkillState) -> dict[str, str]:
 
     tier = str(state.custom.get("scope_tier", "unknown"))
     spec_req = bool(state.custom.get("spec_required"))
+    studio_status = _studio_status_block(state)
+    from forge_next.studio.context import orchestrator_studio_variables
+
+    studio_vars = orchestrator_studio_variables()
     return {
         "AUTONOMY_INSTRUCTIONS": autonomy_text,
         "DEVELOP_NO_EDIT_POLICY": no_edit_policy,
@@ -253,8 +257,21 @@ def _build_variables(state: SkillState) -> dict[str, str]:
         "SPEC_REQUIRED": "yes" if spec_req else "no",
         "SCOPE_RATIONALE": str(state.custom.get("scope_rationale", "")).strip() or "(none yet)",
         "SPEC_GATE_STATUS": "(not computed)",
+        "STUDIO_STATUS": studio_status,
+        "STUDIO_LOG": studio_vars["STUDIO_LOG"],
+        "STUDIO_APPROVED": studio_vars["STUDIO_APPROVED"],
         "STATE_DIR": "(directory containing your develop --state file)",
     }
+
+
+def _studio_status_block(state: SkillState) -> str:
+    if state.custom.get("studio_declined"):
+        return "Studio: declined — use chat/AskQuestion gates only."
+    if state.custom.get("studio_enabled"):
+        sid = state.custom.get("studio_session_id", "")
+        extra = f" Session: `{sid}`." if sid else " Start session per `templates/studio.md` when entering visual gates."
+        return f"Studio: enabled (agent-internal transport).{extra} User sees URL only — do not ask them to run `forge studio`."
+    return "Studio: not enabled — offer opt-in at scope (step 2) per `templates/studio.md`, or use text gates."
 
 
 def _next_command(step: int, state_path: str = "") -> str:
@@ -299,6 +316,13 @@ def handle_step_1(args: argparse.Namespace) -> None:
     )
     sp.parent.mkdir(parents=True, exist_ok=True)
 
+    check_same_skill_clobber(
+        SKILL_NAME,
+        allow_parallel=bool(getattr(args, "parallel", False) or args.state),
+        target_state_path=sp,
+    )
+    run_step1_session_hygiene(SKILL_NAME, sp)
+
     # Check for existing state (session resume). Important: honor the resolved
     # step-1 path so auto-parallel fan-out is not overwritten by broad
     # find_state_file() fallback.
@@ -327,21 +351,11 @@ def handle_step_1(args: argparse.Namespace) -> None:
         state = SkillState(skill_name=SKILL_NAME, max_step=MAX_STEP)
         state.started_at = now_iso()
 
-        # Fresh start - check for active sessions from other skills
-        conflicting_sessions = get_conflicting_sessions(
-            SKILL_NAME,
-            sessions=detect_active_sessions(),
-        )
-        if conflicting_sessions:
-            print(
-                format_active_session_warning(conflicting_sessions, SKILL_NAME),
-                file=sys.stderr,
-            )
-
     _ensure_develop_custom(state)
     state.autonomy_level = _parse_autonomy(args)
     state.quick_mode = getattr(args, "quick", False)
     save_state(state, sp)
+    print_remaining_session_warning(SKILL_NAME)
 
     print(f"STATE FILE: {sp}\n", file=sys.stderr)
 

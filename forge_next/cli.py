@@ -202,6 +202,8 @@ def build_parser() -> argparse.ArgumentParser:
     gfu = gf_sub.add_parser("uninstall-hook", help="Remove Forge Graphify block from .git/hooks/post-commit")
     add_common_repo_flag(gfu)
 
+    # Studio is dispatched in main() before build_parser() so it never appears in `forge --help`.
+
     # install
     ins = sub.add_parser("install", help="Install integrations (Cursor/Claude/Codex) for this user")
     add_common_output_flags(ins)
@@ -282,8 +284,14 @@ def main(argv: list[str] | None = None) -> None:
     except Exception:
         pass
 
+    raw_argv = list(argv) if argv is not None else sys.argv[1:]
+    if raw_argv and raw_argv[0] == "studio":
+        from forge_next.studio.cli_commands import parse_studio_argv, run_studio_command
+
+        raise SystemExit(run_studio_command(parse_studio_argv(raw_argv[1:])))
+
     parser = build_parser()
-    args = parser.parse_args(argv)
+    args = parser.parse_args(raw_argv)
 
     cmd = args.command
     if getattr(args, "ascii", False):
@@ -441,6 +449,7 @@ def main(argv: list[str] | None = None) -> None:
 def _run_status(repo_root: Path, json_output: bool = False) -> None:
     """Render a lightweight workflow dashboard for the target repo."""
     from scripts.shared.orchestrator import (
+        collect_session_leak_hints,
         detect_active_sessions,
         runtime_memory_dir,
         runtime_state_dir,
@@ -452,6 +461,7 @@ def _run_status(repo_root: Path, json_output: bool = False) -> None:
         mem_dir = runtime_memory_dir(repo_root)
         state_dir = runtime_state_dir(repo_root)
         sessions = detect_active_sessions(repo_root)
+        leak_hints = collect_session_leak_hints(repo_root)
 
         if json_output:
             payload = {
@@ -469,7 +479,7 @@ def _run_status(repo_root: Path, json_output: bool = False) -> None:
                     }
                     for s in sessions
                 ],
-                "warnings": [],
+                "warnings": leak_hints,
                 "error": None,
             }
             print(json.dumps(payload, ensure_ascii=True))
@@ -496,6 +506,11 @@ def _run_status(repo_root: Path, json_output: bool = False) -> None:
             mx = s.get("max_step")
             path = s.get("path")
             print(f"- {skill}: step {cur}/{mx} — {path}")
+        if leak_hints:
+            print("")
+            print("Leak hints:")
+            for hint in leak_hints:
+                print(f"- {hint}")
     finally:
         os.chdir(old)
 
@@ -536,6 +551,27 @@ def _run_doctor(repo_root: Path, json_output: bool = False) -> None:
         warnings.append(str(exc))
     except Exception as exc:
         warnings.append(f"Claude Graphify hook audit failed: {exc}")
+
+    try:
+        from forge_next.studio.assets import asset_text
+
+        asset_text("frame.html")
+        asset_text("studio.js")
+        checks["studio_assets"] = "ok"
+    except Exception as exc:
+        checks["studio_assets"] = "missing"
+        warnings.append(f"Forge Studio assets unavailable: {exc}")
+
+    old = Path.cwd()
+    try:
+        os.chdir(repo_root)
+        from scripts.shared.orchestrator import collect_session_leak_hints
+
+        warnings.extend(collect_session_leak_hints(repo_root))
+    except Exception as exc:
+        warnings.append(f"Session leak hint scan failed: {exc}")
+    finally:
+        os.chdir(old)
 
     payload = {
         "command": "doctor",
@@ -758,14 +794,17 @@ def _run_install(
                 "Run `forge codex-agents --force` to pick up Graphify + delegation text."
             )
 
-    from forge_next.graphify import graphify_install_notice_lines
+    from forge_next.graphify import graphify_availability, graphify_install_notice_lines
 
+    graphify_available, graphify_status = graphify_availability()
     payload = {
         "command": "install",
         "repo_url": repo_url,
         "ref": ref,
         "installed": installed,
         "warnings": warnings,
+        "graphify_available": graphify_available,
+        "graphify_status": graphify_status,
         "graphify_onboarding": graphify_install_notice_lines(),
         "error": None,
     }
@@ -784,6 +823,8 @@ def _run_install(
         print("Warnings:")
         for w in warnings:
             print(f"- {w}")
+    for line in graphify_install_notice_lines():
+        print(line.rstrip())
     print("")
     print("Next steps:")
     print("- Restart your editor/agent environment(s) so new commands are picked up.")
@@ -792,8 +833,6 @@ def _run_install(
         print("- Claude: Graphify hooks merged into ~/.claude/settings.json (re-run: forge claude-graphify)")
     if install_codex:
         print("- Codex: run `forge codex-agents --force` if developer_instructions were not updated")
-    for line in graphify_install_notice_lines():
-        print(line.rstrip())
 
 
 def _run_uninstall(
@@ -865,4 +904,8 @@ def _run_uninstall(
         print("Warnings:")
         for w in warnings:
             print(f"- {w}")
+
+
+if __name__ == "__main__":
+    main()
 

@@ -47,6 +47,8 @@ Summarize the incident in one short paragraph (severity, sudden vs gradual, scop
 
 You must still execute the **mandatory core quartet** (first-principles, hypothesis-driven, 5 Whys, MECE tree) in later phases — this section records the **routing intent**.
 
+**Phases 3–5** require a **{{HYPOTHESIS_MIN}}-candidate hypothesis register** (`.diagnose-hypotheses.json`), full elimination in Phase 4, and solutions only for **confirmed** root causes in Phase 5.
+
 ## Technique Coverage Matrix (draft)
 
 | technique | status (applied/skip/defer) | rationale |

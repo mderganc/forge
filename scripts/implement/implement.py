@@ -30,12 +30,12 @@ from scripts.shared.orchestrator import (
     build_base_parser,
     build_next_command,
     build_skill_handoff_menu,
+    check_same_skill_clobber,
     clear_state_file,
-    detect_active_sessions,
     find_state_file,
-    format_active_session_warning,
     format_step_output,
-    get_conflicting_sessions,
+    print_remaining_session_warning,
+    run_step1_session_hygiene,
     load_state,
     now_iso,
     render_dashboard,
@@ -266,10 +266,17 @@ def _build_team_composition() -> str:
     return "\n".join(lines)
 
 
+def _studio_template_vars() -> dict[str, str]:
+    from forge_next.studio.context import orchestrator_studio_variables
+
+    return orchestrator_studio_variables()
+
+
 def _build_step1_variables(state: SkillState) -> dict[str, str]:
     """Build template variables for step 1 (plan detection)."""
     return {
         "TEAM_COMPOSITION": _build_team_composition(),
+        **_studio_template_vars(),
     }
 
 
@@ -281,6 +288,7 @@ def _build_step2_variables(state: SkillState) -> dict[str, str]:
         "BRANCH_PREFIX": pfx,
         "FEATURE_BRANCH_PATTERN": f"{pfx}/<short-slug>",
         "TASK_BRANCH_PATTERN": f"{pfx}/<short-slug>/task-<n>-<short-slug>",
+        **_studio_template_vars(),
     }
 
 
@@ -374,6 +382,7 @@ def _build_wave_variables(state: SkillState) -> dict[str, str]:
         "BRANCH_PREFIX": pfx,
         "FEATURE_BRANCH_PATTERN": f"{pfx}/<short-slug>",
         "TASK_BRANCH_PATTERN": f"{pfx}/<short-slug>/task-<n>-<short-slug>",
+        **_studio_template_vars(),
     }
 
 
@@ -399,6 +408,7 @@ def _build_doc_variables(state: SkillState, state_path: Path | None = None) -> d
     return {
         "QUICK_MODE_NOTE": quick_note,
         "STATE_DIR": state_dir,
+        **_studio_template_vars(),
     }
 
 
@@ -412,6 +422,7 @@ def _build_handoff_variables(state: SkillState) -> dict[str, str]:
         "BRANCH_PREFIX": state.custom.get("branch_prefix") or DEFAULT_BRANCH_PREFIX,
         "WAVES_COMPLETED": str(state.custom.get("waves_completed", 0)),
         "TOTAL_WAVES": str(state.custom.get("total_waves", 0)),
+        **_studio_template_vars(),
     }
 
 
@@ -490,14 +501,18 @@ def _emit(step: int, body: str, next_cmd: str | None,
 
 def handle_step_1(args) -> None:
     """Step 1: Plan detection and state initialization."""
-    # Cross-session detection (only for a fresh start)
-    if not args.state:
-        conflicting_sessions = get_conflicting_sessions(
-            SKILL_NAME,
-            sessions=detect_active_sessions(),
-        )
-        if conflicting_sessions:
-            print(format_active_session_warning(conflicting_sessions, SKILL_NAME), file=sys.stderr)
+    sp = resolve_step1_state_path(
+        SKILL_NAME,
+        args.state,
+        parallel=getattr(args, "parallel", False),
+    )
+    check_same_skill_clobber(
+        SKILL_NAME,
+        allow_parallel=bool(getattr(args, "parallel", False) or args.state),
+        target_state_path=sp,
+    )
+    run_step1_session_hygiene(SKILL_NAME, sp)
+    print_remaining_session_warning(SKILL_NAME)
 
     state, sp = _load_or_init_state(
         args.state,

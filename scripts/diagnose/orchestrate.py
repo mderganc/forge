@@ -9,7 +9,7 @@ substitutes variables, and prints the prompt for Codex to execute.
   1. Define & Classify — incident profile, first-principles baseline, technique routing
   2. Observe & Gather Evidence — observations vs assumptions
   3. Decompose (MECE) — MECE tree + 5 Whys on branches (mandatory core quartet)
-  4. Analyze & Rank — hypothesis ranking tied to invariants; update technique matrix
+  4. Analyze & Rank — full-register elimination; hypothesis register gate
   5. Solution Generation
   6. Implement & Validate (complexity-gated)
   7. Report & Prevention — full 20-technique coverage matrix + quartet verification
@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import json
 import sys
+from dataclasses import dataclass
 from pathlib import Path
 
 # Auto-detect repo root so this works from any working directory
@@ -39,12 +40,11 @@ from scripts.shared.orchestrator import (
     build_skill_handoff_menu,
     check_same_skill_clobber,
     clear_state_file,
-    detect_active_sessions,
     ensure_runtime_dirs,
     find_state_file,
-    format_active_session_warning,
-    get_conflicting_sessions,
     format_step_output,
+    print_remaining_session_warning,
+    run_step1_session_hygiene,
     load_state,
     now_iso,
     resolve_step1_state_path,
@@ -55,6 +55,14 @@ from scripts.shared.orchestrator import (
     validate_step_or_complete,
     write_handoff,
     render_dashboard,
+)
+from scripts.diagnose.hypothesis_register import (
+    format_gate_block,
+    load_register,
+    register_path,
+    summarize_register,
+    validate_elimination,
+    validate_register,
 )
 from scripts.evaluate.template_engine import load_template, render_template
 
@@ -107,19 +115,23 @@ PHASE_TODOS = {
     3: [
         {"content": "Build MECE cause tree (Fishbone categories)",
          "activeForm": "Building cause tree"},
+        {"content": "Draft ≥10 falsifiable hypotheses in register sidecar",
+         "activeForm": "Writing hypothesis register"},
         {"content": "Advance 5 Whys + MECE quartet on primary branches",
          "activeForm": "5 Whys + MECE"},
     ],
     4: [
-        {"content": "Run FMEA scoring on candidate causes",
+        {"content": "Eliminate all hypotheses via falsification tests (discriminating order)",
+         "activeForm": "Eliminating hypotheses"},
+        {"content": "Run FMEA scoring on full candidate list",
          "activeForm": "Running FMEA scoring"},
-        {"content": "Apply counterfactual validation (but-for test)",
+        {"content": "Apply counterfactual validation on plausible hypotheses",
          "activeForm": "Running counterfactual validation"},
-        {"content": "Rank hypotheses vs violated invariants; update technique matrix",
-         "activeForm": "Hypothesis ranking"},
+        {"content": "Confirm root cause with evidence; persist register",
+         "activeForm": "Confirming root cause"},
     ],
     5: [
-        {"content": "Generate quick/proper/systemic solutions for top causes",
+        {"content": "Generate solutions only for confirmed root causes",
          "activeForm": "Generating solutions"},
         {"content": "Run pre-mortem on each proposed fix",
          "activeForm": "Running pre-mortem"},
@@ -161,6 +173,9 @@ def _init_state(mode: str, quick: bool) -> SkillState:
     state.started_at = now_iso()
     state.custom["autonomy_mode"] = mode
     state.custom["fix_complexity"] = "unknown"  # set in phase 5/6
+    state.custom.setdefault("hypothesis_min", 10)
+    state.custom.setdefault("hypothesis_regen_attempts", 0)
+    state.custom.setdefault("hypothesis_validation_attempts", 0)
     return state
 
 
@@ -198,10 +213,28 @@ def _load_or_fail(state_file: str | None) -> tuple[SkillState, Path]:
 # Template rendering
 # ---------------------------------------------------------------------------
 
-def _build_variables(state: SkillState) -> dict[str, str]:
+def _build_variables(
+    state: SkillState,
+    *,
+    state_path: Path | None = None,
+    step: int | None = None,
+) -> dict[str, str]:
     """Build template variable dict from state."""
     mode = state.custom.get("autonomy_mode", "guided")
     complexity = state.custom.get("fix_complexity", "unknown")
+    hypothesis_min = int(state.custom.get("hypothesis_min", 10))
+    hypothesis_gate = ""
+    hypothesis_summary = "(Not evaluated yet)"
+
+    if state_path is not None:
+        reg_file = register_path(state_path.parent)
+        reg_data = load_register(reg_file)
+        hypothesis_summary = summarize_register(reg_data)
+        active_step = step if step is not None else state.current_step
+        if active_step >= 4:
+            ok, _ = validate_register(reg_data, min_required=hypothesis_min, path=reg_file)
+            if ok and reg_data:
+                state.custom["hypothesis_register_summary"] = hypothesis_summary
 
     # Build findings summary
     findings_text = ""
@@ -281,7 +314,105 @@ def _build_variables(state: SkillState) -> dict[str, str]:
         "DISPATCH_HISTORY": dispatch_text.strip(),
         "PLUGIN_ROOT": str(REPO_ROOT),
         "SCRIPT_DIR": str(SCRIPT_DIR),
+        "HYPOTHESIS_MIN": str(hypothesis_min),
+        "HYPOTHESIS_GATE": hypothesis_gate,
+        "HYPOTHESIS_REGISTER_SUMMARY": hypothesis_summary,
     }
+
+
+@dataclass
+class _HypothesisGateResult:
+    """Outcome of a hypothesis register gate check."""
+
+    passed: bool
+    gate_body: str = ""
+    next_step_override: int | None = None
+    require_confirmation: bool = False
+
+
+def _has_hypothesis_override(state: SkillState) -> bool:
+    """True when user approved proceeding under minimum (documented override)."""
+    reason = state.custom.get("hypothesis_override_reason")
+    return bool(reason and str(reason).strip())
+
+
+def _log_hypothesis_override_bypass(phase: str) -> None:
+    print(
+        f"[diagnose] hypothesis gate bypassed for {phase}: "
+        "hypothesis_override_reason is set",
+        file=sys.stderr,
+    )
+
+
+def _check_register_gate(state: SkillState, sp: Path, step: int) -> _HypothesisGateResult:
+    """Validate register at step 4 entry."""
+    if _has_hypothesis_override(state):
+        _log_hypothesis_override_bypass("register")
+        return _HypothesisGateResult(passed=True)
+
+    reg_file = register_path(sp.parent)
+    reg_data = load_register(reg_file)
+    min_required = int(state.custom.get("hypothesis_min", 10))
+    ok, issues = validate_register(reg_data, min_required=min_required, path=reg_file)
+
+    if ok:
+        return _HypothesisGateResult(passed=True)
+
+    attempts = int(state.custom.get("hypothesis_regen_attempts", 0))
+    retry_step = None
+    if attempts < 1:
+        state.custom["hypothesis_regen_attempts"] = attempts + 1
+        retry_step = 3
+
+    gate = format_gate_block(
+        issues,
+        phase=PHASE_NAMES.get(step, f"Step {step}"),
+        retry_step=retry_step,
+        attempt=attempts,
+        max_attempts=1,
+        state_path=str(sp),
+    )
+    return _HypothesisGateResult(
+        passed=False,
+        gate_body=gate,
+        next_step_override=retry_step,
+        require_confirmation=True,
+    )
+
+
+def _check_elimination_gate(state: SkillState, sp: Path, step: int) -> _HypothesisGateResult:
+    """Validate elimination at step 5 entry."""
+    if _has_hypothesis_override(state):
+        _log_hypothesis_override_bypass("elimination")
+        return _HypothesisGateResult(passed=True)
+
+    reg_file = register_path(sp.parent)
+    reg_data = load_register(reg_file)
+    ok, issues = validate_elimination(reg_data, path=reg_file)
+
+    if ok:
+        return _HypothesisGateResult(passed=True)
+
+    attempts = int(state.custom.get("hypothesis_validation_attempts", 0))
+    retry_step = None
+    if attempts < 1:
+        state.custom["hypothesis_validation_attempts"] = attempts + 1
+        retry_step = 4
+
+    gate = format_gate_block(
+        issues,
+        phase=PHASE_NAMES.get(step, f"Step {step}"),
+        retry_step=retry_step,
+        attempt=attempts,
+        max_attempts=1,
+        state_path=str(sp),
+    )
+    return _HypothesisGateResult(
+        passed=False,
+        gate_body=gate,
+        next_step_override=retry_step,
+        require_confirmation=True,
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -302,13 +433,8 @@ def handle_step_1(args) -> None:
         target_state_path=sp,
     )
 
-    # Cross-skill detection: warn only.
-    conflicting_sessions = get_conflicting_sessions(
-        SKILL_NAME,
-        sessions=detect_active_sessions(),
-    )
-    if conflicting_sessions:
-        print(format_active_session_warning(conflicting_sessions, SKILL_NAME), file=sys.stderr)
+    run_step1_session_hygiene(SKILL_NAME, sp)
+    print_remaining_session_warning(SKILL_NAME)
 
     mode = getattr(args, "mode", "guided") or "guided"
     quick = getattr(args, "quick", False)
@@ -327,7 +453,7 @@ def handle_step_1(args) -> None:
     print(f"STATE FILE: {sp}\n", file=sys.stderr)
 
     template = load_template(PHASE_TEMPLATES[1])
-    variables = _build_variables(state)
+    variables = _build_variables(state, state_path=sp, step=1)
     body = render_template(template, variables)
 
     if quick:
@@ -374,7 +500,15 @@ def handle_step_n(step: int, state_file: str | None = None, mode: str | None = N
         sys.exit(1)
 
     template = load_template(template_name)
-    variables = _build_variables(state)
+    gate_result: _HypothesisGateResult | None = None
+    if step == 4:
+        gate_result = _check_register_gate(state, sp, step)
+    elif step == 5:
+        gate_result = _check_elimination_gate(state, sp, step)
+
+    variables = _build_variables(state, state_path=sp, step=step)
+    if gate_result and not gate_result.passed:
+        variables["HYPOTHESIS_GATE"] = gate_result.gate_body
     body = render_template(template, variables)
 
     # Update state
@@ -442,7 +576,9 @@ def handle_step_n(step: int, state_file: str | None = None, mode: str | None = N
         run_summary = "Completed diagnose workflow, wrote handoff, and closed session state."
 
     if not is_last:
-        state.mark_step_complete(step)
+        gate_blocked = gate_result is not None and not gate_result.passed
+        if not gate_blocked:
+            state.mark_step_complete(step)
         save_state(state, sp)
         if step == 6 and state.custom.get("fix_complexity") == "complex":
             run_summary = "Complexity gate triggered; diagnose prepared handoff path for planning flow."
@@ -450,15 +586,31 @@ def handle_step_n(step: int, state_file: str | None = None, mode: str | None = N
             run_summary = "Large-complexity gate triggered; diagnose prepared handoff path for develop → plan."
 
     # Build next command
+    gate_confirm = False
     if is_last:
         next_cmd = None
     else:
         extra = {}
         if state.custom.get("autonomy_mode"):
             extra["mode"] = state.custom["autonomy_mode"]
-        next_cmd = build_next_command(
-            SCRIPT_DIR / "orchestrate.py", step, MAX_STEP, **extra
+        next_step_override = (
+            gate_result.next_step_override
+            if gate_result and not gate_result.passed
+            else None
         )
+        if next_step_override is not None:
+            next_cmd = build_next_command(
+                SCRIPT_DIR / "orchestrate.py",
+                step,
+                MAX_STEP,
+                next_step=next_step_override,
+                **extra,
+            )
+            gate_confirm = gate_result.require_confirmation
+        else:
+            next_cmd = build_next_command(
+                SCRIPT_DIR / "orchestrate.py", step, MAX_STEP, **extra
+            )
 
     phase_name = PHASE_NAMES.get(step, f"Step {step}")
     output = format_step_output(
@@ -469,6 +621,7 @@ def handle_step_n(step: int, state_file: str | None = None, mode: str | None = N
         handoff_menu=handoff_menu,
         all_phase_names=PHASE_NAMES,
         all_phase_todos=PHASE_TODOS,
+        require_confirmation=gate_confirm if gate_confirm else None,
     )
 
     # Append dashboard on final step

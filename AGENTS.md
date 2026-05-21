@@ -105,8 +105,11 @@ When editing this repo's user-facing documentation, keep the role names aligned 
 The skill orchestrators handle state-file lifecycle so workflows are interruptible and resumable:
 
 - **Step 1 of any skill** refuses to silently overwrite an in-progress same-skill session. To intentionally restart, delete the state file or pass `--force` (where supported, e.g., `plan.py`). To continue, use `python3 scripts/shared/resume.py` or invoke the skill with `--step N --state <path>`.
-- **Cross-skill conflicts** still emit a stderr warning but do not block — multiple skills can run in parallel as long as they don't share a state file.
-- **`scripts/shared/resume.py --cleanup`** removes state files left behind by completed or abandoned sessions. Defaults to dry-run; pass `--force` to delete. Pass `--all-stale --force` to clear every state file regardless of age (one-time migration after the lifecycle fixes landed).
+- **Step-1 auto-close** (pipeline skills: develop, plan, implement, code-review, test, diagnose): starting a skill at step 1 automatically removes superseded JSON state when (1) `handoff-{skill}.md` exists, (2) the session is **upstream** in the pipeline relative to the skill being started, or (3) the session is **step-1-only** and idle longer than `FORGE_STEP1_ABANDON_HOURS` (default `1`). The new step-1 target path is never deleted. Suppress with `FORGE_SKIP_AUTO_CLOSE=1`. Look for `AUTO-CLOSED:` lines on stderr.
+- **Canonical completion** remains the final orchestrator step (`forge <skill> --step N` at max step): sets `completed_at`, writes handoff via `write_handoff`, then `clear_state_file`.
+- **Cross-skill conflicts** that survive auto-close still emit a stderr warning but do not block.
+- **`scripts/shared/resume.py --cleanup`** removes state files left behind by completed or abandoned sessions (including parallel `skill-*.json` variants). Defaults to dry-run; pass `--force` to delete. Pass `--all-stale --force` to clear every state file regardless of age (one-time migration after the lifecycle fixes landed).
+- **`forge status`** and **`forge doctor`** surface leak hints (handoff present but JSON active, misplaced state paths, step-1 abandoned).
 - **Plan files** are now created by `scripts/plan/plan.py` itself with section-marker placeholders; agents replace markers rather than create the file. The step-6 completion gate refuses to mark the workflow complete while any markers remain.
 - **Evaluate findings** persist between phases via per-step sidecar files at `<state-dir>/.evaluate-findings-step<N>.json`. Each phase's prompt instructs the LLM to write findings there; the orchestrator ingests them on the next step.
 - **Develop design-spec gate:** when `spec_required` is true (medium/large scope from `memory/develop-scope.json`), step 7 validates `<state-dir>/.develop-spec-gate.json` (spec path, `spec_written`, `self_review_passed`, `user_approved`) before handoff. Optional strict bypass: `--allow-spec-incomplete` with `--spec-override-reason` and `--spec-override-follow-up` on `forge develop --step 7`.
@@ -129,6 +132,15 @@ The recommendation sidecar persists at `<state-dir>/.test-recommendation-step2.j
 
 The scenario-index update at `<scenarios_dir>/README.md` is parser-gated; on parse failure, report step aborts and leaves file unchanged. Backup written to `.codex/forge-codex/memory/scenario-index.bak` before any rewrite.
 
+### Diagnose — Hypothesis register
+
+- **Sidecar:** `<state-dir>/.diagnose-hypotheses.json` beside diagnose `state.json` (under `.codex/forge-codex/state/`).
+- **Phase 3:** Create ≥10 falsifiable root-cause hypotheses (`status: open`); span ≥4 fishbone categories; persist before step 4.
+- **Phase 4:** Eliminate all entries; update statuses and `ruled_out_reason`; persist before step 5.
+- **Gates:** Step 4 validates register count/quality; step 5 requires ≥1 `confirmed`. Failures inject a **HYPOTHESIS REGISTER GATE** and pause for user confirmation (no `sys.exit`). One automatic retry to step 3 (register) or step 4 (elimination) per gate type.
+- **Override:** If the user approves proceeding under minimum after retry, set `state.custom["hypothesis_override_reason"]` (non-empty).
+- **Resume:** Resuming diagnose at step ≥4 without a register triggers the gate — backfill via step 3.
+
 ## graphify
 
 This project has a knowledge graph at graphify-out/ with god nodes, community structure, and cross-file relationships.
@@ -138,3 +150,7 @@ Rules:
 - IF graphify-out/wiki/index.md EXISTS, navigate it instead of reading raw files
 - For cross-module "how does X relate to Y" questions, prefer `graphify query "<question>"`, `graphify path "<A>" "<B>"`, or `graphify explain "<concept>"` over grep — these traverse the graph's EXTRACTED + INFERRED edges instead of scanning files
 - After modifying code, run `graphify update .` to keep the graph current (AST-only, no API cost).
+
+## Forge Studio (internal)
+
+Studio is **not** a user-facing workflow. Agents use it during **develop** / **plan** visual gates (localhost browser UI). Users only open a URL when opted in. See [`templates/studio.md`](templates/studio.md) and [`docs/studio.md`](docs/studio.md). Do not add Studio to README workflows or `commands.json`.

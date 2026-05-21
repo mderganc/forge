@@ -84,6 +84,8 @@ Do NOT analyze or explore first. Run the script and follow its output.
 
 ## Methodology Reference
 
+Every run maintains a **10-hypothesis register** (`.diagnose-hypotheses.json` beside diagnose state): overproduce falsifiable root-cause candidates in Phase 3, **eliminate every entry** via falsification in Phase 4, then confirm survivors before solutions. Orchestrator gates at steps 4–5 pause for user confirmation when the register is incomplete.
+
 Every run completes the **mandatory core quartet**: first-principles thinking,
 hypothesis-driven problem solving, **5 Whys**, and a **MECE issue tree**, then
 records a **Technique Coverage Matrix** for all **20** methods in
@@ -102,6 +104,7 @@ The Investigator agent carries supporting methodology detail — see
 - `scripts/diagnose/diagnostic_report.py` — Report template generator
 - `scripts/diagnose/log_analyzer.py` — Structured log analysis (error patterns, frequency, spike detection)
 - `scripts/diagnose/git_hotspots.py` — Git history analytics (churn hotspots, temporal coupling, blame)
+- `scripts/diagnose/hypothesis_register.py` — Hypothesis register path, validation, and gate formatting
 
 ## Workflow Handoff
 

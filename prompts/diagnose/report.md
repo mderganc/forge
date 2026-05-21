@@ -29,6 +29,15 @@ Complete the matrix for **all 20 techniques** in `prompts/diagnose/technique_cat
 
 Trace **final root-cause claims** back to violated invariants / hypothesis ranking.
 
+## Hypothesis Register (final)
+
+Include a table of **all** register entries:
+
+| ID | Statement | Category | Status | Key evidence / ruled-out reason |
+|----|-----------|----------|--------|--------------------------------|
+
+Source: `.diagnose-hypotheses.json` — {{HYPOTHESIS_REGISTER_SUMMARY}}
+
 ## Preferred routing audit
 
 State which incident-profile buckets matched (`technique_catalog.md` routing map) and whether you followed use-case-first ordering before broader methods.

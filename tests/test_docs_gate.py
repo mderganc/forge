@@ -86,10 +86,38 @@ def test_override_requires_follow_up(tmp_path: Path):
     assert "follow-up" in msg.lower()
 
 
-def test_packaged_prompts_mirror_plan_documentation_phase():
-    src = REPO_ROOT / "prompts" / "plan" / "documentation.md"
-    packaged = REPO_ROOT / "forge_next" / "assets" / "prompts" / "plan" / "documentation.md"
+@pytest.mark.parametrize(
+    "rel",
+    [
+        "approval.md",
+        "architecture.md",
+        "context.md",
+        "creation.md",
+        "documentation.md",
+        "handoff.md",
+        "review_loop.md",
+    ],
+)
+def test_packaged_prompts_mirror_plan_phase(rel: str):
+    src = REPO_ROOT / "prompts" / "plan" / rel
+    packaged = REPO_ROOT / "forge_next" / "assets" / "prompts" / "plan" / rel
     assert src.read_text(encoding="utf-8") == packaged.read_text(encoding="utf-8")
+
+
+def test_load_template_falls_back_to_packaged_when_repo_prompt_missing(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+):
+    """Editable checkouts may lack a new prompt until assets are synced."""
+    from scripts.evaluate import template_engine as te
+
+    stub_prompts = tmp_path / "prompts"
+    (stub_prompts / "plan").mkdir(parents=True)
+    monkeypatch.setattr(te, "PROMPTS_DIR", stub_prompts)
+    monkeypatch.delenv("FORGE_CODEX_PROMPTS_DIR", raising=False)
+
+    text = te.load_template("plan/context")
+    assert "Plan-Phase Safety Contract" in text
+    assert "{{HANDOFF_CONTENT}}" in text
 
 
 def test_diagnose_report_prompt_lists_technique_matrix():

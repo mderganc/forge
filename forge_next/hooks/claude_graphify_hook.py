@@ -75,6 +75,12 @@ def handle_session_start(data: dict) -> None:
     cwd = _cwd(data)
     if _graph_present(cwd):
         _emit("SessionStart", _SESSION_MSG)
+        try:
+            from forge_next.graphify import spawn_refresh_background
+
+            spawn_refresh_background(cwd)
+        except Exception:
+            pass
 
 
 def handle_pre_tool_use(data: dict) -> None:

@@ -907,9 +907,17 @@ def skip_forge_session_opt_in() -> bool:
 
 def forge_graphify_context_block(skill_name: str, step: int) -> str:
     """Per-step Graphify reminder when the repo has an index (see graphify_contract)."""
-    from scripts.shared.graphify_contract import forge_graphify_banner
+    from scripts.shared.graphify_contract import forge_graphify_banner, graph_index_present
 
-    return forge_graphify_banner(skill_name, step, REPO_ROOT)
+    block = forge_graphify_banner(skill_name, step, REPO_ROOT)
+    if block and graph_index_present(REPO_ROOT):
+        try:
+            from forge_next.graphify import spawn_refresh_background
+
+            spawn_refresh_background(REPO_ROOT)
+        except Exception:
+            pass
+    return block
 
 
 def forge_session_opt_in_banner(skill_name: str, step: int) -> str:

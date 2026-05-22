@@ -2083,6 +2083,53 @@ def test_graphify_refresh_writes_status(monkeypatch):
             status_path.unlink()
 
 
+def test_graphify_refresh_background_spawns_detached(monkeypatch, tmp_path: Path) -> None:
+    from forge_next import graphify
+
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    (repo / "README.md").write_text("# x\n", encoding="utf-8")
+    (repo / ".git").mkdir()
+    (repo / "graphify-out").mkdir()
+    (repo / "graphify-out" / "GRAPH_REPORT.md").write_text("# report\n", encoding="utf-8")
+
+    monkeypatch.setattr(graphify, "graphify_availability", lambda: (True, "ok"))
+    monkeypatch.setattr(graphify, "_git_head", lambda _r: "abc123")
+    monkeypatch.setattr(
+        graphify,
+        "_read_status",
+        lambda _r: {"status": "missing", "repo_head": None, "last_refresh": None},
+    )
+    monkeypatch.setattr(graphify.shutil, "which", lambda exe: "forge" if exe == "forge" else None)
+
+    popens: list[tuple[list[str], dict]] = []
+
+    class _FakeProc:
+        pid = 4242
+
+    def fake_popen(cmd, **kwargs):
+        popens.append((list(cmd), kwargs))
+        return _FakeProc()
+
+    monkeypatch.setattr(graphify.subprocess, "Popen", fake_popen)
+
+    assert graphify.spawn_refresh_background(repo) is True
+    assert popens
+    assert popens[0][0][:3] == ["forge", "graphify", "refresh"]
+    assert "--repo" in popens[0][0]
+    assert graphify.refresh(repo, background=True) == 0
+
+
+def test_graphify_refresh_background_skips_when_fresh(monkeypatch, tmp_path: Path) -> None:
+    from forge_next import graphify
+
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    monkeypatch.setattr(graphify, "refresh_needed", lambda _r: False)
+    monkeypatch.setattr(graphify.subprocess, "Popen", lambda *a, **k: (_ for _ in ()).throw(AssertionError("no spawn")))
+    assert graphify.spawn_refresh_background(repo) is False
+
+
 def test_graphify_refresh_default_command_runs_update_dot(monkeypatch):
     monkeypatch.chdir(REPO_ROOT)
     from forge_next import graphify

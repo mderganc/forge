@@ -10,7 +10,9 @@ GRAPHIFY_DEVELOPER_INSTRUCTIONS_LEAD = (
     "If graphify-out/wiki/index.md exists, use the wiki instead of raw file trees. "
     "Prefer graphify query, graphify path, and graphify explain over scanning the repo. "
     "After editing tracked code in the session, run graphify update . (AST-only). "
-    "Every forge workflow step prints a GRAPHIFY block when an index is present — follow it."
+    "Every forge workflow step prints a GRAPHIFY block when an index is present — follow it. "
+    "When graphify-out/ exists and metadata may be stale, run forge graphify refresh --background "
+    "once per session (non-blocking); Claude SessionStart and forge --step output trigger this automatically."
 )
 
 FORGE_DELEGATION_INSTRUCTIONS = (

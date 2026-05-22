@@ -13,11 +13,16 @@ import shutil
 import subprocess
 import sys
 import tempfile
-from datetime import datetime, timezone
+import time
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 HOOK_BEGIN = "# >>> forge-graphify-hook (managed by forge-next)"
 HOOK_END = "# <<< forge-graphify-hook"
+
+# Debounce rapid SessionStart / per-step triggers (seconds).
+REFRESH_SPAWN_DEBOUNCE_SEC = 120
+REFRESH_LOCK_FILENAME = "graphify-refresh.lock"
 
 
 def _utc_iso() -> str:
@@ -63,11 +68,126 @@ def _write_status(repo: Path, payload: dict) -> Path:
     return out
 
 
-def refresh(repo_root: Path) -> int:
+def skip_graphify_refresh_spawn() -> bool:
+    """Return True when automatic background refresh should not run."""
+    v = os.environ.get("FORGE_SKIP_GRAPHIFY_REFRESH", "").strip().lower()
+    return v in ("1", "true", "yes", "on")
+
+
+def _refresh_lock_path(repo_root: Path) -> Path:
+    if str(repo_root) not in sys.path:
+        sys.path.insert(0, str(repo_root))
+    from scripts.shared.orchestrator import runtime_state_dir
+
+    return runtime_state_dir(repo_root) / REFRESH_LOCK_FILENAME
+
+
+def _read_status(repo_root: Path) -> dict:
+    if str(repo_root) not in sys.path:
+        sys.path.insert(0, str(repo_root))
+    from scripts.shared.resume_context import read_graphify_status
+
+    return read_graphify_status(repo_root)
+
+
+def refresh_needed(repo_root: Path) -> bool:
+    """True when graphify is available and status is missing, stale, or behind HEAD."""
+    if skip_graphify_refresh_spawn():
+        return False
+    if not graphify_availability()[0]:
+        return False
+    head = _git_head(repo_root)
+    status = _read_status(repo_root)
+    st = str(status.get("status") or "missing")
+    if st in ("missing", "error"):
+        return True
+    if head and status.get("repo_head") and status.get("repo_head") != head:
+        return True
+    if st == "stale":
+        return True
+    last = status.get("last_refresh")
+    if last:
+        try:
+            lr = datetime.fromisoformat(str(last).replace("Z", "+00:00"))
+            if lr.tzinfo is None:
+                lr = lr.replace(tzinfo=timezone.utc)
+            age = datetime.now(timezone.utc) - lr
+            if age > timedelta(hours=24):
+                return True
+        except Exception:
+            return True
+    return False
+
+
+def _resolve_forge_spawn_argv(repo_root: Path) -> list[str] | None:
+    forge = shutil.which("forge")
+    if forge:
+        return [forge, "graphify", "refresh", "--repo", str(repo_root.resolve())]
+    return None
+
+
+def spawn_refresh_background(repo_root: Path) -> bool:
+    """Start a detached ``forge graphify refresh`` when metadata is out of date.
+
+    Returns True if a child process was started. Never raises.
+    """
+    if not refresh_needed(repo_root):
+        return False
+    try:
+        lock = _refresh_lock_path(repo_root)
+        lock.parent.mkdir(parents=True, exist_ok=True)
+        if lock.is_file():
+            age = time.time() - lock.stat().st_mtime
+            if age < REFRESH_SPAWN_DEBOUNCE_SEC:
+                return False
+        lock.write_text(str(os.getpid()), encoding="utf-8")
+    except OSError:
+        return False
+
+    cmd = _resolve_forge_spawn_argv(repo_root)
+    if not cmd:
+        return False
+
+    try:
+        kwargs: dict = {
+            "cwd": str(repo_root.resolve()),
+            "stdin": subprocess.DEVNULL,
+            "stdout": subprocess.DEVNULL,
+            "stderr": subprocess.DEVNULL,
+        }
+        if sys.platform == "win32":
+            detached = getattr(subprocess, "DETACHED_PROCESS", 0)
+            kwargs["creationflags"] = (  # type: ignore[attr-defined]
+                subprocess.CREATE_NEW_PROCESS_GROUP | detached
+            )
+        else:
+            kwargs["close_fds"] = True
+            kwargs["start_new_session"] = True
+        subprocess.Popen(cmd, **kwargs)
+        print(
+            "forge graphify: started background refresh "
+            f"(repo={repo_root.resolve()}).",
+            file=sys.stderr,
+        )
+        return True
+    except OSError:
+        try:
+            lock.unlink(missing_ok=True)
+        except OSError:
+            pass
+        return False
+
+
+def refresh(repo_root: Path, *, background: bool = False) -> int:
     """Attempt to run Graphify (or FORGE_GRAPHIFY_COMMAND), then write status.
+
+    When ``background`` is True, spawns a detached refresh and returns immediately.
 
     Returns 0 always (fail-soft for CI/hooks); failures are recorded in JSON.
     """
+    if background:
+        spawn_refresh_background(repo_root)
+        return 0
     head = _git_head(repo_root)
     custom = (os.environ.get("FORGE_GRAPHIFY_COMMAND") or "").strip()
     cmd: list[str] | None = None
@@ -111,6 +231,12 @@ def refresh(repo_root: Path) -> int:
         )
         return 0
 
+    def _clear_refresh_lock() -> None:
+        try:
+            _refresh_lock_path(repo_root).unlink(missing_ok=True)
+        except OSError:
+            pass
+
     try:
         r = subprocess.run(
             cmd,
@@ -131,6 +257,7 @@ def refresh(repo_root: Path) -> int:
                 "graphify_available": True,
             },
         )
+        _clear_refresh_lock()
         if ok:
             print("forge graphify: refresh finished (status file updated).", file=sys.stderr)
         else:
@@ -149,6 +276,7 @@ def refresh(repo_root: Path) -> int:
                 "graphify_available": True,
             },
         )
+        _clear_refresh_lock()
         print(f"forge graphify: command timed out. Status: {sp}", file=sys.stderr)
     except OSError as e:
         sp = _write_status(
@@ -161,6 +289,7 @@ def refresh(repo_root: Path) -> int:
                 "graphify_available": bool(cmd),
             },
         )
+        _clear_refresh_lock()
         print(f"forge graphify: {e}. Status: {sp}", file=sys.stderr)
     return 0
 
@@ -172,7 +301,7 @@ def _hook_body() -> str:
             "# Rebuild Graphify metadata after each commit (fail-soft).",
             'REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null)"',
             'if command -v forge >/dev/null 2>&1 && [ -n "$REPO_ROOT" ]; then',
-            '  (cd "$REPO_ROOT" && forge graphify refresh) || true',
+            '  (cd "$REPO_ROOT" && (forge graphify refresh >/dev/null 2>&1 &) ) || true',
             "fi",
             HOOK_END,
             "",

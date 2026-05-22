@@ -32,9 +32,20 @@ From the repository root (or `forge graphify refresh --repo <path>`):
 
 ```bash
 forge graphify refresh
+forge graphify refresh --background   # detached; returns immediately
 ```
 
 Forge writes **`.codex/forge/state/graphify-status.json`** (fail-soft on errors). `forge resume` reads this file and any `GRAPH_REPORT.md` it finds.
+
+**Automatic background refresh** (when Graphify is on PATH and status is missing, stale, or behind `git HEAD`):
+
+| Trigger | Environment |
+|---------|-------------|
+| **Claude SessionStart** hook | After `forge claude-graphify` |
+| **Every `forge <skill> --step N`** GRAPHIFY banner | Cursor, Codex, Claude, terminal |
+| **`$forge:graphify`** skill | Codex uses `--background` on invoke |
+
+Suppress auto-spawn with **`FORGE_SKIP_GRAPHIFY_REFRESH=1`** (CI). Debounced ~2 minutes per repo via `graphify-refresh.lock` under the Forge state dir.
 
 ### Auto-refresh on commit (optional)
 
@@ -108,7 +119,7 @@ Events:
 
 | Event | When |
 |-------|------|
-| **SessionStart** | Remind if `graphify-out/` exists |
+| **SessionStart** | Remind if `graphify-out/` exists; spawn **`forge graphify refresh`** in the background when metadata is stale |
 | **PreToolUse** | **Grep**, **Glob**, **Read**, search-like **Bash** |
 | **UserPromptSubmit** | Prompt mentions `forge:` / `$forge:` |
 
@@ -194,3 +205,4 @@ Restart Claude Code and Codex.
 | `forge claude-graphify` | Merge Claude Graphify hooks |
 | `forge codex-agents` | Merge Codex `developer_instructions` |
 | `FORGE_SKIP_GRAPHIFY=1` | Suppress per-step GRAPHIFY banner |
+| `FORGE_SKIP_GRAPHIFY_REFRESH=1` | Suppress automatic background `forge graphify refresh` (hooks + orchestrator) |

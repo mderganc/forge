@@ -36,6 +36,7 @@ from scripts.shared.orchestrator import (
     legacy_state_dir,
     legacy_state_filename,
     load_state,
+    resume_invocation_hint,
     runtime_memory_dir,
     runtime_state_dir,
     state_filename,
@@ -343,7 +344,7 @@ def render_single_session(session: dict) -> str:
                 "Inspect logs for the underlying error before retrying. If the failure",
                 "is not recoverable, clear state with:",
                 "",
-                f"    forge resume --cleanup --force" if os.environ.get("FORGE_USE_LAUNCHER") == "1" else f"    python3 scripts/shared/resume.py --cleanup --force",
+                f"    {resume_invocation_hint(cleanup=True, force=True)}",
                 "",
                 "Then start the workflow over from step 1.",
             ])

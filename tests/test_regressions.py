@@ -12,6 +12,7 @@ pytest fixture parameters appear unused but trigger setup/teardown.
 from __future__ import annotations
 
 import json
+import os
 import re
 import subprocess
 import sys
@@ -2144,3 +2145,63 @@ def test_structured_question_prompts_avoid_legacy_malformed_shape():
         "Structured question blocks must start with 'Ask the user:' followed by a JSON array in:\n"
         + "\n".join(sorted(malformed_lists))
     )
+
+
+# ---------------------------------------------------------------------------
+# Resume launcher hints (consumer repos without ./scripts/)
+# ---------------------------------------------------------------------------
+
+
+def test_resume_invocation_hint_prefers_forge_launcher(monkeypatch):
+    from scripts.shared.orchestrator import resume_invocation_hint
+
+    monkeypatch.setenv("FORGE_USE_LAUNCHER", "1")
+    assert resume_invocation_hint() == "forge resume"
+    assert resume_invocation_hint(cleanup=True) == "forge resume --cleanup"
+    assert resume_invocation_hint(cleanup=True, force=True) == "forge resume --cleanup --force"
+
+    monkeypatch.delenv("FORGE_USE_LAUNCHER", raising=False)
+    assert resume_invocation_hint() == "python3 scripts/shared/resume.py"
+    assert resume_invocation_hint(cleanup=True, force=True) == (
+        "python3 scripts/shared/resume.py --cleanup --force"
+    )
+
+
+def test_forge_resume_emits_launcher_continuation(fresh_state_dir: Path, monkeypatch):
+    """Installed/launcher mode must not tell users to run repo-relative resume.py."""
+    from scripts.shared.orchestrator import runtime_state_dir
+
+    (fresh_state_dir / "README.md").write_text("# test repo\n", encoding="utf-8")
+    state_dir = runtime_state_dir(fresh_state_dir)
+    state_dir.mkdir(parents=True, exist_ok=True)
+    st_path = state_dir / "plan.json"
+    st_path.write_text(
+        json.dumps(
+            {
+                "skill_name": "plan",
+                "current_step": 2,
+                "last_completed_step": 2,
+                "max_step": 7,
+                "started_at": "2026-05-22T12:00:00+00:00",
+                "completed_at": None,
+                "failure_count": 0,
+                "custom": {},
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    env = {**dict(os.environ), "FORGE_USE_LAUNCHER": "1"}
+    result = subprocess.run(
+        [sys.executable, "-m", "forge_next.cli", "resume", "--repo", str(fresh_state_dir)],
+        cwd=str(REPO_ROOT),
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        env=env,
+    )
+    assert result.returncode == 0, result.stderr
+    out = result.stdout
+    assert "forge plan --step 3" in out
+    assert "scripts/shared/resume.py" not in out
+    assert "python3" not in out.split("Execute this command")[1] if "Execute this command" in out else True

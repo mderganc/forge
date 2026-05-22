@@ -16,12 +16,12 @@ Reply "yes" or "1" to continue with the default. Or pick a number:
   3. ...
   N. (stop)                         (exit the workflow here)
 
-State file: <path>  —  resume any time with `python3 scripts/shared/resume.py`.
+State file: <path>  —  resume any time with `forge resume` (or `/forge:resume` / `$forge:resume`).
 ```
 
 The canonical skill-chain mapping lives in `scripts/shared/skill_chain.py` as the `SKILL_CHAIN` dict, mapping current skill to `SkillTransition(default, alternatives)`. The renderer `build_skill_handoff_menu(current_skill, state)` in `scripts/shared/orchestrator.py` produces the numbered output. Per-skill context-aware injection is supported — e.g., when `forge:test` detects failures, `diagnose` can be prepended as the top alternative; when `forge:diagnose` finishes with `fix_complexity` **`large`**, the default next command is **`develop`** (with **`plan`** as default when **`complex`**).
 
-The `(stop)` option is always last. The state file persists, and workflows can resume with `python3 scripts/shared/resume.py` at any time.
+The `(stop)` option is always last. The state file persists, and workflows can resume with `forge resume` at any time.
 
 ## Session opt-in (step 1)
 
@@ -104,11 +104,11 @@ When editing this repo's user-facing documentation, keep the role names aligned 
 
 The skill orchestrators handle state-file lifecycle so workflows are interruptible and resumable:
 
-- **Step 1 of any skill** refuses to silently overwrite an in-progress same-skill session. To intentionally restart, delete the state file or pass `--force` (where supported, e.g., `plan.py`). To continue, use `python3 scripts/shared/resume.py` or invoke the skill with `--step N --state <path>`.
+- **Step 1 of any skill** refuses to silently overwrite an in-progress same-skill session. To intentionally restart, delete the state file or pass `--force` (where supported, e.g., `plan.py`). To continue, use `forge resume` or invoke the skill with `forge <skill> --step N --state <path>`.
 - **Step-1 auto-close** (pipeline skills: develop, plan, implement, code-review, test, diagnose): starting a skill at step 1 automatically removes superseded JSON state when (1) `handoff-{skill}.md` exists, (2) the session is **upstream** in the pipeline relative to the skill being started, or (3) the session is **step-1-only** and idle longer than `FORGE_STEP1_ABANDON_HOURS` (default `1`). The new step-1 target path is never deleted. Suppress with `FORGE_SKIP_AUTO_CLOSE=1`. Look for `AUTO-CLOSED:` lines on stderr.
 - **Canonical completion** remains the final orchestrator step (`forge <skill> --step N` at max step): sets `completed_at`, writes handoff via `write_handoff`, then `clear_state_file`.
 - **Cross-skill conflicts** that survive auto-close still emit a stderr warning but do not block.
-- **`scripts/shared/resume.py --cleanup`** removes state files left behind by completed or abandoned sessions (including parallel `skill-*.json` variants). Defaults to dry-run; pass `--force` to delete. Pass `--all-stale --force` to clear every state file regardless of age (one-time migration after the lifecycle fixes landed).
+- **`forge resume --cleanup`** removes state files left behind by completed or abandoned sessions (including parallel `skill-*.json` variants). Defaults to dry-run; pass `--force` to delete. Pass `--all-stale --force` to clear every state file regardless of age (one-time migration after the lifecycle fixes landed). From a Forge source checkout without the launcher, `python3 scripts/shared/resume.py --cleanup` is equivalent.
 - **`forge status`** and **`forge doctor`** surface leak hints (handoff present but JSON active, misplaced state paths, step-1 abandoned).
 - **Plan files** are now created by `scripts/plan/plan.py` itself with section-marker placeholders; agents replace markers rather than create the file. The step-6 completion gate refuses to mark the workflow complete while any markers remain.
 - **Evaluate findings** persist between phases via per-step sidecar files at `<state-dir>/.evaluate-findings-step<N>.json`. Each phase's prompt instructs the LLM to write findings there; the orchestrator ingests them on the next step.

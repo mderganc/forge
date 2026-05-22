@@ -12,6 +12,7 @@ pytest fixture parameters appear unused but trigger setup/teardown.
 from __future__ import annotations
 
 import json
+import os
 import re
 import subprocess
 import sys
@@ -2082,6 +2083,53 @@ def test_graphify_refresh_writes_status(monkeypatch):
             status_path.unlink()
 
 
+def test_graphify_refresh_background_spawns_detached(monkeypatch, tmp_path: Path) -> None:
+    from forge_next import graphify
+
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    (repo / "README.md").write_text("# x\n", encoding="utf-8")
+    (repo / ".git").mkdir()
+    (repo / "graphify-out").mkdir()
+    (repo / "graphify-out" / "GRAPH_REPORT.md").write_text("# report\n", encoding="utf-8")
+
+    monkeypatch.setattr(graphify, "graphify_availability", lambda: (True, "ok"))
+    monkeypatch.setattr(graphify, "_git_head", lambda _r: "abc123")
+    monkeypatch.setattr(
+        graphify,
+        "_read_status",
+        lambda _r: {"status": "missing", "repo_head": None, "last_refresh": None},
+    )
+    monkeypatch.setattr(graphify.shutil, "which", lambda exe: "forge" if exe == "forge" else None)
+
+    popens: list[tuple[list[str], dict]] = []
+
+    class _FakeProc:
+        pid = 4242
+
+    def fake_popen(cmd, **kwargs):
+        popens.append((list(cmd), kwargs))
+        return _FakeProc()
+
+    monkeypatch.setattr(graphify.subprocess, "Popen", fake_popen)
+
+    assert graphify.spawn_refresh_background(repo) is True
+    assert popens
+    assert popens[0][0][:3] == ["forge", "graphify", "refresh"]
+    assert "--repo" in popens[0][0]
+    assert graphify.refresh(repo, background=True) == 0
+
+
+def test_graphify_refresh_background_skips_when_fresh(monkeypatch, tmp_path: Path) -> None:
+    from forge_next import graphify
+
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    monkeypatch.setattr(graphify, "refresh_needed", lambda _r: False)
+    monkeypatch.setattr(graphify.subprocess, "Popen", lambda *a, **k: (_ for _ in ()).throw(AssertionError("no spawn")))
+    assert graphify.spawn_refresh_background(repo) is False
+
+
 def test_graphify_refresh_default_command_runs_update_dot(monkeypatch):
     monkeypatch.chdir(REPO_ROOT)
     from forge_next import graphify
@@ -2144,3 +2192,63 @@ def test_structured_question_prompts_avoid_legacy_malformed_shape():
         "Structured question blocks must start with 'Ask the user:' followed by a JSON array in:\n"
         + "\n".join(sorted(malformed_lists))
     )
+
+
+# ---------------------------------------------------------------------------
+# Resume launcher hints (consumer repos without ./scripts/)
+# ---------------------------------------------------------------------------
+
+
+def test_resume_invocation_hint_prefers_forge_launcher(monkeypatch):
+    from scripts.shared.orchestrator import resume_invocation_hint
+
+    monkeypatch.setenv("FORGE_USE_LAUNCHER", "1")
+    assert resume_invocation_hint() == "forge resume"
+    assert resume_invocation_hint(cleanup=True) == "forge resume --cleanup"
+    assert resume_invocation_hint(cleanup=True, force=True) == "forge resume --cleanup --force"
+
+    monkeypatch.delenv("FORGE_USE_LAUNCHER", raising=False)
+    assert resume_invocation_hint() == "python3 scripts/shared/resume.py"
+    assert resume_invocation_hint(cleanup=True, force=True) == (
+        "python3 scripts/shared/resume.py --cleanup --force"
+    )
+
+
+def test_forge_resume_emits_launcher_continuation(fresh_state_dir: Path, monkeypatch):
+    """Installed/launcher mode must not tell users to run repo-relative resume.py."""
+    from scripts.shared.orchestrator import runtime_state_dir
+
+    (fresh_state_dir / "README.md").write_text("# test repo\n", encoding="utf-8")
+    state_dir = runtime_state_dir(fresh_state_dir)
+    state_dir.mkdir(parents=True, exist_ok=True)
+    st_path = state_dir / "plan.json"
+    st_path.write_text(
+        json.dumps(
+            {
+                "skill_name": "plan",
+                "current_step": 2,
+                "last_completed_step": 2,
+                "max_step": 7,
+                "started_at": "2026-05-22T12:00:00+00:00",
+                "completed_at": None,
+                "failure_count": 0,
+                "custom": {},
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    env = {**dict(os.environ), "FORGE_USE_LAUNCHER": "1"}
+    result = subprocess.run(
+        [sys.executable, "-m", "forge_next.cli", "resume", "--repo", str(fresh_state_dir)],
+        cwd=str(REPO_ROOT),
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        env=env,
+    )
+    assert result.returncode == 0, result.stderr
+    out = result.stdout
+    assert "forge plan --step 3" in out
+    assert "scripts/shared/resume.py" not in out
+    assert "python3" not in out.split("Execute this command")[1] if "Execute this command" in out else True

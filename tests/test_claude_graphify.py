@@ -92,6 +92,30 @@ def test_codex_body_leads_with_graphify() -> None:
     assert FORGE_DEVELOPER_INSTRUCTIONS_BODY.startswith(GRAPHIFY_DEVELOPER_INSTRUCTIONS_LEAD[:40])
 
 
+def test_session_start_spawns_background_refresh(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    repo = Path(__file__).resolve().parents[1]
+    if not (repo / "graphify-out" / "GRAPH_REPORT.md").is_file():
+        pytest.skip("no graphify index in forge checkout")
+
+    spawned: list[Path] = []
+
+    def fake_spawn(cwd: Path) -> bool:
+        spawned.append(cwd)
+        return True
+
+    monkeypatch.setattr(hook, "_cwd", lambda _data: repo)
+    monkeypatch.setattr("forge_next.graphify.spawn_refresh_background", fake_spawn)
+    import io
+
+    buf = io.StringIO()
+    monkeypatch.setattr("sys.stdin", type("R", (), {"read": lambda self: "{}"})())
+    monkeypatch.setattr("sys.stdout", buf)
+    hook.main(["SessionStart"])
+    assert spawned == [repo]
+
+
 def test_pre_tool_use_grep_emits_context(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     repo = Path(__file__).resolve().parents[1]
     if not (repo / "graphify-out" / "GRAPH_REPORT.md").is_file():

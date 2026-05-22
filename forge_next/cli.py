@@ -196,6 +196,11 @@ def build_parser() -> argparse.ArgumentParser:
     gf = sub.add_parser("graphify", help="Optional Graphify index refresh and git post-commit hook")
     gf_sub = gf.add_subparsers(dest="graphify_cmd", required=True)
     gfr = gf_sub.add_parser("refresh", help="Run Graphify if available; write graphify-status.json")
+    gfr.add_argument(
+        "--background",
+        action="store_true",
+        help="Spawn a detached refresh and return immediately (also used by hooks)",
+    )
     add_common_repo_flag(gfr)
     gfi = gf_sub.add_parser("install-hook", help="Add fail-soft Graphify block to .git/hooks/post-commit")
     add_common_repo_flag(gfi)
@@ -331,7 +336,9 @@ def main(argv: list[str] | None = None) -> None:
         rr = _repo_root_from_args(getattr(args, "repo", None))
         subc = getattr(args, "graphify_cmd", None)
         if subc == "refresh":
-            raise SystemExit(forge_graphify.refresh(rr))
+            raise SystemExit(
+                forge_graphify.refresh(rr, background=bool(getattr(args, "background", False)))
+            )
         if subc == "install-hook":
             ok, msg = forge_graphify.install_post_commit_hook(rr)
             print(msg)

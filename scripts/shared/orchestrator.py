@@ -777,6 +777,28 @@ def print_auto_closed_audit(closed: list[tuple[Path, str]]) -> None:
         print(f"AUTO-CLOSED: {path} — {reason}", file=sys.stderr)
 
 
+def resume_invocation_hint(*, cleanup: bool = False, force: bool = False) -> str:
+    """Return the recommended CLI to resume or clean up workflow state.
+
+    Prefer ``forge resume`` when the launcher is in use (``FORGE_USE_LAUNCHER=1``,
+    set by ``forge`` CLI). Fall back to repo-relative ``scripts/shared/resume.py``
+    for direct script invocations from a Forge source checkout.
+    """
+    if os.environ.get("FORGE_USE_LAUNCHER") == "1":
+        cmd = "forge resume"
+        if cleanup:
+            cmd += " --cleanup"
+            if force:
+                cmd += " --force"
+        return cmd
+    cmd = "python3 scripts/shared/resume.py"
+    if cleanup:
+        cmd += " --cleanup"
+        if force:
+            cmd += " --force"
+    return cmd
+
+
 def hint_cleanup_if_still_active(search_dir: Path | None = None) -> None:
     """Suggest manual cleanup when active sessions remain after auto-close."""
     if skip_forge_auto_close():
@@ -784,9 +806,7 @@ def hint_cleanup_if_still_active(search_dir: Path | None = None) -> None:
     remaining = detect_active_sessions(search_dir)
     if not remaining:
         return
-    cmd = "forge resume --cleanup" if os.environ.get("FORGE_USE_LAUNCHER") == "1" else (
-        "python3 scripts/shared/resume.py --cleanup"
-    )
+    cmd = resume_invocation_hint(cleanup=True)
     print(
         f"HINT: {len(remaining)} active session(s) remain. "
         f"Dry-run cleanup: `{cmd}` (add `--force` to delete).",
@@ -887,9 +907,17 @@ def skip_forge_session_opt_in() -> bool:
 
 def forge_graphify_context_block(skill_name: str, step: int) -> str:
     """Per-step Graphify reminder when the repo has an index (see graphify_contract)."""
-    from scripts.shared.graphify_contract import forge_graphify_banner
+    from scripts.shared.graphify_contract import forge_graphify_banner, graph_index_present
 
-    return forge_graphify_banner(skill_name, step, REPO_ROOT)
+    block = forge_graphify_banner(skill_name, step, REPO_ROOT)
+    if block and graph_index_present(REPO_ROOT):
+        try:
+            from forge_next.graphify import spawn_refresh_background
+
+            spawn_refresh_background(REPO_ROOT)
+        except Exception:
+            pass
+    return block
 
 
 def forge_session_opt_in_banner(skill_name: str, step: int) -> str:
@@ -1814,7 +1842,7 @@ def check_same_skill_clobber(
                 f"(step {state.current_step}/{state.max_step}, started "
                 f"{state.started_at}, session_id {state.session_id}).\n"
                 f"State file: {path}\n"
-                f"Run `python3 scripts/shared/resume.py` to continue it, "
+                f"Run `{resume_invocation_hint()}` to continue it, "
                 f"or use `--parallel` / `--state {skill_name}-<id>.json` "
                 f"to start another session."
             )
@@ -1837,7 +1865,7 @@ def validate_step_or_complete(step: int, max_step: int, skill_name: str) -> bool
     if step > max_step:
         print(
             f"`{skill_name}` ends at step {max_step}; nothing left to do.\n"
-            f"Run `python3 scripts/shared/resume.py` to continue the next pipeline skill, "
+            f"Run `{resume_invocation_hint()}` to continue the next pipeline skill, "
             f"or start a new workflow.",
             file=sys.stderr,
         )

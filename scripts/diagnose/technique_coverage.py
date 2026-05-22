@@ -6,6 +6,7 @@ import re
 from pathlib import Path
 
 from scripts.diagnose.diagnose_registers import load_sidecar
+from scripts.evaluate.template_engine import read_prompt_file
 
 COVERAGE_FILENAME = ".diagnose-technique-coverage.json"
 CATALOG_PATH = Path(__file__).resolve().parent.parent.parent / "prompts" / "diagnose" / "technique_catalog.md"
@@ -30,8 +31,12 @@ def coverage_path(state_dir: Path) -> Path:
 
 def load_catalog_technique_names(catalog_path: Path | None = None) -> list[str]:
     """Parse exact technique names from technique_catalog.md table."""
-    path = catalog_path or CATALOG_PATH
-    text = path.read_text(encoding="utf-8")
+    if catalog_path is None:
+        label = "diagnose/technique_catalog.md"
+        text = read_prompt_file(label)
+    else:
+        label = str(catalog_path)
+        text = catalog_path.read_text(encoding="utf-8")
     by_id: dict[int, str] = {}
     for line in text.splitlines():
         m = re.match(r"^\|\s*(\d+)\s*\|\s*(.+?)\s*\|", line.strip())
@@ -42,7 +47,7 @@ def load_catalog_technique_names(catalog_path: Path | None = None) -> list[str]:
     names = [by_id[i] for i in range(1, 21) if i in by_id]
     if len(names) != 20:
         raise ValueError(
-            f"Expected 20 techniques in {path}, parsed {len(names)}: {names}"
+            f"Expected 20 techniques in {label}, parsed {len(names)}: {names}"
         )
     return names
 

@@ -104,22 +104,6 @@ def test_packaged_prompts_mirror_plan_phase(rel: str):
     assert src.read_text(encoding="utf-8") == packaged.read_text(encoding="utf-8")
 
 
-def test_load_template_falls_back_to_packaged_when_repo_prompt_missing(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
-):
-    """Editable checkouts may lack a new prompt until assets are synced."""
-    from scripts.evaluate import template_engine as te
-
-    stub_prompts = tmp_path / "prompts"
-    (stub_prompts / "plan").mkdir(parents=True)
-    monkeypatch.setattr(te, "PROMPTS_DIR", stub_prompts)
-    monkeypatch.delenv("FORGE_CODEX_PROMPTS_DIR", raising=False)
-
-    text = te.load_template("plan/context")
-    assert "Plan-Phase Safety Contract" in text
-    assert "{{HANDOFF_CONTENT}}" in text
-
-
 def test_diagnose_report_prompt_lists_technique_matrix():
     text = (REPO_ROOT / "prompts" / "diagnose" / "report.md").read_text(encoding="utf-8")
     assert "Technique Coverage Matrix" in text

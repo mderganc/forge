@@ -10,16 +10,16 @@ You will audit the flow against the eight quality criteria, run sample-quality p
 
 Review the flow against all eight criteria and mark each as **met** | **partial** | **missing**.
 
-Criteria 1\u20138 (from plan):
+Criteria 1\xe2\u20ac\u201c8 (from plan):
 
-1. **Realistic scenarios** \u2014 end-to-end user journeys, not synthetic CRUD.
-2. **Representative test data** \u2014 clean, messy, edge-cases, duplicates packs.
-3. **User roles/permissions matrix** \u2014 project-discovered roles, varied assertions.
-4. **Full process execution** \u2014 entry-point ladder respected (UI > HTTP > CLI > module).
-5. **Outcome validation** \u2014 \u2265 2 surfaces asserted per test.
-6. **Minimal mocking** \u2014 only external services mocked (criteria 2/4 already enforced).
-7. **Failure and edge handling** \u2014 \u2265 1 failure-path assertion (criterion 2/4 already enforced).
-8. **Repeatable regression structure** \u2014 deterministic inputs/outputs (criterion 2/4 already enforced).
+1. **Realistic scenarios** \xe2\u20ac\u201d end-to-end user journeys, not synthetic CRUD.
+2. **Representative test data** \xe2\u20ac\u201d clean, messy, edge-cases, duplicates packs.
+3. **User roles/permissions matrix** \xe2\u20ac\u201d project-discovered roles, varied assertions.
+4. **Full process execution** \xe2\u20ac\u201d entry-point ladder respected (UI > HTTP > CLI > module).
+5. **Outcome validation** \xe2\u20ac\u201d \xe2\u2030\xa5 2 surfaces asserted per test.
+6. **Minimal mocking** \xe2\u20ac\u201d only external services mocked (criteria 2/4 already enforced).
+7. **Failure and edge handling** \xe2\u20ac\u201d \xe2\u2030\xa5 1 failure-path assertion (criterion 2/4 already enforced).
+8. **Repeatable regression structure** \xe2\u20ac\u201d deterministic inputs/outputs (criterion 2/4 already enforced).
 
 **Status key:**
 - **Met:** Criterion is satisfied; no issues.
@@ -40,8 +40,8 @@ clean/ <-> edge-cases/:   ___% byte difference
 clean/ <-> duplicates/:   ___% byte difference
 ```
 
-- **< 5%:** Packs are too similar. **Finding:** "Messy pack performative \u2014 variants are near-identical; increase variation to test robustness."
-- **5\u201350%:** Good variance. Packs are distinct.
+- **< 5%:** Packs are too similar. **Finding:** "Messy pack performative \xe2\u20ac\u201d variants are near-identical; increase variation to test robustness."
+- **5\xe2\u20ac\u201c50%:** Good variance. Packs are distinct.
 - **> 50%:** Excessive variance (packs may be testing different features, not variants of the same).
 
 **Codex command:**
@@ -70,7 +70,7 @@ Role: viewer
   Assertions: [same as member]
 ```
 
-- **Identical assertions across roles:** **Finding:** "Role matrix performative \u2014 roles have identical assertions; differentiate by role expectations (e.g., admin succeeds, member is forbidden)."
+- **Identical assertions across roles:** **Finding:** "Role matrix performative \xe2\u20ac\u201d roles have identical assertions; differentiate by role expectations (e.g., admin succeeds, member is forbidden)."
 - **Distinct assertions per role:** Good. Roles are testing different permission boundaries.
 
 **Codex command:** Parse the test file(s) to extract assertion statements per role.
@@ -90,7 +90,7 @@ Confirm and document these best-practice checks:
 Append to `.codex/forge-codex/memory/test-report.md`:
 
 ```markdown
-## Flow: {{FLOW_TYPE}} \u2014 {{FEATURE_NAME}}
+## Flow: {{FLOW_TYPE}} \xe2\u20ac\u201d {{FEATURE_NAME}}
 
 **Scope:** {{JOURNEY}} | {{ROLES}} | {{FAILURE_PATHS}}
 
@@ -121,12 +121,12 @@ Append to `.codex/forge-codex/memory/test-report.md`:
 - Role-matrix assertion-diff: [identical/distinct]
 
 **Findings:**
-- [finding 1, if any \u2014 e.g., "Messy pack performative"]
+- [finding 1, if any \xe2\u20ac\u201d e.g., "Messy pack performative"]
 - [finding 2, if any]
 
 **Last Run:** [timestamp]
 
-**Status:** \u2713 green | \u2717 needs rework
+**Status:** \xe2\u0153\u201c green | \xe2\u0153\u2014 needs rework
 ```
 
 ### 4. Update Scenario Index (Fix 4)
@@ -144,7 +144,7 @@ If `tests/scenarios/README.md` exists (or `tests/features/` equivalent), add a r
 Create `handoff-test.md` in the project root (or in `.codex/forge-codex/`):
 
 ```markdown
-# Test Handoff \u2014 Mock Flow Complete
+# Test Handoff \xe2\u20ac\u201d Mock Flow Complete
 
 **Feature:** {{FEATURE_NAME}}
 **Flow Type:** {{FLOW_TYPE}}

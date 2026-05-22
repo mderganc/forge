@@ -84,15 +84,21 @@ Do NOT analyze or explore first. Run the script and follow its output.
 
 ## Methodology Reference
 
-Every run maintains a **10-hypothesis register** (`.diagnose-hypotheses.json` beside diagnose state): overproduce falsifiable root-cause candidates in Phase 3, **eliminate every entry** via falsification in Phase 4, then confirm survivors before solutions. Orchestrator gates at steps 4–5 pause for user confirmation when the register is incomplete.
+Read `templates/diagnose-execution-playbooks.md` per phase before applying techniques.
 
-Every run completes the **mandatory core quartet**: first-principles thinking,
-hypothesis-driven problem solving, **5 Whys**, and a **MECE issue tree**, then
-records a **Technique Coverage Matrix** for all **20** methods in
-`prompts/diagnose/technique_catalog.md` (applied / skipped / deferred with
-evidence). **Use-case-first routing** picks preferred techniques from the
-catalog’s incident-profile map before expanding breadth; severity and compliance
-rules can override preferences.
+**Sidecars** (beside diagnose state — gated, not honor-system memory prose):
+
+| Artifact | When |
+|----------|------|
+| `.diagnose-problem-spec.json` | Phase 1 |
+| `.diagnose-first-principles.json` | Phase 1–4 |
+| `.diagnose-hypotheses.json` | Phase 3–5 (≥10 candidates, full elimination) |
+| `.diagnose-mece-tree.json` | Phase 3 |
+| `.diagnose-five-whys.json` | Phase 3 draft; Phase 4 finalize on **confirmed** IDs (`templates/five-why-protocol.md` § Diagnose RCA) |
+| `.diagnose-technique-coverage.json` | All **20** catalog names — finalize Phase 7 |
+| `.diagnose-barriers.json` | High-severity / safety profile |
+
+Orchestrator **DIAGNOSE ARTIFACT GATE** at steps 4 (register + quartet), 5 (elimination + five whys + routed coverage), 7 (full closure). Overrides: `hypothesis_override_reason`, `five_whys_override_reason`, `technique_coverage_override_reason`, `quartet_override_reason`, etc. (see AGENTS.md).
 
 The Investigator agent carries supporting methodology detail — see
 `agents/investigator.md` and `prompts/diagnose/technique_catalog.md`.
@@ -104,7 +110,10 @@ The Investigator agent carries supporting methodology detail — see
 - `scripts/diagnose/diagnostic_report.py` — Report template generator
 - `scripts/diagnose/log_analyzer.py` — Structured log analysis (error patterns, frequency, spike detection)
 - `scripts/diagnose/git_hotspots.py` — Git history analytics (churn hotspots, temporal coupling, blame)
-- `scripts/diagnose/hypothesis_register.py` — Hypothesis register path, validation, and gate formatting
+- `scripts/diagnose/hypothesis_register.py` — Hypothesis register validation
+- `scripts/diagnose/five_whys_register.py` — Five Whys chain validation
+- `scripts/diagnose/technique_coverage.py` — 20-technique coverage matrix validation
+- `scripts/diagnose/diagnose_gates.py` — Combined orchestrator gates
 
 ## Workflow Handoff
 

@@ -1,5 +1,7 @@
 # Phase 7: Diagnostic Wrap-up & Prevention
 
+{{DIAGNOSE_ARTIFACT_GATE}}
+
 ## Agents to Dispatch
 - **Doc-writer (lead):** Write diagnostic output
 - **Investigator (support):** Provide methodology summary
@@ -9,23 +11,27 @@
 
 Confirm explicit artifacts exist for:
 
-1. **First-principles thinking** — invariants, violated principles, causal chain from fundamentals.
-2. **Hypothesis-driven problem solving** — ranked hypotheses with predictions vs results.
-3. **5 Whys** — documented chain(s) on primary causal branch(es).
-4. **MECE issue tree** — tree or structured outline covering the failure space without overlap/gaps.
+1. **First-principles thinking** — `.diagnose-first-principles.json` — {{FIRST_PRINCIPLES_SUMMARY}}
+2. **Hypothesis-driven problem solving** — `.diagnose-hypotheses.json` — {{HYPOTHESIS_REGISTER_SUMMARY}}
+3. **5 Whys** — `.diagnose-five-whys.json` — {{FIVE_WHYS_SUMMARY}}
+4. **MECE issue tree** — `.diagnose-mece-tree.json` — {{MECE_SUMMARY}}
 
 If any item is thin, document why with severity-scaled rationale (small incidents may compress — still acknowledge).
 
 ## Technique Coverage Matrix (final)
 
-Complete the matrix for **all 20 techniques** in `prompts/diagnose/technique_catalog.md`:
+Persist **all 20** techniques to `.diagnose-technique-coverage.json` (exact catalog names). Orchestrator validates at step 7.
+
+Summary: {{TECHNIQUE_COVERAGE_SUMMARY}}
 
 | technique | applied / skipped / deferred | evidence or rationale |
 |-----------|------------------------------|------------------------|
 
-- **applied:** link or pointer to where the technique appears (memory file, log excerpt, chart).
+- **applied:** link or pointer to where the technique appears (sidecar, memory file, log excerpt, script output).
 - **skipped:** why cost/signal trade-off justified (respect scalability rules).
 - **deferred:** what would trigger applying it later.
+
+High-severity: **Kepner-Tregoe Problem Analysis**, **Barrier Analysis**, and **FMEA** or **Fault Tree Analysis** must be **applied** (not skippable via override).
 
 Trace **final root-cause claims** back to violated invariants / hypothesis ranking.
 
@@ -42,8 +48,12 @@ Source: `.diagnose-hypotheses.json` — {{HYPOTHESIS_REGISTER_SUMMARY}}
 
 State which incident-profile buckets matched (`technique_catalog.md` routing map) and whether you followed use-case-first ordering before broader methods.
 
+Problem spec: {{PROBLEM_SPEC_SUMMARY}}
+
 ## Diagnostic Output
 Use: python3 {{SCRIPT_DIR}}/diagnostic_report.py --title "..." --severity ... --output ...
+
+Populate **5 Whys** and hypothesis sections from sidecars.
 
 ## Chat Summary
 1. Root cause: one sentence

@@ -25,7 +25,8 @@ You review artifacts produced by other agents, looking for quality gaps from you
 
 **Stage 1 (Investigation) review focus:**
 - Are the findings reproducible? Can you verify the evidence?
-- Is the five-why analysis logically sound? Does each layer follow from the previous?
+- Is the five-why analysis logically sound? Check `.diagnose-five-whys.json` — each `why_question` must reference the parent `because` (see `templates/five-why-protocol.md` § Diagnose RCA).
+- Are methodology sidecars present and consistent with claims in the technique coverage matrix?
 - Are there gaps in coverage — areas that should have been investigated but weren't?
 
 **Stage 2 (Solutions) review focus:**

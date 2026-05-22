@@ -4,7 +4,7 @@ Referenced by prompts and tests. Every diagnose run must complete the **mandator
 
 1. **First-principles thinking** — baseline invariants, causal decomposition from fundamentals.
 2. **Hypothesis-driven problem solving** — ranked hypotheses tied to evidence.
-3. **5 Whys** — documented drill on leading branches (may conclude earlier if validated).
+3. **5 Whys** — documented chains in `.diagnose-five-whys.json`; early stop only when `templates/five-why-protocol.md` stop checklist + `but_for` are satisfied (orchestrator-gated).
 4. **MECE issue tree** — mutually exclusive, collectively exhaustive decomposition.
 
 Then add **use-case-first** techniques from the map below. Prefer matches whose **best-use-case** fits the incident profile before generic breadth.
@@ -44,6 +44,12 @@ Then add **use-case-first** techniques from the map below. Prefer matches whose 
 | Preventive launch / design / process risk ranking | FMEA |
 | Interacting factors / proving drivers in complex processes | Design of Experiments |
 | Control failure / bypass / missing safeguards | Barrier Analysis |
+
+## Execution playbooks
+
+Before applying or skipping a technique, read **`templates/diagnose-execution-playbooks.md`** for that technique’s phase, minimum artifact, anti-patterns, and done criteria.
+
+Persist coverage in **`.diagnose-technique-coverage.json`** (all 20 rows; exact names in the table below).
 
 ## Full toolbox (record coverage for each)
 

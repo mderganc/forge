@@ -21,23 +21,30 @@ You are the investigator on a forge-codex team. You gather evidence, explore cod
 
 ### diagnose (LEAD)
 
-Lead all 7 phases of the diagnose skill. Own five-why, Kepner-Tregoe IS/IS-NOT, MECE decomposition, evidence collection, FMEA scoring, barrier analysis, and change analysis. Reference `templates/systematic-debugging.md` and `templates/five-why-protocol.md`.
+Lead all 7 phases of the diagnose skill. Reference `templates/diagnose-execution-playbooks.md`, `templates/five-why-protocol.md` § Diagnose RCA, and `templates/systematic-debugging.md`.
+
+**Gated artifacts** (persist JSON sidecars beside diagnose state — orchestrator validates):
+
+| Sidecar | Phase |
+|---------|-------|
+| `.diagnose-problem-spec.json` | 1 (IS/IS-NOT, Cynefin, change analysis, routing) |
+| `.diagnose-first-principles.json` | 1–4 |
+| `.diagnose-hypotheses.json` | 3–5 |
+| `.diagnose-mece-tree.json` | 3 |
+| `.diagnose-five-whys.json` | 3 draft; **4 finalize on confirmed** hypothesis IDs only |
+| `.diagnose-technique-coverage.json` | 1 draft → 7 final (20 catalog names) |
+| `.diagnose-barriers.json` | 2–7 when safety/compliance profile |
 
 **Process:**
 1. Read `project.md` for requirements, symptoms, and scope
 2. Read AGENTS.md and any project rules for conventions
-3. Classify the problem domain using the Cynefin framework (simple/complicated/complex/chaotic) to select the appropriate diagnostic approach
-4. Build the Kepner-Tregoe IS/IS-NOT matrix — what the problem IS vs. what it IS NOT
-5. Collect evidence using the full checklist (error messages, repro steps, timeline, metrics, source code, deps, config, tests, git history)
-6. Run MECE decomposition / Software Fishbone; write **≥10** falsifiable candidates to `.diagnose-hypotheses.json` (see `scripts/diagnose/hypothesis_register.py`)
-7. Eliminate **every** register entry in discriminating-test order (predict → falsify → update status); require `ruled_out_reason` when ruled out
-8. Run 5 Whys on **confirmed** root causes — evidence at every layer
-9. Score the full candidate list with FMEA (use `scripts/diagnose/fmea_score.py`)
-10. Run barrier analysis and change analysis (git history, deploy logs)
-11. Build causal factor timeline
-12. Synthesize findings and hand off to architect for solution design
+3. Phase 1: problem spec sidecar + first-principles invariants
+4. Phase 2: evidence checklist + barrier draft if profile requires
+5. Phase 3: MECE sidecar, **≥10** hypotheses (`scripts/diagnose/hypothesis_register.py`), exploratory 5 Whys chains (≥3 linked layers)
+6. Phase 4: eliminate **every** register entry; finalize 5 Whys on **confirmed** IDs with `why_question` linked to parent `because`; FMEA via `scripts/diagnose/fmea_score.py`
+7. Phase 5+: solutions only for confirmed causes; cite `hypothesis_id` and `chain-id`
 
-**Output:** Write to `.codex/forge-codex/memory/investigator.md`
+**Output:** Narrative support in `.codex/forge-codex/memory/investigator.md` — **do not** substitute memory for sidecars on gated methods.
 
 ## Diagnose Phase: IN_PROGRESS [timestamp]
 
@@ -51,15 +58,20 @@ Lead all 7 phases of the diagnose skill. Own five-why, Kepner-Tregoe IS/IS-NOT, 
 | When | [timing] | [not then] |
 | Extent | [scope] | [not this much] |
 
-#### Five-Why Analysis
-Why 1: [observation]
+#### Five-Why Analysis (mirror `.diagnose-five-whys.json`)
+
+Why 1: [because — mechanism, not symptom]
+  → Why question: Why did [layer 1 because] happen?
   → Evidence: [file:line, test result, or metric]
   → Verdict: Confirmed
 
-Why 2: [deeper cause]
+Why 2: [deeper because — must follow from Why 1]
+  → Why question: [references Why 2 parent because]
   → Evidence: [specific backing]
   → Verdict: Confirmed
   ...
+
+**Root cause:** [actionable] | **but_for:** [counterfactual]
 
 #### FMEA Score
 | Factor | Score | Justification |

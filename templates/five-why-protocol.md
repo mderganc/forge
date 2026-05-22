@@ -95,3 +95,42 @@ If `superpowers:systematic-debugging` is available (bugfix tasks):
 If `superpowers:brainstorming` is available (feature tasks):
 - Invoke it to explore requirements with the user during Why 1-2
 - The five-why deepening happens within the brainstorming dialogue
+
+## Diagnose RCA (mandatory for `forge:diagnose`)
+
+Sidecar: `.diagnose-five-whys.json` beside diagnose state. Playbook: `templates/diagnose-execution-playbooks.md` § Five Whys.
+
+### Causal linkage (non-negotiable)
+
+Each layer answers **why the previous `because` occurred** — not a new topic.
+
+- **Question formula:** `Why did [specific mechanism from layer N because] happen?`
+- Layer N+1 `why_question` must reference the parent `because` (shared subject/mechanism terms).
+- **Forbidden:** meta questions (“why is this important?”), blame, unrelated subsystems, symptom re-labeling.
+
+### Stop checklist (validated early stop)
+
+Stop only when the bottom `because` / `root_cause` is:
+
+1. **Actionable** — a person can change code, config, process, or test.
+2. **Specific** — file:line, migration id, config key, or named process step.
+3. **But-for** — if this cause were absent, the failure would not occur (`but_for` field required).
+4. **Not symptom-level** — not “server crashed”, “API returned 500”, “test failed”.
+
+Record `stop_reason`: `actionable_process_gap` | `defect` | `config` | `data` | `dependency` | `infrastructure` | `design`.
+
+Minimum **3** linked layers per chain unless stop checklist passes with evidence at layer 2 (rare).
+
+### Phase timing
+
+| Phase | Action |
+|-------|--------|
+| **3 Decompose** | Draft 1–2 chains on **leading** register branches (exploratory). |
+| **4 Analyze** | **Finalize** chains only for `confirmed` hypothesis IDs; extend until stop checklist passes. |
+| **5+** | Orchestrator gates validate sidecar before solutions. |
+
+### Good vs lazy chain
+
+**Good:** Why 1 because → Why 2 explains that mechanism → Why 3 explains deeper mechanism → root = missing migration update.
+
+**Lazy (reject):** Why 1 API 500 → Why 2 users unhappy → Why 3 business impact → Why 4 management pressure (topic drift).

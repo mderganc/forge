@@ -132,14 +132,29 @@ The recommendation sidecar persists at `<state-dir>/.test-recommendation-step2.j
 
 The scenario-index update at `<scenarios_dir>/README.md` is parser-gated; on parse failure, report step aborts and leaves file unchanged. Backup written to `.codex/forge-codex/memory/scenario-index.bak` before any rewrite.
 
-### Diagnose — Hypothesis register
+### Diagnose — Methodology sidecars and gates
 
-- **Sidecar:** `<state-dir>/.diagnose-hypotheses.json` beside diagnose `state.json` (under `.codex/forge-codex/state/`).
-- **Phase 3:** Create ≥10 falsifiable root-cause hypotheses (`status: open`); span ≥4 fishbone categories; persist before step 4.
-- **Phase 4:** Eliminate all entries; update statuses and `ruled_out_reason`; persist before step 5.
-- **Gates:** Step 4 validates register count/quality; step 5 requires ≥1 `confirmed`. Failures inject a **HYPOTHESIS REGISTER GATE** and pause for user confirmation (no `sys.exit`). One automatic retry to step 3 (register) or step 4 (elimination) per gate type.
-- **Override:** If the user approves proceeding under minimum after retry, set `state.custom["hypothesis_override_reason"]` (non-empty).
-- **Resume:** Resuming diagnose at step ≥4 without a register triggers the gate — backfill via step 3.
+**Graphify note:** Only `scripts/diagnose/hypothesis_register.py` was historically wired into `orchestrate.py` (community 93). `prompts/diagnose/technique_catalog.md` (community 153) linked to the report phase but not decompose/analyze — execution playbooks and validators close that gap.
+
+**Playbooks:** `templates/diagnose-execution-playbooks.md` — operational when/phase/artifact rules for all 20 catalog techniques.
+
+**Sidecars** (beside diagnose `state.json` under `.codex/forge-codex/state/`):
+
+| File | Phase | Gate steps |
+|------|-------|------------|
+| `.diagnose-problem-spec.json` | 1 | 2 advisory, 4+ |
+| `.diagnose-first-principles.json` | 1–4 | 4 quartet |
+| `.diagnose-hypotheses.json` | 3–5 | 4 register, 5 elimination |
+| `.diagnose-mece-tree.json` | 3 | 4 quartet |
+| `.diagnose-five-whys.json` | 3 draft, 4 finalize | 5, 7 |
+| `.diagnose-technique-coverage.json` | 1 draft → 7 final | 5 routed, 7 all 20 |
+| `.diagnose-barriers.json` | 2–7 | 7 when high-severity profile |
+
+- **Hypothesis register:** ≥10 falsifiable root-cause hypotheses (`status: open`); ≥4 fishbone categories; Phase 4 eliminates all; ≥1 `confirmed` before step 5.
+- **5 Whys:** Follow `templates/five-why-protocol.md` § Diagnose RCA — causal linkage between layers; stop checklist + `but_for`.
+- **Gates:** Combined **DIAGNOSE ARTIFACT GATE** at steps 5 and 7 (single pause/retry). Step 4: register then quartet (first-principles + MECE). One retry per gate type; `require_confirmation` on failure.
+- **Overrides:** `hypothesis_override_reason`, `five_whys_override_reason`, `technique_coverage_override_reason`, `quartet_override_reason`, `problem_spec_override_reason`, `barriers_override_reason` — high-severity mandatory techniques cannot be skipped at step 7.
+- **Resume:** `scripts/shared/resume.py` warns on missing sidecars when resuming diagnose at step ≥4.
 
 ## graphify
 

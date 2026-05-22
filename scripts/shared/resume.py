@@ -369,14 +369,30 @@ def render_single_session(session: dict) -> str:
     lines.extend(ctx_lines)
 
     if skill == "diagnose" and current >= 4:
-        reg_file = Path(session["path"]).parent / ".diagnose-hypotheses.json"
-        if not reg_file.exists():
+        state_dir = Path(session["path"]).parent
+        sidecars = [
+            (".diagnose-hypotheses.json", "Phase 3 — hypothesis register"),
+            (".diagnose-mece-tree.json", "Phase 3 — MECE tree"),
+            (".diagnose-first-principles.json", "Phase 1–2 — first-principles"),
+            (".diagnose-five-whys.json", "Phase 3–4 — five-whys chains"),
+            (".diagnose-technique-coverage.json", "coverage matrix (20 techniques)"),
+        ]
+        missing = [
+            f"`{name}` ({hint})"
+            for name, hint in sidecars
+            if not (state_dir / name).exists()
+        ]
+        if missing:
             lines.extend([
                 "",
-                "**Diagnose note:** No `.diagnose-hypotheses.json` beside state — "
-                "run **Phase 3** (step 3) to create the hypothesis register before "
-                "analysis or solution phases.",
+                "**Diagnose note:** Missing sidecar(s) beside state:",
+                "",
             ])
+            for m in missing:
+                lines.append(f"- {m}")
+            lines.append(
+                "Backfill via the listed phases before analysis (step 4) or solutions (step 5)."
+            )
 
     conflict = bool(snap and resume_context.snapshot_memory_conflict(session, snap))
     conf = resume_context.continuation_confidence(session, snap, mem_summary)

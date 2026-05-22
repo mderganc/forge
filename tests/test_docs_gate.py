@@ -98,6 +98,29 @@ def test_diagnose_report_prompt_lists_technique_matrix():
     assert "technique_catalog.md" in text
 
 
+@pytest.mark.parametrize(
+    "rel",
+    [
+        "define.md",
+        "decompose.md",
+        "analyze.md",
+        "solutions.md",
+        "report.md",
+        "technique_catalog.md",
+    ],
+)
+def test_packaged_diagnose_prompts_match_repo(rel):
+    src = REPO_ROOT / "prompts" / "diagnose" / rel
+    packaged = REPO_ROOT / "forge_next" / "assets" / "prompts" / "diagnose" / rel
+    assert src.read_text(encoding="utf-8") == packaged.read_text(encoding="utf-8")
+
+
+def test_packaged_diagnose_playbooks_match_repo():
+    src = REPO_ROOT / "templates" / "diagnose-execution-playbooks.md"
+    packaged = REPO_ROOT / "forge_next" / "assets" / "templates" / "diagnose-execution-playbooks.md"
+    assert src.read_text(encoding="utf-8") == packaged.read_text(encoding="utf-8")
+
+
 def test_orchestrator_max_steps_match_plan_implement_diagnose():
     from scripts.plan.plan import MAX_STEP as PLAN_MAX
     from scripts.implement.implement import MAX_STEP as IMPL_MAX

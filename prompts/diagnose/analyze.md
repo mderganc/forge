@@ -1,9 +1,17 @@
 # Phase 4: Analyze & Rank Causes
 
 {{HYPOTHESIS_GATE}}
+{{QUARTET_GATE}}
+
+Read `templates/diagnose-execution-playbooks.md` § Hypothesis-driven, FMEA, Pareto, Bayesian, but-for.
 
 ## Register status
 {{HYPOTHESIS_REGISTER_SUMMARY}}
+
+## Quartet sidecars
+- First-principles: {{FIRST_PRINCIPLES_SUMMARY}}
+- MECE tree: {{MECE_SUMMARY}}
+- Five Whys (finalize on confirmed): {{FIVE_WHYS_SUMMARY}}
 
 (Minimum **{{HYPOTHESIS_MIN}}** hypotheses required at register creation.)
 
@@ -24,8 +32,12 @@ For **each** hypothesis:
 
 **Persist `.diagnose-hypotheses.json` before advancing to step 5.**
 
+## Finalize 5 Whys (confirmed only)
+
+Extend `.diagnose-five-whys.json` chains linked to **`confirmed`** hypothesis IDs until `templates/five-why-protocol.md` stop checklist passes (`root_cause`, `but_for`, `stop_reason`).
+
 ## FMEA Scoring
-Use: python3 {{SCRIPT_DIR}}/fmea_score.py on the **full** candidate list (all register entries).
+Use: `python3 {{SCRIPT_DIR}}/fmea_score.py` on the **full** candidate list (all register entries). Record output path in technique coverage matrix for **FMEA**.
 
 | Cause | Severity (S) | Occurrence (O) | Detection (D) | RPN |
 |-------|-------------|----------------|---------------|-----|
@@ -43,7 +55,7 @@ Use `templates/data-analysis.md` techniques:
 - Log pattern analysis if logs are available: `python3 {{SCRIPT_DIR}}/log_analyzer.py --file <logfile>`
 
 ## Pareto
-Which 20% of causes explain 80% of symptoms? (After full elimination, not instead of it.)
+Ranked list with **counts or metrics** — cite in coverage row for **Pareto Analysis**.
 
 ## Hypothesis ranking tied to principles
 
@@ -53,7 +65,9 @@ For each surviving hypothesis, state:
 
 ## Technique Coverage Matrix (update)
 
-Extend the matrix from Phase 1 — mark techniques **applied** here with evidence links; **skipped** with cost/benefit; **deferred** with trigger for when to revisit.
+Update `.diagnose-technique-coverage.json` — all 20 rows; **applied** requires `evidence_pointer`.
+
+Summary: {{TECHNIQUE_COVERAGE_SUMMARY}}
 
 See `prompts/diagnose/technique_catalog.md` for the full list of 20 + routing rules.
 

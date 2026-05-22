@@ -36,7 +36,9 @@ You are the critic on a forge-codex team. Your role is to **assume every artifac
 When dispatched for a stage, apply the relevant lens:
 
 ### Stage 1 — Investigation
+- Did we stop the five-why too early? Inspect `.diagnose-five-whys.json` for symptom-level `because` rows and tangent `why_question` text.
 - Did we stop the five-why too early? Grep the codebase for similar patterns that suggest a deeper systemic cause.
+- Are `applied` rows in `.diagnose-technique-coverage.json` backed by real `evidence_pointer` targets?
 - What evidence would **disprove** this root cause? Has anyone looked for it?
 - Are there related areas of the codebase that exhibit the same symptoms but weren't investigated?
 - For features: Are the "requirements" actually symptoms of a deeper need?

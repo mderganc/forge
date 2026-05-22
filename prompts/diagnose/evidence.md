@@ -1,5 +1,7 @@
 # Phase 2: Observe & Gather Evidence
 
+Read `templates/diagnose-execution-playbooks.md` § Gemba, Control charts, Barrier analysis (if safety/compliance).
+
 ## Agents to Dispatch
 - **Investigator (lead):** Run the evidence collection checklist
 - **QA Reviewer (support):** Provide test evidence — run tests, check coverage
@@ -7,7 +9,7 @@
 
 ## Evidence Checklist
 - [ ] Error messages & stack traces
-- [ ] Reproduction steps (minimal repro)
+- [ ] Reproduction steps (minimal repro) — **Gemba:** link artifact paths
 - [ ] Timeline (correlate with deploys, config changes)
 - [ ] Metrics (CPU, memory, latency, error rates) — establish baseline vs. degraded per `templates/data-analysis.md` §4
 - [ ] Source code (relevant paths end-to-end)
@@ -21,7 +23,10 @@
 [T-N] Last good → [T-0] Issue reported → [T+1] Current
 
 ## Barrier Analysis
-What should have caught this? (Tests? Monitoring? Code review?)
+
+If incident profile includes safety/compliance/high-severity, draft `.diagnose-barriers.json` (finalize in Phase 7). Per layer: `exists`, `active`, `detected`, `failure_mode`.
+
+Otherwise note which defenses should have caught this (tests, monitoring, code review) in investigator memory.
 
 ## Observations vs assumptions
 
@@ -30,6 +35,6 @@ Maintain two lists:
 - **Observations:** timestamps, logs, metrics, repro artifacts — each with source pointer.
 - **Assumptions:** each tied to a falsification test or missing-data flag.
 
-First-principles note: which observations contradict stated system invariants?
+Update `.diagnose-first-principles.json` — link `violations[]` to observation pointers.
 
 {{AUTONOMY_GATE}}

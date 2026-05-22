@@ -1,5 +1,7 @@
 # Phase 3: Decompose — MECE Cause Tree
 
+Read `templates/diagnose-execution-playbooks.md` § MECE, Fishbone, Five Whys, Fault Tree (if routed).
+
 ## Agents to Dispatch
 - **Investigator (lead):** Build MECE cause tree, Software Fishbone, 5 Whys, hypothesis register
 - **Architect (support):** Structural decomposition of architecture
@@ -20,12 +22,26 @@ Before narrowing or eliminating candidates, build the **hypothesis register**:
 
 **Persist the file before invoking step 4.** Phase 4 will gate on register validity.
 
+## MECE issue tree sidecar (mandatory)
+
+Write `.diagnose-mece-tree.json` with `nodes[]`: `id`, `parent_id`, `label`, `category`, `hypothesis_ids[]`, `mutual_exclusion_note` (required when siblings share category).
+
+Summary: {{MECE_SUMMARY}}
+
 ## Logic Tree
 For each promising branch, build testable sub-hypotheses linked to register entries.
 Stop decomposing when a branch is directly actionable.
 
-## 5 Whys
-For each leading branch, drill down to root cause.
+## 5 Whys (exploratory draft)
+
+Follow `templates/five-why-protocol.md` § Diagnose RCA.
+
+1. Draft **1–2 chains** on **leading** register branches (not yet confirmed).
+2. Minimum **3** linked layers per chain unless stop checklist passes early.
+3. Each layer: `because`, `why_question` (must reference parent `because`), `evidence`, `verdict`.
+4. Persist `.diagnose-five-whys.json` beside state — update in Phase 4 for **confirmed** IDs only.
+
+Summary: {{FIVE_WHYS_SUMMARY}}
 
 ## Mandatory core quartet progress
 
@@ -35,4 +51,6 @@ This phase must materially advance the **MECE issue tree** and **5 Whys** on lea
 
 For each major branch / register entry, note which **invariant** would be violated if that branch were the true root cause.
 
-Write full MECE tree to `.codex/forge-codex/memory/investigator.md`
+Update `.diagnose-technique-coverage.json` rows for techniques applied in this phase (`evidence_pointer` required when `applied`).
+
+Write supporting narrative to `.codex/forge-codex/memory/investigator.md` (sidecars are gated artifacts).

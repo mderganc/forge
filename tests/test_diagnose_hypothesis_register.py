@@ -129,10 +129,8 @@ class TestFormatGateBlock:
 
 class TestOrchestratorGate:
     def test_step4_gate_short_register_retries_step3(self, tmp_path):
-        from scripts.diagnose.orchestrate import (
-            _check_register_gate,
-            PHASE_NAMES,
-        )
+        from scripts.diagnose import diagnose_gates
+        from scripts.diagnose.orchestrate import PHASE_NAMES
         from scripts.shared.orchestrator import SkillState, format_step_output
 
         state_dir = tmp_path / "state"
@@ -154,11 +152,12 @@ class TestOrchestratorGate:
         }
         register_path(state_dir).write_text(json.dumps(reg), encoding="utf-8")
 
-        result = _check_register_gate(state, state_file, 4)
+        diagnose_gates.PHASE_NAMES = PHASE_NAMES
+        result = diagnose_gates.check_register_gate(state, state_file, 4)
         assert result.passed is False
         assert result.next_step_override == 3
         assert result.require_confirmation is True
-        assert "HYPOTHESIS REGISTER GATE" in result.gate_body
+        assert "DIAGNOSE ARTIFACT GATE" in result.gate_body
 
         output = format_step_output(
             "diagnose",
@@ -173,7 +172,8 @@ class TestOrchestratorGate:
         assert state.custom["hypothesis_regen_attempts"] == 1
 
     def test_step4_gate_exhausted_retry_no_step3_redirect(self, tmp_path):
-        from scripts.diagnose.orchestrate import _check_register_gate
+        from scripts.diagnose import diagnose_gates
+        from scripts.diagnose.orchestrate import PHASE_NAMES
         from scripts.shared.orchestrator import SkillState
 
         state_dir = tmp_path / "state"
@@ -191,14 +191,16 @@ class TestOrchestratorGate:
         }
         register_path(state_dir).write_text(json.dumps(reg), encoding="utf-8")
 
-        result = _check_register_gate(state, state_file, 4)
+        diagnose_gates.PHASE_NAMES = PHASE_NAMES
+        result = diagnose_gates.check_register_gate(state, state_file, 4)
         assert result.passed is False
         assert result.next_step_override is None
         assert "hypothesis_override_reason" in result.gate_body
         assert state.custom["hypothesis_regen_attempts"] == 1
 
     def test_step4_gate_skipped_when_override_reason_set(self, tmp_path):
-        from scripts.diagnose.orchestrate import _check_register_gate
+        from scripts.diagnose import diagnose_gates
+        from scripts.diagnose.orchestrate import PHASE_NAMES
         from scripts.shared.orchestrator import SkillState
 
         state_dir = tmp_path / "state"
@@ -207,6 +209,7 @@ class TestOrchestratorGate:
         state = SkillState(skill_name="diagnose")
         state.custom["hypothesis_override_reason"] = "User approved short register for smoke test"
 
-        result = _check_register_gate(state, state_file, 4)
+        diagnose_gates.PHASE_NAMES = PHASE_NAMES
+        result = diagnose_gates.check_register_gate(state, state_file, 4)
         assert result.passed is True
         assert result.gate_body == ""

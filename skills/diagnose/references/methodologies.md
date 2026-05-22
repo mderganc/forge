@@ -14,6 +14,8 @@ status: "active"
 >
 > **Scope**: In — methodology descriptions, software-specific adaptations, when to use each. Out — general project management, non-diagnostic frameworks.
 >
+> **Operational execution:** [`templates/diagnose-execution-playbooks.md`](../../../templates/diagnose-execution-playbooks.md) — phase, minimum artifact, and gate requirements for `forge:diagnose`.
+>
 > **Assumptions**: Reader is an AI agent with access to code, git, and shell tools.
 
 ## 1. Kepner-Tregoe Problem Analysis

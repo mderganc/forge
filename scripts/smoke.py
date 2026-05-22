@@ -20,6 +20,11 @@ from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent
 
+if str(REPO) not in sys.path:
+    sys.path.insert(0, str(REPO))
+
+from scripts.diagnose.technique_coverage import catalog_technique_names  # noqa: E402
+
 SCRIPTS = {
     "plan":        REPO / "scripts/plan/plan.py",
     "develop":     REPO / "scripts/develop/develop.py",
@@ -78,6 +83,133 @@ def assert_contains(haystack, needle, msg, fails):
         return
     print(f"  {FAIL} {msg}: {needle!r} not found")
     fails[0] += 1
+
+
+def _diagnose_state_paths():
+    return [
+        REPO / ".codex/forge-codex/state/diagnose.json",
+        REPO / ".codex/forge/state/diagnose.json",
+        REPO / ".forge/state/diagnose.json",
+    ]
+
+
+def _find_diagnose_state():
+    return next((p for p in _diagnose_state_paths() if p.exists()), None)
+
+
+_FISHBONE = [
+    "CODE", "CONFIG", "DATA", "INFRASTRUCTURE", "DEPENDENCIES", "ENVIRONMENT",
+]
+
+
+def _smoke_hypothesis_entry(i: int, category: str, status: str = "open") -> dict:
+    return {
+        "id": f"H{i:02d}",
+        "statement": f"Smoke gate candidate {i} in {category} path for validation",
+        "category": category,
+        "invariant_violated": "service healthy",
+        "predictions": ["observable failure"],
+        "falsification_test": "reproduce in staging",
+        "status": status,
+        "evidence": "",
+        "ruled_out_reason": "ruled out for smoke" if status == "ruled_out" else "",
+    }
+
+
+def _write_smoke_hypothesis_register(state_dir: Path, *, eliminated: bool = False) -> None:
+    hyps = [
+        _smoke_hypothesis_entry(i + 1, _FISHBONE[i % len(_FISHBONE)])
+        for i in range(10)
+    ]
+    if eliminated:
+        for h in hyps:
+            h["status"] = "ruled_out"
+            h["ruled_out_reason"] = "not the cause"
+        hyps[0]["status"] = "confirmed"
+        hyps[0]["ruled_out_reason"] = ""
+    reg = {"min_required": 10, "hypotheses": hyps}
+    (state_dir / ".diagnose-hypotheses.json").write_text(
+        json.dumps(reg), encoding="utf-8"
+    )
+
+
+def _write_smoke_five_whys_bad(state_dir: Path) -> None:
+    """Five-whys chain with disconnected causal linkage (fails validate_chains)."""
+    data = {
+        "version": 1,
+        "symptom": "API returns 500 on login",
+        "chains": [
+            {
+                "id": "chain-1",
+                "hypothesis_id": "H01",
+                "layers": [
+                    {
+                        "level": 1,
+                        "because": "Login handler throws when user record is missing",
+                        "why_question": "Why is the user record missing in the login handler?",
+                        "evidence": "auth.py:47",
+                        "verdict": "confirmed",
+                    },
+                    {
+                        "level": 2,
+                        "because": "Query uses email column but form sends username",
+                        "why_question": "Why is the weather bad today?",
+                        "evidence": "diff",
+                        "verdict": "confirmed",
+                    },
+                    {
+                        "level": 3,
+                        "because": "Migration renamed column without updating login SQL",
+                        "why_question": "Why does the login query use the email column?",
+                        "evidence": "git log",
+                        "verdict": "confirmed",
+                    },
+                ],
+                "root_cause": "Migration gap",
+                "stop_reason": "defect",
+                "but_for": "Without migration gap, login would succeed",
+            }
+        ],
+    }
+    (state_dir / ".diagnose-five-whys.json").write_text(
+        json.dumps(data), encoding="utf-8"
+    )
+
+
+def _write_smoke_coverage_matrix(state_dir: Path, *, complete: bool = True) -> None:
+    if complete:
+        rows = []
+        for i, name in enumerate(catalog_technique_names(), start=1):
+            row = {
+                "id": i,
+                "name": name,
+                "status": "skipped",
+                "rationale": f"Not required for smoke gate ({name})",
+            }
+            if name == "5 Whys":
+                row["status"] = "applied"
+                row["evidence_pointer"] = ".diagnose-five-whys.json#chain-1"
+                row["rationale"] = ""
+            rows.append(row)
+        data = {
+            "version": 1,
+            "incident_profile": ["simple"],
+            "routing_preferred": ["5 Whys"],
+            "techniques": rows,
+        }
+    else:
+        data = {
+            "version": 1,
+            "incident_profile": ["simple"],
+            "routing_preferred": [],
+            "techniques": [
+                {"id": 1, "name": "5 Whys", "status": "skipped", "rationale": "incomplete smoke"},
+                {"id": 2, "name": "Fishbone / Ishikawa", "status": "skipped", "rationale": "incomplete smoke"},
+            ],
+        }
+    (state_dir / ".diagnose-technique-coverage.json").write_text(
+        json.dumps(data), encoding="utf-8"
+    )
 
 
 def smoke_skill(name, script):
@@ -198,7 +330,7 @@ def smoke_evaluate():
 
 def smoke_diagnose_hypothesis_gate():
     """Step 4 gate fires when register has fewer than 10 hypotheses."""
-    print("\n=== diagnose hypothesis gate ===")
+    print("\n=== diagnose hypothesis gate (step 4) ===")
     cleanup_repo()
     fails = [0]
 
@@ -207,32 +339,16 @@ def smoke_diagnose_hypothesis_gate():
     if r.returncode != 0:
         return fails[0]
 
-    paths = [
-        REPO / ".codex/forge-codex/state/diagnose.json",
-        REPO / ".codex/forge/state/diagnose.json",
-        REPO / ".forge/state/diagnose.json",
-    ]
-    state_path = next((p for p in paths if p.exists()), None)
+    state_path = _find_diagnose_state()
     if state_path is None:
         print(f"  {FAIL} no diagnose state file")
         return fails[0] + 1
 
     state_dir = state_path.parent
-    reg = {
-        "min_required": 10,
-        "hypotheses": [
-            {
-                "id": f"H{i:02d}",
-                "statement": f"Root cause candidate {i} for smoke gate test",
-                "category": cat,
-                "status": "open",
-            }
-            for i, cat in enumerate(
-                ["CODE", "CONFIG", "DATA", "INFRASTRUCTURE", "DEPENDENCIES", "ENVIRONMENT", "CODE"],
-                start=1,
-            )
-        ],
-    }
+    _write_smoke_hypothesis_register(state_dir, eliminated=False)
+    # Only 7 hypotheses — below minimum
+    reg = json.loads((state_dir / ".diagnose-hypotheses.json").read_text(encoding="utf-8"))
+    reg["hypotheses"] = reg["hypotheses"][:7]
     (state_dir / ".diagnose-hypotheses.json").write_text(
         json.dumps(reg), encoding="utf-8"
     )
@@ -240,8 +356,70 @@ def smoke_diagnose_hypothesis_gate():
     r = run([str(SCRIPTS["diagnose"]), "--step", "4", "--state", str(state_path)])
     assert_eq(r.returncode, 0, "diagnose step 4 ran", fails)
     out = r.stdout + r.stderr
-    assert_contains(out, "HYPOTHESIS REGISTER GATE", "gate block present", fails)
+    assert_contains(out, "DIAGNOSE ARTIFACT GATE", "gate block present", fails)
     assert_contains(out, "step 3", "retry step 3 suggested", fails)
+
+    cleanup_repo()
+    return fails[0]
+
+
+def smoke_diagnose_five_whys_gate():
+    """Step 5 bundle gate fires when five-whys chains fail causal linkage."""
+    print("\n=== diagnose five-whys gate (step 5) ===")
+    cleanup_repo()
+    fails = [0]
+
+    r = run([str(SCRIPTS["diagnose"]), "--step", "1"])
+    assert_eq(r.returncode, 0, "diagnose step 1 ran", fails)
+    if r.returncode != 0:
+        return fails[0]
+
+    state_path = _find_diagnose_state()
+    if state_path is None:
+        print(f"  {FAIL} no diagnose state file")
+        return fails[0] + 1
+
+    state_dir = state_path.parent
+    _write_smoke_hypothesis_register(state_dir, eliminated=True)
+    _write_smoke_five_whys_bad(state_dir)
+    _write_smoke_coverage_matrix(state_dir, complete=True)
+
+    r = run([str(SCRIPTS["diagnose"]), "--step", "5", "--state", str(state_path)])
+    assert_eq(r.returncode, 0, "diagnose step 5 ran", fails)
+    out = r.stdout + r.stderr
+    assert_contains(out, "DIAGNOSE ARTIFACT GATE", "gate block present", fails)
+    assert_contains(out, "Five Whys", "five-whys section in gate", fails)
+    assert_contains(out, "step 4", "retry step 4 suggested", fails)
+
+    cleanup_repo()
+    return fails[0]
+
+
+def smoke_diagnose_coverage_gate():
+    """Step 7 closure gate fires when the 20-technique matrix is incomplete."""
+    print("\n=== diagnose coverage gate (step 7) ===")
+    cleanup_repo()
+    fails = [0]
+
+    r = run([str(SCRIPTS["diagnose"]), "--step", "1"])
+    assert_eq(r.returncode, 0, "diagnose step 1 ran", fails)
+    if r.returncode != 0:
+        return fails[0]
+
+    state_path = _find_diagnose_state()
+    if state_path is None:
+        print(f"  {FAIL} no diagnose state file")
+        return fails[0] + 1
+
+    state_dir = state_path.parent
+    _write_smoke_coverage_matrix(state_dir, complete=False)
+
+    r = run([str(SCRIPTS["diagnose"]), "--step", "7", "--state", str(state_path)])
+    assert_eq(r.returncode, 0, "diagnose step 7 ran", fails)
+    out = r.stdout + r.stderr
+    assert_contains(out, "DIAGNOSE ARTIFACT GATE", "gate block present", fails)
+    assert_contains(out, "Technique coverage", "coverage section in gate", fails)
+    assert_contains(out, "20", "mentions 20-technique matrix", fails)
 
     cleanup_repo()
     return fails[0]
@@ -299,6 +477,8 @@ def main():
         total += smoke_skill(name, SCRIPTS[name])
     total += smoke_evaluate()
     total += smoke_diagnose_hypothesis_gate()
+    total += smoke_diagnose_five_whys_gate()
+    total += smoke_diagnose_coverage_gate()
     total += smoke_test_flows_mode()
     cleanup_repo()  # final cleanup
 

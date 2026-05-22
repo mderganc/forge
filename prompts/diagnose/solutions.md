@@ -1,5 +1,7 @@
 # Phase 5: Solution Generation
 
+{{DIAGNOSE_ARTIFACT_GATE}}
+
 ## Agents to Dispatch
 - **Architect (lead):** Generate solutions for each confirmed root cause
 - **Investigator (support):** Provide evidence for solution feasibility
@@ -16,6 +18,8 @@ Before selecting a fix, run a pre-mortem per `templates/pre-mortem.md`:
 Generate solution options **only** for hypotheses with register `status: confirmed`. Do not design fixes for `plausible`, `open`, or `ruled_out` entries unless the user explicitly expands scope.
 
 Register summary: {{HYPOTHESIS_REGISTER_SUMMARY}}
+
+Five Whys: {{FIVE_WHYS_SUMMARY}} — cite `chain-id` and `hypothesis_id` per fix.
 
 ## Solution Types
 For each **confirmed** root cause, generate at least 3:

@@ -569,6 +569,25 @@ def _run_doctor(repo_root: Path, json_output: bool = False) -> None:
         checks["studio_assets"] = "missing"
         warnings.append(f"Forge Studio assets unavailable: {exc}")
 
+    try:
+        from scripts.evaluate.template_engine import validate_workflow_prompts
+
+        missing_prompts = validate_workflow_prompts()
+        checks["workflow_prompts"] = (
+            "ok" if not missing_prompts else f"missing {len(missing_prompts)}"
+        )
+        if missing_prompts:
+            sample = ", ".join(missing_prompts[:8])
+            extra = "" if len(missing_prompts) <= 8 else f" (+{len(missing_prompts) - 8} more)"
+            warnings.append(
+                "Workflow prompt templates unavailable: "
+                f"{sample}{extra}. "
+                "Upgrade forge-next or run scripts/release/sync_prompt_assets.py in a source checkout."
+            )
+    except Exception as exc:
+        checks["workflow_prompts"] = "error"
+        warnings.append(f"Workflow prompt validation failed: {exc}")
+
     old = Path.cwd()
     try:
         os.chdir(repo_root)

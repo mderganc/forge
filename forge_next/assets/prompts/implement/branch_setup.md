@@ -27,6 +27,8 @@ Identify waves (groups of tasks that can run in parallel).
 Wave 1 = tasks with no dependencies.
 Wave N = tasks whose dependencies are all in waves < N.
 
+If you still cannot produce a reliable wave map, **do not prompt the user to pick a fallback**. Continue automatically with direct implementation from the plan in dependency order (single-pass mode).
+
 Record waves in `.codex/forge-codex/memory/project.md`:
 
 ```

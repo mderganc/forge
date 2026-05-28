@@ -222,9 +222,9 @@ def build_parser() -> argparse.ArgumentParser:
     ins.add_argument("--claude-dir", type=str, default=None, help="Override Claude commands install directory")
     ins.add_argument("--codex-dir", type=str, default=None, help="Override Codex skills install directory")
     ins.add_argument(
-        "--structural-tools",
+        "--skip-structural-tools",
         action="store_true",
-        help="Install knip, madge (npm), and pyscn for structural code-review / evaluate probes",
+        help="Skip installing knip, madge (npm), and pyscn (default: install with forge install)",
     )
 
     # structural-tools — knip, madge, pyscn for Pass B quality probes
@@ -439,7 +439,7 @@ def main(argv: list[str] | None = None) -> None:
             install_claude=bool(getattr(args, "claude", False)),
             install_codex=bool(getattr(args, "codex", False)),
             install_all=bool(getattr(args, "all", False)),
-            install_structural_tools=bool(getattr(args, "structural_tools", False)),
+            skip_structural_tools=bool(getattr(args, "skip_structural_tools", False)),
             cursor_dir=getattr(args, "cursor_dir", None),
             claude_dir=getattr(args, "claude_dir", None),
             codex_dir=getattr(args, "codex_dir", None),
@@ -829,7 +829,7 @@ def _run_install(
     install_claude: bool,
     install_codex: bool,
     install_all: bool,
-    install_structural_tools: bool,
+    skip_structural_tools: bool,
     cursor_dir: str | None,
     claude_dir: str | None,
     codex_dir: str | None,
@@ -915,15 +915,23 @@ def _run_install(
     from forge_next.graphify import graphify_availability, graphify_install_notice_lines
     from forge_next.structural_tools import (
         install_structural_tools as run_structural_tools_install,
+        skip_structural_tools as env_skip_structural_tools,
         structural_tools_install_notice_lines,
+        structural_tools_missing_warnings,
     )
 
     graphify_available, graphify_status = graphify_availability()
     structural_result = None
-    if install_structural_tools:
+    structural_skipped = skip_structural_tools or env_skip_structural_tools()
+    if not structural_skipped:
         structural_result = run_structural_tools_install()
         if structural_result.warnings:
             warnings.extend(structural_result.warnings)
+    elif skip_structural_tools:
+        warnings.append(
+            "Structural quality tools install skipped (--skip-structural-tools)."
+        )
+    warnings.extend(structural_tools_missing_warnings())
 
     payload = {
         "command": "install",
@@ -935,11 +943,7 @@ def _run_install(
         "graphify_status": graphify_status,
         "graphify_onboarding": graphify_install_notice_lines(),
         "structural_tools": structural_result.to_dict() if structural_result else None,
-        "structural_tools_onboarding": structural_tools_install_notice_lines(structural_result)
-        if install_structural_tools
-        else [
-            "Optional: forge install --structural-tools (or scripts/install/structural_tools.sh)",
-        ],
+        "structural_tools_onboarding": structural_tools_install_notice_lines(structural_result),
         "error": None,
     }
 
@@ -959,9 +963,8 @@ def _run_install(
             print(f"- {w}")
     for line in graphify_install_notice_lines():
         print(line.rstrip())
-    if install_structural_tools:
-        for line in structural_tools_install_notice_lines(structural_result):
-            print(line.rstrip())
+    for line in structural_tools_install_notice_lines(structural_result):
+        print(line.rstrip())
     print("")
     print("Next steps:")
     print("- Restart your editor/agent environment(s) so new commands are picked up.")
@@ -970,10 +973,10 @@ def _run_install(
         print("- Claude: Graphify hooks merged into ~/.claude/settings.json (re-run: forge claude-graphify)")
     if install_codex:
         print("- Codex: run `forge codex-agents --force` if developer_instructions were not updated")
-    if not install_structural_tools:
+    if structural_skipped:
         print(
-            "- Optional: `forge install --structural-tools` or `scripts/install/structural_tools.sh` "
-            "for knip, madge, and pyscn (code-review / evaluate probes)"
+            "- Structural tools were skipped; re-run `forge install` without --skip-structural-tools "
+            "or use `forge structural-tools install`"
         )
 
 

@@ -2,7 +2,7 @@
 
 Use during **code-review** and **evaluate** Pass B (engineering quality). Pass A (spec/intent) is unchanged.
 
-Install tools once: `forge install --structural-tools` or `forge structural-tools install`. Suppress with `FORGE_SKIP_STRUCTURAL_TOOLS=1`.
+Install tools once: `forge install` (default) or `forge structural-tools install`. Skip with `forge install --skip-structural-tools` or `FORGE_SKIP_STRUCTURAL_TOOLS=1`.
 
 ## When to run
 

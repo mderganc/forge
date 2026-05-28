@@ -8,10 +8,17 @@ With the Forge launcher:
 
 ```bash
 pipx install forge-next
-forge install --structural-tools
+forge install   # installs knip, madge, and pyscn by default; warns if any are missing
 ```
 
-Or standalone:
+Skip during install:
+
+```bash
+forge install --skip-structural-tools
+# or: export FORGE_SKIP_STRUCTURAL_TOOLS=1
+```
+
+Or install / refresh tools only:
 
 ```bash
 forge structural-tools install

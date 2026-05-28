@@ -45,5 +45,5 @@ After upgrading **forge-next**: `pipx upgrade forge-next`, then re-run `forge cl
 
 ### Structural quality probes (optional)
 
-`forge install --structural-tools` installs **knip**, **madge**, and **pyscn** for Pass B review in code-review and evaluate. See [`docs/structural-quality.md`](../docs/structural-quality.md).
+`forge install` installs **knip**, **madge**, and **pyscn** by default for Pass B review in code-review and evaluate (warns on any missing). See [`docs/structural-quality.md`](../docs/structural-quality.md).
 

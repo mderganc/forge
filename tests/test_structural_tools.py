@@ -87,4 +87,12 @@ def test_doctor_checks_without_tools(monkeypatch: pytest.MonkeyPatch) -> None:
     checks = st.doctor_checks()
     assert checks["knip"] is None
     warnings = st.structural_tools_warnings_for_doctor()
-    assert len(warnings) >= 2
+    assert len(warnings) == 3
+    assert any("knip" in w for w in warnings)
+    assert any("madge" in w for w in warnings)
+    assert any("pyscn" in w for w in warnings)
+
+
+def test_missing_warnings_empty_when_skip_env(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("FORGE_SKIP_STRUCTURAL_TOOLS", "1")
+    assert st.structural_tools_missing_warnings() == []

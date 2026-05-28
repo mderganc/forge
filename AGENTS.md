@@ -39,7 +39,7 @@ When the repo has `graphify-out/` or `GRAPH_REPORT.md`, **every orchestrator ste
 
 **Docs:** [`docs/graphify.md`](docs/graphify.md) is the canonical user guide (refresh, hooks, orchestrator banners, CI flags, upgrade path).
 
-**Structural quality (knip / madge / pyscn):** `forge install --structural-tools` or `forge structural-tools install`; shell helpers at `scripts/install/structural_tools.sh` and `.ps1`. Suppress with `FORGE_SKIP_STRUCTURAL_TOOLS=1`. Workflow template: `templates/structural-quality-probes.md`; sidecar `.structural-probes.json`. See [`docs/structural-quality.md`](docs/structural-quality.md).
+**Structural quality (knip / madge / pyscn):** installed by default with `forge install` (warns if any tool missing); `forge structural-tools install` to refresh; skip with `forge install --skip-structural-tools` or `FORGE_SKIP_STRUCTURAL_TOOLS=1`. Shell helpers: `scripts/install/structural_tools.sh` and `.ps1`. Template: `templates/structural-quality-probes.md`; sidecar `.structural-probes.json`. See [`docs/structural-quality.md`](docs/structural-quality.md).
 
 ## Process-first skill choice (Superpowers-style)
 

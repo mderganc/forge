@@ -370,22 +370,33 @@ def doctor_checks() -> dict[str, Any]:
     return checks
 
 
-def structural_tools_warnings_for_doctor() -> list[str]:
-    warnings: list[str] = []
+def structural_tools_missing_warnings() -> list[str]:
+    """Warn for each probe CLI (knip, madge, pyscn) that cannot be resolved."""
     if skip_structural_tools():
-        return warnings
-    checks = doctor_checks()
-    if not checks.get("knip"):
+        return []
+    warnings: list[str] = []
+    reinstall = "`forge install` or `forge structural-tools install`"
+    if not resolve_knip_command():
         warnings.append(
-            "knip not available — run `forge structural-tools install` or `scripts/install/structural_tools.sh`"
+            f"knip not available — re-run {reinstall} (requires Node.js/npm), "
+            "or set FORGE_KNIP_COMMAND"
         )
-    if not checks.get("madge"):
-        warnings.append("madge not available — run `forge structural-tools install`")
-    if not checks.get("pyscn"):
+    if not resolve_madge_command():
         warnings.append(
-            "pyscn not available — run `forge structural-tools install` (pipx/uv) or use `uvx pyscn@latest`"
+            f"madge not available — re-run {reinstall} (requires Node.js/npm), "
+            "or set FORGE_MADGE_COMMAND"
+        )
+    if not resolve_pyscn_command():
+        warnings.append(
+            f"pyscn not available — re-run {reinstall} (pipx/uv), "
+            "or set FORGE_PYSCN_COMMAND / use `uvx pyscn@latest`"
         )
     return warnings
+
+
+def structural_tools_warnings_for_doctor() -> list[str]:
+    """Same as :func:`structural_tools_missing_warnings` (forge doctor)."""
+    return structural_tools_missing_warnings()
 
 
 def structural_tools_install_notice_lines(result: StructuralToolsInstallResult | None = None) -> list[str]:

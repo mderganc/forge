@@ -54,3 +54,7 @@ Pass A issues often block “done”; Pass B issues may be warnings or follow-up
    - For architecture mode: identify the modules/packages to analyze
 
 4. Record the finalized mode and scope, then proceed to team dispatch.
+
+## Structural probes (Pass B)
+
+At team dispatch (step 3), the orchestrator may run **knip / madge / pyscn** and write **`.structural-probes.json`** next to the session state. Follow `templates/structural-quality-probes.md` and cite probe IDs in findings.

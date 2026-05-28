@@ -71,6 +71,10 @@ When dispatched for a stage, apply the relevant lens:
 - What's the most likely production failure from this code?
 - Does the code handle the error paths that the plan assumed would "just work"?
 
+### Structural quality probes (Pass B)
+
+Challenge knip/madge/pyscn output in `.structural-probes.json`: false positives, severity inflation, and “delete” recommendations without behavioral proof. Use `templates/structural-quality-probes.md` lenses 1, 6, and 8.
+
 ### Code Review
 - What's the most likely production failure from this code?
 - What class of bugs could be hiding? (concurrency, race conditions, resource leaks)

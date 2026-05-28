@@ -15,6 +15,8 @@ import re
 import sys
 from pathlib import Path
 
+from forge_next.hooks.subagent_lifecycle import lifecycle_reminder_message
+
 _SESSION_MSG = (
     "graphify: This repo has a knowledge graph. Read graphify-out/GRAPH_REPORT.md before "
     "Grep/Glob/Bash search or bulk reads for architecture questions. After code edits run "
@@ -83,25 +85,37 @@ def handle_session_start(data: dict) -> None:
             pass
 
 
-def handle_pre_tool_use(data: dict) -> None:
-    cwd = _cwd(data)
+def _graphify_pre_tool_message(data: dict, cwd: Path) -> str | None:
     if not _graph_present(cwd):
-        return
+        return None
     tool = str(data.get("tool_name") or data.get("tool") or "").strip()
     ti = _tool_input(data)
     if tool in ("Grep", "Glob"):
-        _emit("PreToolUse", _PRE_TOOL_MSG)
-        return
+        return _PRE_TOOL_MSG
     if tool == "Bash":
         cmd = str(ti.get("command") or "")
         if _BASH_SEARCH.search(cmd):
-            _emit("PreToolUse", _PRE_TOOL_MSG)
-        return
+            return _PRE_TOOL_MSG
+        return None
     if tool == "Read":
         path = str(ti.get("file_path") or ti.get("path") or "")
         if path and "graphify-out" not in path.replace("\\", "/"):
             if any(path.endswith(ext) for ext in (".py", ".ts", ".tsx", ".js", ".go", ".rs", ".java", ".md")):
-                _emit("PreToolUse", _PRE_TOOL_MSG)
+                return _PRE_TOOL_MSG
+    return None
+
+
+def handle_pre_tool_use(data: dict) -> None:
+    cwd = _cwd(data)
+    parts: list[str] = []
+    lifecycle = lifecycle_reminder_message(data)
+    if lifecycle:
+        parts.append(lifecycle)
+    graphify = _graphify_pre_tool_message(data, cwd)
+    if graphify:
+        parts.append(graphify)
+    if parts:
+        _emit("PreToolUse", " ".join(parts))
 
 
 def handle_user_prompt_submit(data: dict) -> None:

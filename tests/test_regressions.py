@@ -1120,14 +1120,21 @@ def test_test_skill_flows_atomic_check_aborts_when_prompt_missing(fresh_state_di
     """Test atomic-delivery feature-check: if a flow prompt is missing, abort (V3)."""
     import subprocess
 
-    # Delete one of the 7 flow prompts
+    # Delete one of the 7 flow prompts (repo + packaged — fallback must not mask missing)
     prompt_path = REPO_ROOT / "prompts" / "test" / "flow_context.md"
+    packaged_path = (
+        REPO_ROOT / "forge_next" / "assets" / "prompts" / "test" / "flow_context.md"
+    )
     assert prompt_path.exists()
     try:
         original = prompt_path.read_text(encoding="utf-8")
     except UnicodeDecodeError:
         original = prompt_path.read_text(encoding="cp1252")
+    packaged_original = None
+    if packaged_path.is_file():
+        packaged_original = packaged_path.read_text(encoding="utf-8")
     prompt_path.unlink()
+    packaged_path.unlink(missing_ok=True)
 
     try:
         result = subprocess.run(
@@ -1144,6 +1151,9 @@ def test_test_skill_flows_atomic_check_aborts_when_prompt_missing(fresh_state_di
     finally:
         # Restore the prompt
         prompt_path.write_text(original, encoding="utf-8")
+        if packaged_original is not None:
+            packaged_path.parent.mkdir(parents=True, exist_ok=True)
+            packaged_path.write_text(packaged_original, encoding="utf-8")
 
 
 def test_test_skill_resume_conflict_aborts_when_mode_differs(fresh_state_dir, monkeypatch):
@@ -2216,12 +2226,13 @@ def test_resume_invocation_hint_prefers_forge_launcher(monkeypatch):
 
 def test_forge_resume_emits_launcher_continuation(fresh_state_dir: Path, monkeypatch):
     """Installed/launcher mode must not tell users to run repo-relative resume.py."""
-    from scripts.shared.orchestrator import runtime_state_dir
+    from scripts.shared.orchestrator import now_iso, runtime_state_dir
 
     (fresh_state_dir / "README.md").write_text("# test repo\n", encoding="utf-8")
     state_dir = runtime_state_dir(fresh_state_dir)
     state_dir.mkdir(parents=True, exist_ok=True)
     st_path = state_dir / "plan.json"
+    ts = now_iso()
     st_path.write_text(
         json.dumps(
             {
@@ -2229,7 +2240,8 @@ def test_forge_resume_emits_launcher_continuation(fresh_state_dir: Path, monkeyp
                 "current_step": 2,
                 "last_completed_step": 2,
                 "max_step": 7,
-                "started_at": "2026-05-22T12:00:00+00:00",
+                "started_at": ts,
+                "last_touched_at": ts,
                 "completed_at": None,
                 "failure_count": 0,
                 "custom": {},

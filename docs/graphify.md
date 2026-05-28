@@ -120,7 +120,7 @@ Events:
 | Event | When |
 |-------|------|
 | **SessionStart** | Remind if `graphify-out/` exists; spawn **`forge graphify refresh`** in the background when metadata is stale |
-| **PreToolUse** | **Grep**, **Glob**, **Read**, search-like **Bash** |
+| **PreToolUse** | All tools — sub-agent lifecycle reminder; **Grep**, **Glob**, **Read**, search-like **Bash** also get Graphify context when `graphify-out/` exists |
 | **UserPromptSubmit** | Prompt mentions `forge:` / `$forge:` |
 
 Each workflow slash command includes **Hard rule — Graphify** in its body.
@@ -163,11 +163,18 @@ Details: [`integrations/codex/README.md`](../integrations/codex/README.md), [REA
 
 ## 6. Cursor
 
-Cursor has no global hook installer in Forge. Enforcement comes from:
+Cursor enforcement comes from:
 
 - **GRAPHIFY** blocks in every `forge … --step` output
 - **Hard rule — Graphify** in each `/forge:*` command under `integrations/cursor-plugin/commands/`
 - Repo rule **`.cursor/rules/graphify.mdc`** when you add it to the project
+- **Sub-agent lifecycle hooks** (optional per repo):
+
+```bash
+forge cursor-subagent-hooks    # writes .cursor/hooks.json in cwd
+```
+
+`preToolUse` reminds the agent to close unused Task sub-agents before every tool call; `subagentStart`/`subagentStop` track completed background agents in `.cursor/forge-subagent-lifecycle.json`. Suppress with `FORGE_SKIP_SUBAGENT_LIFECYCLE=1`.
 
 ```bash
 forge install --cursor

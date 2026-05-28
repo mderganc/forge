@@ -401,6 +401,22 @@ def handle_step_n(step: int, state_file: str | None = None) -> None:
     variables = _build_variables(state)
     body = render_template(template, variables)
 
+    if step == 3:
+        from scripts.shared.structural_probes import inject_structural_probes_section
+
+        scope = state.custom.get("target_tokens") or []
+        body, sidecar, _payload = inject_structural_probes_section(
+            body,
+            skill_name=SKILL_NAME,
+            step=step,
+            repo_root=REPO_ROOT,
+            state_dir=sp.parent,
+            scope_paths=scope if scope else None,
+            quick_mode=state.quick_mode,
+        )
+        if sidecar:
+            state.custom["structural_probes_sidecar"] = str(sidecar)
+
     state.current_step = step
     save_state(state, sp)
 

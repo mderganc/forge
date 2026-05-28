@@ -36,6 +36,7 @@ class EvalState:
     findings_tracker: FindingsTracker = field(default_factory=FindingsTracker)
     review_round: int = 0
     review_findings: list[dict] = field(default_factory=list)
+    custom: dict = field(default_factory=dict)
     failure_count: int = 0
     last_touched_at: str | None = None
     session_id: str = field(default_factory=lambda: str(uuid4()))
@@ -66,6 +67,7 @@ class EvalState:
             "findings": self.findings_tracker.to_list(),
             "review_round": self.review_round,
             "review_findings": self.review_findings,
+            "custom": self.custom,
             "failure_count": self.failure_count,
             "last_touched_at": self.last_touched_at,
             "session_id": self.session_id,
@@ -155,6 +157,7 @@ def load_state(path: Path = DEFAULT_STATE_PATH) -> EvalState:
     state.findings_tracker = FindingsTracker.from_list(data.get("findings", []))
     state.review_round = data.get("review_round", 0)
     state.review_findings = data.get("review_findings", [])
+    state.custom = data.get("custom", {})
     state.failure_count = data.get("failure_count", 0)
     state.last_touched_at = data.get("last_touched_at")
     state.session_id = data.get("session_id", state.session_id)

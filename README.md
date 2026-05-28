@@ -69,6 +69,16 @@ pipx install forge-next
 forge install
 ```
 
+Optional structural probes for code-review / evaluate (knip, madge, pyscn):
+
+```bash
+forge install --structural-tools
+# or: forge structural-tools install
+# or: scripts/install/structural_tools.sh  (source checkout)
+```
+
+See [`docs/structural-quality.md`](docs/structural-quality.md).
+
 Or only what you use:
 
 ```bash

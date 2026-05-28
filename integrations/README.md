@@ -43,3 +43,7 @@ When a repo has `graphify-out/`, Forge enforces Graphify during workflow skills:
 
 After upgrading **forge-next**: `pipx upgrade forge-next`, then re-run `forge claude-graphify` and `forge codex-agents --force`.
 
+### Structural quality probes (optional)
+
+`forge install --structural-tools` installs **knip**, **madge**, and **pyscn** for Pass B review in code-review and evaluate. See [`docs/structural-quality.md`](../docs/structural-quality.md).
+

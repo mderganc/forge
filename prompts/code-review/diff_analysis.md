@@ -16,6 +16,10 @@ Dispatch all reviewers to analyze the PR diff in parallel.
 
 ## Instructions
 
+### 0. Structural probes (Pass B)
+
+If a **STRUCTURAL PROBES** banner and `.structural-probes.json` are present, read them first per `templates/structural-quality-probes.md`. Scope knip/madge to changed packages when possible; use diff paths as `scope`.
+
 ### 1. Fetch the Diff
 
 - If target is a PR number: `gh pr diff {{TARGET}}`

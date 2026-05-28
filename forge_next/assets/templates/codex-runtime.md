@@ -67,3 +67,12 @@ reading files, editing code, tracking progress, or asking the user questions.
 - Prefer concrete Codex tool names in instructions when ambiguity would hurt.
 - If a workflow boundary requires user approval, pause and ask directly instead
   of inventing a structured UI dependency.
+
+## Session opt-in
+
+- Step **1** prompt output may include **SESSION OPT-IN — Forge structured workflows**. Complete the user’s choice **before** mirroring the **Create Phase Todos** JSON below that block.
+- In CI or headless automation, set **`FORGE_SKIP_SESSION_OPTIN=1`** to omit that banner.
+
+## Announcing the active step (optional)
+
+- At the start of executing a forge skill step, you may emit **one line**: which **`$forge:…`** skill and **`--step N`** you are following (Superpowers-style “announce the skill”). Keeps transcripts auditable without extra tools.

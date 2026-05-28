@@ -1,1 +1,1 @@
-"""Bundled hook entrypoints for Claude Code (cross-platform)."""
+"""Bundled hook entrypoints for Claude Code and Cursor (cross-platform)."""

@@ -100,6 +100,8 @@ Evidence gathering during investigation. Explore the codebase, run tests, collec
 
 Deep-dive on critical findings flagged by other reviewers. Trace code paths end-to-end.
 
+When `.structural-probes.json` exists, trace call chains for cycle and dead-code probe hits; cite probe IDs and file:line in evidence reports.
+
 **Process:**
 1. Read findings from other reviewers (qa-reviewer.md, security-reviewer.md, critic.md)
 2. For flagged items, trace the full code path from entry to exit

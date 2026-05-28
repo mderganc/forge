@@ -69,6 +69,8 @@ Key-value pairs specific to what the next skill needs. Content varies by skill.
 - **Unresolved findings:** [count and severity]
 - **Merge status:** [all sub-branches merged | partial]
 - **Known gaps:** [anything implementation couldn't complete]
+- **Documentation gate:** passed | overridden — notes from `.implement-documentation-gate.json` or override metadata (`--allow-docs-incomplete`, reason, follow-up, timestamp)
+- **Docs completed summary:** pointers from gate JSON audience rows + external wiki evidence
 
 ### diagnose → develop
 - **Diagnosis:** [root cause summary]

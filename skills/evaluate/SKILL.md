@@ -32,6 +32,8 @@ tooling reminder.
 
 When `graphify-out/` exists, **every orchestrator step** prints a **GRAPHIFY** block — follow it before grep/glob/semantic search or bulk source reads. Read `graphify-out/GRAPH_REPORT.md` first; prefer `graphify query` / `path` / `explain` for cross-module questions. After code edits, run `graphify update .`. See `templates/graphify-contract.md`.
 
+In **post** step 4 and **review** step 1, read **`.structural-probes.json`** and `templates/structural-quality-probes.md` when a structural-probes banner is shown.
+
 `forge` targets the current repo by default. If needed, pass `--repo <path>`
 to point at a different repository root.
 

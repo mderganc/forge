@@ -128,16 +128,7 @@ def graphify_hooks_fragment(*, forge_exe: Path | None = None) -> dict[str, list[
         ],
         "PreToolUse": [
             {
-                "matcher": "Grep|Glob|Read",
-                "hooks": [
-                    {
-                        "type": "command",
-                        "command": hook_command("PreToolUse", forge_exe=forge),
-                    }
-                ],
-            },
-            {
-                "matcher": "Bash",
+                "matcher": "*",
                 "hooks": [
                     {
                         "type": "command",
@@ -281,7 +272,7 @@ def build_parser() -> argparse.ArgumentParser:
         prog="claude-graphify",
         description=(
             "Install cross-platform Graphify hooks into Claude Code settings.json "
-            "(SessionStart, UserPromptSubmit for forge:*, PreToolUse for Grep/Glob/Read/Bash)."
+            "(SessionStart, UserPromptSubmit for forge:*, PreToolUse for all tools including sub-agent lifecycle)."
         ),
     )
     p.add_argument(

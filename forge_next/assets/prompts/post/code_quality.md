@@ -11,6 +11,10 @@ You are reviewing the implementation for structural quality.
 
 {{PREVIOUS_FINDINGS}}
 
+## Structural probes (Pass B)
+
+When **`.structural-probes.json`** exists beside this evaluate state, read it and `templates/structural-quality-probes.md`. Merge tool findings into your review (default severity: warning until confirmed).
+
 ## Your Task
 
 Review the implemented code for:

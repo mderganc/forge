@@ -13,6 +13,8 @@ You are analyzing the plan for dependency risks, failure modes, and rollback gap
 
 ## Your Task
 
+If the plan introduces **knip/madge/pyscn** workflow probes, note external dependencies (Node.js, npm, pipx/uv) and false-positive triage — see `templates/structural-quality-probes.md`.
+
 ### 1. Dependency Graph Validation
 
 Examine the task ordering and dependencies in the plan:

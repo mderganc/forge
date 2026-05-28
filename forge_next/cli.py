@@ -221,6 +221,20 @@ def build_parser() -> argparse.ArgumentParser:
     ins.add_argument("--cursor-dir", type=str, default=None, help="Override Cursor local plugins directory")
     ins.add_argument("--claude-dir", type=str, default=None, help="Override Claude commands install directory")
     ins.add_argument("--codex-dir", type=str, default=None, help="Override Codex skills install directory")
+    ins.add_argument(
+        "--structural-tools",
+        action="store_true",
+        help="Install knip, madge (npm), and pyscn for structural code-review / evaluate probes",
+    )
+
+    # structural-tools — knip, madge, pyscn for Pass B quality probes
+    st_tools = sub.add_parser(
+        "structural-tools",
+        help="Install knip, madge, and pyscn for structural quality probes",
+    )
+    add_common_output_flags(st_tools)
+    st_sub = st_tools.add_subparsers(dest="structural_tools_cmd", required=True)
+    st_sub.add_parser("install", help="Install tools under the Forge-managed prefix")
 
     # codex-agents — merge ~/.codex/config.toml delegation snippet for Forge skills
     ca = sub.add_parser(
@@ -234,7 +248,7 @@ def build_parser() -> argparse.ArgumentParser:
     # claude-graphify — merge Graphify hooks into ~/.claude/settings.json
     cg = sub.add_parser(
         "claude-graphify",
-        help="Install Graphify hooks in Claude Code settings.json (Grep/Glob/Read/Bash + forge prompts)",
+        help="Install Graphify hooks in Claude Code settings.json (all tools + forge prompts)",
     )
     cg.add_argument(
         "--settings",
@@ -255,6 +269,27 @@ def build_parser() -> argparse.ArgumentParser:
         default="SessionStart",
         choices=("SessionStart", "PreToolUse", "UserPromptSubmit"),
         help="Claude hook event name",
+    )
+
+    # cursor-subagent-hooks — merge lifecycle hooks into .cursor/hooks.json
+    csh = sub.add_parser(
+        "cursor-subagent-hooks",
+        help="Install Cursor hooks to close unused sub-agents before each tool call",
+    )
+    csh.add_argument("--repo", type=str, default=None, help="Repo root (default: cwd)")
+    csh.add_argument("--dry-run", action="store_true", help="Print merged hooks.json without writing")
+
+    # cursor-subagent-hook — Cursor hook entrypoint (stdin JSON → stdout JSON)
+    cshk = sub.add_parser(
+        "cursor-subagent-hook",
+        help="Run a Cursor sub-agent lifecycle hook event (used from .cursor/hooks.json)",
+    )
+    cshk.add_argument(
+        "event",
+        nargs="?",
+        default="preToolUse",
+        choices=("preToolUse", "subagentStart", "subagentStop", "postToolUse"),
+        help="Cursor hook event name",
     )
 
     # uninstall
@@ -330,6 +365,23 @@ def main(argv: list[str] | None = None) -> None:
         event = getattr(args, "event", None) or "SessionStart"
         raise SystemExit(claude_graphify_hook.main([event]))
 
+    if cmd == "cursor-subagent-hooks":
+        from forge_next.cursor_subagent_hooks import apply_cursor_subagent_hooks
+
+        root = Path(getattr(args, "repo", None)).expanduser() if getattr(args, "repo", None) else Path.cwd()
+        raise SystemExit(
+            apply_cursor_subagent_hooks(
+                root.resolve(),
+                dry_run=bool(getattr(args, "dry_run", False)),
+            )
+        )
+
+    if cmd == "cursor-subagent-hook":
+        from forge_next.hooks import cursor_subagent_hook
+
+        event = getattr(args, "event", None) or "preToolUse"
+        raise SystemExit(cursor_subagent_hook.main([event]))
+
     if cmd == "graphify":
         from forge_next import graphify as forge_graphify
 
@@ -349,6 +401,35 @@ def main(argv: list[str] | None = None) -> None:
             raise SystemExit(0 if ok else 1)
         raise SystemExit(f"Unknown graphify subcommand: {subc!r}")
 
+    if cmd == "structural-tools":
+        from forge_next.structural_tools import (
+            install_structural_tools,
+            structural_tools_install_notice_lines,
+        )
+
+        subc = getattr(args, "structural_tools_cmd", None)
+        if subc == "install":
+            result = install_structural_tools()
+            if getattr(args, "json_output", False):
+                payload = {
+                    "command": "structural-tools.install",
+                    "result": result.to_dict(),
+                    "error": None if result.ok else "install incomplete",
+                }
+                print(json.dumps(payload, ensure_ascii=True))
+            else:
+                title = (
+                    "forge - structural-tools install"
+                    if os.environ.get("FORGE_ASCII") == "1"
+                    else "forge — structural-tools install"
+                )
+                print(title)
+                print("=" * 60)
+                for line in structural_tools_install_notice_lines(result):
+                    print(line.rstrip())
+            raise SystemExit(0 if result.ok else 1)
+        raise SystemExit(f"Unknown structural-tools subcommand: {subc!r}")
+
     if cmd == "install":
         _run_install(
             json_output=getattr(args, "json_output", False),
@@ -358,6 +439,7 @@ def main(argv: list[str] | None = None) -> None:
             install_claude=bool(getattr(args, "claude", False)),
             install_codex=bool(getattr(args, "codex", False)),
             install_all=bool(getattr(args, "all", False)),
+            install_structural_tools=bool(getattr(args, "structural_tools", False)),
             cursor_dir=getattr(args, "cursor_dir", None),
             claude_dir=getattr(args, "claude_dir", None),
             codex_dir=getattr(args, "codex_dir", None),
@@ -570,6 +652,15 @@ def _run_doctor(repo_root: Path, json_output: bool = False) -> None:
         warnings.append(f"Forge Studio assets unavailable: {exc}")
 
     try:
+        from forge_next.structural_tools import doctor_checks, structural_tools_warnings_for_doctor
+
+        checks["structural_tools"] = doctor_checks()
+        warnings.extend(structural_tools_warnings_for_doctor())
+    except Exception as exc:
+        checks["structural_tools"] = "error"
+        warnings.append(f"Structural tools check failed: {exc}")
+
+    try:
         from scripts.evaluate.template_engine import validate_workflow_prompts
 
         missing_prompts = validate_workflow_prompts()
@@ -738,6 +829,7 @@ def _run_install(
     install_claude: bool,
     install_codex: bool,
     install_all: bool,
+    install_structural_tools: bool,
     cursor_dir: str | None,
     claude_dir: str | None,
     codex_dir: str | None,
@@ -821,8 +913,18 @@ def _run_install(
             )
 
     from forge_next.graphify import graphify_availability, graphify_install_notice_lines
+    from forge_next.structural_tools import (
+        install_structural_tools as run_structural_tools_install,
+        structural_tools_install_notice_lines,
+    )
 
     graphify_available, graphify_status = graphify_availability()
+    structural_result = None
+    if install_structural_tools:
+        structural_result = run_structural_tools_install()
+        if structural_result.warnings:
+            warnings.extend(structural_result.warnings)
+
     payload = {
         "command": "install",
         "repo_url": repo_url,
@@ -832,6 +934,12 @@ def _run_install(
         "graphify_available": graphify_available,
         "graphify_status": graphify_status,
         "graphify_onboarding": graphify_install_notice_lines(),
+        "structural_tools": structural_result.to_dict() if structural_result else None,
+        "structural_tools_onboarding": structural_tools_install_notice_lines(structural_result)
+        if install_structural_tools
+        else [
+            "Optional: forge install --structural-tools (or scripts/install/structural_tools.sh)",
+        ],
         "error": None,
     }
 
@@ -851,6 +959,9 @@ def _run_install(
             print(f"- {w}")
     for line in graphify_install_notice_lines():
         print(line.rstrip())
+    if install_structural_tools:
+        for line in structural_tools_install_notice_lines(structural_result):
+            print(line.rstrip())
     print("")
     print("Next steps:")
     print("- Restart your editor/agent environment(s) so new commands are picked up.")
@@ -859,6 +970,11 @@ def _run_install(
         print("- Claude: Graphify hooks merged into ~/.claude/settings.json (re-run: forge claude-graphify)")
     if install_codex:
         print("- Codex: run `forge codex-agents --force` if developer_instructions were not updated")
+    if not install_structural_tools:
+        print(
+            "- Optional: `forge install --structural-tools` or `scripts/install/structural_tools.sh` "
+            "for knip, madge, and pyscn (code-review / evaluate probes)"
+        )
 
 
 def _run_uninstall(

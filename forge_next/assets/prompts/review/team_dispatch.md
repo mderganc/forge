@@ -14,6 +14,10 @@ All reviewers operate against the current feature branch in parallel:
 | **Critic** | Most likely production failure? What wasn't tested? What assumption was wrong? |
 | **Investigator** | Deep-dive on any areas flagged by other reviewers. |
 
+## Structural probes (Pass B)
+
+If the step output includes a **STRUCTURAL PROBES** banner, read `.structural-probes.json` and `templates/structural-quality-probes.md` before dispatch. Pass probe context to each reviewer.
+
 ## Instructions
 
 1. Dispatch all reviewers in parallel

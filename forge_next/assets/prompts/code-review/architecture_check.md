@@ -56,7 +56,8 @@ Read the target files/modules and build a mental model of:
 - Check for Dependency Structure Matrix issues: cyclic dependencies between modules, layering violations, coupling clusters
 
 **Investigator — Dependency Analysis:**
-- Map the full dependency graph
+- Read `.structural-probes.json` when present (`templates/structural-quality-probes.md`)
+- Map the full dependency graph (confirm madge circular output)
 - Identify circular dependencies
 - Check for dependency inversions (concrete depends on concrete)
 - Evaluate third-party dependency health

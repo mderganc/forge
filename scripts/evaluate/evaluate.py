@@ -639,6 +639,25 @@ def handle_step_n(step: int, state_file: str | None = None) -> None:
     variables = _build_variables(state, plan_content, state_dir=sp.parent, step=step)
     body = render_template(template, variables)
 
+    run_probes = (
+        (state.mode == "post" and step == 4)
+        or (state.mode == "review" and step == 1)
+    )
+    if run_probes:
+        from scripts.shared.structural_probes import inject_structural_probes_section
+
+        body, sidecar, _payload = inject_structural_probes_section(
+            body,
+            skill_name="evaluate",
+            step=step,
+            repo_root=_detect_repo_root(),
+            state_dir=sp.parent,
+            mode=state.mode,
+            quick_mode=False,
+        )
+        if sidecar:
+            state.custom["structural_probes_sidecar"] = str(sidecar)
+
     state.current_step = step
     save_state(state, sp)
 

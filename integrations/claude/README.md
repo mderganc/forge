@@ -40,7 +40,7 @@ forge claude-graphify
 Hooks invoke **`/path/to/forge claude-graphify-hook <event>`** (absolute pipx `forge` binary written by `forge claude-graphify` — never bare `python -m forge_next` on `/usr/bin/python`).
 
 - **SessionStart** — remind when `graphify-out/` exists
-- **PreToolUse** — **Grep**, **Glob**, **Read**, and search-like **Bash**
+- **PreToolUse** — all tools (close unused sub-agents); **Grep**, **Glob**, **Read**, and search-like **Bash** also get Graphify context when indexed
 - **UserPromptSubmit** — when the prompt mentions `forge:` / `$forge:`
 
 After `pipx upgrade forge-next`, re-run `forge claude-graphify` and restart Claude Code.

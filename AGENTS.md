@@ -31,11 +31,15 @@ Orchestrator output for **step 1** of workflow skills includes a **SESSION OPT-I
 
 When the repo has `graphify-out/` or `GRAPH_REPORT.md`, **every orchestrator step** prints a **GRAPHIFY** block (before phase todos and the step body). Agents must read `graphify-out/GRAPH_REPORT.md` before grep/glob/semantic search or bulk source reads for architecture questions. Suppress the block in automation with **`FORGE_SKIP_GRAPHIFY=1`**. Cursor/Claude workflow commands and Codex `forge:*` skills repeat the same contract; see `templates/graphify-contract.md`.
 
-**Claude Code:** `forge install --claude` or **`forge claude-graphify`** merges hooks into `~/.claude/settings.json` (SessionStart, PreToolUse for Grep/Glob/Read/Bash, UserPromptSubmit for `forge:` prompts). Implementation: `forge_next/hooks/claude_graphify_hook.py`.
+**Claude Code:** `forge install --claude` or **`forge claude-graphify`** merges hooks into `~/.claude/settings.json` (SessionStart, PreToolUse for all tools — sub-agent lifecycle + Graphify on search/read tools, UserPromptSubmit for `forge:` prompts). Implementation: `forge_next/hooks/claude_graphify_hook.py`.
+
+**Cursor:** `forge cursor-subagent-hooks` writes `.cursor/hooks.json` (`preToolUse` + `subagentStart`/`subagentStop`/`postToolUse` for Task). Suppress with `FORGE_SKIP_SUBAGENT_LIFECYCLE=1`. Implementation: `forge_next/hooks/cursor_subagent_hook.py`.
 
 **Codex:** `forge install --codex` or **`forge codex-agents`** merges `developer_instructions` in `~/.codex/config.toml` with **Graphify rules first** (`forge_next/graphify_policy.py`). Use **`--force`** after upgrades if you previously customized that field.
 
 **Docs:** [`docs/graphify.md`](docs/graphify.md) is the canonical user guide (refresh, hooks, orchestrator banners, CI flags, upgrade path).
+
+**Structural quality (knip / madge / pyscn):** `forge install --structural-tools` or `forge structural-tools install`; shell helpers at `scripts/install/structural_tools.sh` and `.ps1`. Suppress with `FORGE_SKIP_STRUCTURAL_TOOLS=1`. Workflow template: `templates/structural-quality-probes.md`; sidecar `.structural-probes.json`. See [`docs/structural-quality.md`](docs/structural-quality.md).
 
 ## Process-first skill choice (Superpowers-style)
 

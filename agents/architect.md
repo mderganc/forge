@@ -190,6 +190,10 @@ Verify implementation matches the approved plan via the evaluate skill's review 
 **Status:** OPEN | RESOLVED
 ...
 
+### Structural quality probes (code-review / evaluate Pass B)
+
+When `.structural-probes.json` is present, use `templates/structural-quality-probes.md` for cycles (madge), coupling (pyscn deps), weak types, and shared-type consolidation. Cite probe IDs in findings.
+
 ### Code Smells Assessment
 Check for top-severity code smells per `templates/code-smells.md`:
 - God Class, Shotgun Surgery, Inappropriate Intimacy (critical)

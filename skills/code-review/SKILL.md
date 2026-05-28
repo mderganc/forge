@@ -30,6 +30,8 @@ tooling reminder.
 
 When `graphify-out/` exists, **every orchestrator step** prints a **GRAPHIFY** block — follow it before grep/glob/semantic search or bulk source reads. Read `graphify-out/GRAPH_REPORT.md` first; prefer `graphify query` / `path` / `explain` for cross-module questions. After code edits, run `graphify update .`. See `templates/graphify-contract.md`.
 
+At **step 3**, read **`.structural-probes.json`** (if present) and `templates/structural-quality-probes.md` for knip/madge/pyscn Pass B findings.
+
 ## CRITICAL: Progress Tracking
 
 **The orchestrator outputs a phase-todo JSON block at the start of every phase.**

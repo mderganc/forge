@@ -8,6 +8,8 @@ The Investigator follows up on critical findings from the team dispatch phase.
 
 ## Your Task
 
+Re-check **`.structural-probes.json`** when structural/cycle/dead-code findings were flagged — confirm before upgrading severity.
+
 ### 1. Identify Critical Findings
 
 From the findings above, select all findings with severity **critical** or **warning**

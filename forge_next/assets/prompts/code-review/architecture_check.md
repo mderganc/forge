@@ -22,7 +22,16 @@ Read the target files/modules and build a mental model of:
 - Data flow patterns (how data moves through the system)
 - Error propagation patterns
 
-### 2. Dispatch Reviewers in Parallel
+### 2. Dispatch eight structural subagents (parallel)
+
+Follow the **STRUCTURAL QUALITY — eight parallel subagents** banner: Civil Learning
+master prompt + `S1`–`S8` spawn table (`templates/structural-quality-eight-agents.md`).
+Run structural probes first when the banner includes probe inventory/plan. Write
+`.structural-eight-agents.json`; close each subagent before step 3.
+
+### 3. Dispatch core Forge reviewers (parallel)
+
+Use the eight-agent sidecar for structural Pass B; below focuses on architecture Pass A/B synthesis.
 
 **Architect Review — SOLID Principles:**
 - **S** (Single Responsibility): Does each module/class have one reason to change?
@@ -67,7 +76,7 @@ Read the target files/modules and build a mental model of:
 - Do module-level docs explain the "why" not just the "what"?
 - Are architectural decisions recorded (ADRs)?
 
-### 3. Compile Findings
+### 4. Compile Findings
 
 Collect all findings into a unified list with:
 - Finding ID (F1, F2, ...)

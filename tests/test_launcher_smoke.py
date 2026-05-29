@@ -51,6 +51,43 @@ def test_forge_launcher_can_run_against_foreign_repo(tmp_path: Path) -> None:
     assert "status" in res.stdout.lower()
 
 
+def test_launcher_parser_accepts_plan_mode_flags() -> None:
+    from forge_next.cli import build_parser
+
+    parser = build_parser()
+    plan_args = parser.parse_args(
+        ["plan", "--step", "1", "--mode", "default", "--save-mode-preference"]
+    )
+    assert plan_args.mode == "default"
+    assert plan_args.save_mode_preference is True
+
+
+def test_launcher_forwards_plan_mode_to_orchestrator(monkeypatch: pytest.MonkeyPatch) -> None:
+    import forge_next.cli as cli
+
+    captured: dict[str, object] = {}
+
+    def fake_repo_root(_: str | None) -> Path:
+        return Path.cwd()
+
+    def fake_run_module(module_name: str, argv: list[str], repo_root: Path) -> int:
+        captured["module_name"] = module_name
+        captured["argv"] = argv
+        return 0
+
+    monkeypatch.setattr(cli, "_repo_root_from_args", fake_repo_root)
+    monkeypatch.setattr(cli, "_run_module_main", fake_run_module)
+
+    with pytest.raises(SystemExit) as exc:
+        cli.main(["plan", "--step", "1", "--mode", "lite", "--save-mode-preference"])
+
+    assert exc.value.code == 0
+    assert captured["module_name"] == "scripts.plan.plan"
+    argv = captured["argv"]
+    assert isinstance(argv, list)
+    assert argv == ["--step", "1", "--mode", "lite", "--save-mode-preference"]
+
+
 def test_launcher_parser_accepts_multi_token_targets() -> None:
     from forge_next.cli import build_parser
 

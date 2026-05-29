@@ -18,7 +18,13 @@ Dispatch all reviewers to analyze the PR diff in parallel.
 
 ### 0. Structural probes (Pass B)
 
-If a **STRUCTURAL PROBES** banner and `.structural-probes.json` are present, read them first per `templates/structural-quality-probes.md`. Scope knip/madge to changed packages when possible; use diff paths as `scope`.
+When the step includes a **STRUCTURAL PROBES** banner:
+
+1. Read `.structural-probes-inventory.json` and edit `.structural-probes-plan.json` per `templates/structural-quality-probes.md` — choose only the tools that fit this repo (do not run pyscn on TS-primary apps with incidental `.py` scripts).
+2. Run `forge structural-probes run --state-dir <session state dir>` (path is in the banner).
+3. Read `.structural-probes.json` before dispatching reviewers; cite probe IDs in findings.
+
+Use diff paths / changed packages in `scope_paths` when helpful.
 
 ### 1. Fetch the Diff
 
@@ -27,10 +33,22 @@ If a **STRUCTURAL PROBES** banner and `.structural-probes.json` are present, rea
 - If target is file paths: `git diff -- {{TARGET}}`
 - If from handoff: diff the files listed in the handoff
 
-### 2. Dispatch Reviewers in Parallel
+### 2. Dispatch eight structural subagents (parallel)
 
-Each reviewer analyzes the diff from their perspective. For each reviewer, produce
-a findings list with severity (critical / warning / suggestion).
+The step output includes a **STRUCTURAL QUALITY — eight parallel subagents** banner
+with the Civil Learning **master prompt** and spawn table (`S1`–`S8`).
+
+1. Complete structural probes (section 0) first.
+2. Spawn **all eight** subagents in parallel using the per-agent spawn prompts in
+   `templates/structural-quality-eight-agents.md` (quick mode: **S3, S4, S8** only).
+3. Merge outputs into `.structural-eight-agents.json` beside session state.
+4. **Close each subagent** before dispatching the core team below.
+
+### 3. Dispatch core Forge reviewers (parallel)
+
+Each reviewer analyzes the diff from their perspective. Use the eight-agent sidecar
+for Pass B structural findings — do not duplicate the same lenses. For each reviewer,
+produce a findings list with severity (critical / warning / suggestion).
 
 **Architect Review:**
 - Is the change consistent with existing architecture?
@@ -67,7 +85,7 @@ a findings list with severity (critical / warning / suggestion).
 - Are comments accurate and helpful (not redundant)?
 - Should README or changelog be updated?
 
-### 3. Compile Findings
+### 4. Compile Findings
 
 Collect all findings into a unified list with:
 - Finding ID (F1, F2, ...)

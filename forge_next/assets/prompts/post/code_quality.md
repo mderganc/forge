@@ -13,7 +13,15 @@ You are reviewing the implementation for structural quality.
 
 ## Structural probes (Pass B)
 
-When **`.structural-probes.json`** exists beside this evaluate state, read it and `templates/structural-quality-probes.md`. Merge tool findings into your review (default severity: warning until confirmed).
+When a **STRUCTURAL PROBES** banner is present: edit `.structural-probes-plan.json`, run `forge structural-probes run --state-dir <state-dir>`, then read `.structural-probes.json` and `templates/structural-quality-probes.md`. Merge tool findings (default severity: warning until confirmed).
+
+## Eight parallel structural subagents
+
+When the step includes **STRUCTURAL QUALITY — eight parallel subagents**:
+
+1. Complete probe plan → `forge structural-probes run` → read `.structural-probes.json`.
+2. Spawn **all eight** Civil Learning subagents in parallel (`templates/structural-quality-eight-agents.md`).
+3. Write `.structural-eight-agents.json`; then complete this phase's findings sidecar below.
 
 ## Your Task
 

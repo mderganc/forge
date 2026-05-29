@@ -409,7 +409,7 @@ def handle_step_n(step: int, state_file: str | None = None) -> None:
             body,
             skill_name=SKILL_NAME,
             step=step,
-            repo_root=REPO_ROOT,
+            repo_root=_detect_repo_root(Path.cwd()),
             state_dir=sp.parent,
             scope_paths=scope if scope else None,
             quick_mode=state.quick_mode,

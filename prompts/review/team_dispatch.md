@@ -16,11 +16,20 @@ All reviewers operate against the current feature branch in parallel:
 
 ## Structural probes (Pass B)
 
-If the step output includes a **STRUCTURAL PROBES** banner, read `.structural-probes.json` and `templates/structural-quality-probes.md` before dispatch. Pass probe context to each reviewer.
+If the step output includes a **STRUCTURAL PROBES** banner, complete the plan → `forge structural-probes run` → read `.structural-probes.json` (`templates/structural-quality-probes.md`) before dispatch. Pass probe context to each reviewer.
+
+## Eight parallel structural subagents (first)
+
+When the step includes **STRUCTURAL QUALITY — eight parallel subagents**:
+
+1. Complete structural probes (inventory → plan → `forge structural-probes run`).
+2. Spawn **S1–S8** in parallel using the Civil Learning master prompt and per-agent
+   missions in `templates/structural-quality-eight-agents.md`.
+3. Write `.structural-eight-agents.json`; **close each subagent** before the core team.
 
 ## Instructions
 
-1. Dispatch all reviewers in parallel
+1. Dispatch all core reviewers in parallel (consume the eight-agent sidecar — do not redo the same lenses)
 2. Each reviewer writes findings to their memory file
 3. Use finding format from `templates/review-loop.md`
 4. Each finding needs: ID, severity (PASS/WARN/FAIL), location, description, impact, fix

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -22,6 +23,7 @@ STRUCTURAL_PROMPT_RELS = [
 ]
 
 STRUCTURAL_MARKER = "structural-quality-probes.md"
+EIGHT_AGENTS_TEMPLATE = "structural-quality-eight-agents.md"
 
 
 @pytest.fixture(autouse=True)
@@ -41,6 +43,14 @@ def test_packaged_structural_prompts_match_repo(rel: str) -> None:
     src = REPO_ROOT / "prompts" / rel
     packaged = REPO_ROOT / "forge_next" / "assets" / "prompts" / rel
     assert packaged.is_file(), f"missing packaged prompt: {rel}"
+    assert src.read_text(encoding="utf-8") == packaged.read_text(encoding="utf-8")
+
+
+def test_packaged_eight_agents_template_matches_repo() -> None:
+    src = REPO_ROOT / "templates" / EIGHT_AGENTS_TEMPLATE
+    packaged = REPO_ROOT / "forge_next" / "assets" / "templates" / EIGHT_AGENTS_TEMPLATE
+    assert src.is_file()
+    assert packaged.is_file()
     assert src.read_text(encoding="utf-8") == packaged.read_text(encoding="utf-8")
 
 
@@ -87,6 +97,7 @@ def test_evaluate_post_step4_injects_structural_banner(
     }
     monkeypatch.setattr(sp, "run_probes", lambda *_a, **_k: fake)
 
+    env = {**dict(os.environ), "FORGE_STRUCTURAL_PROBES_AUTO": "1"}
     proc = subprocess.run(
         [
             sys.executable,
@@ -104,6 +115,7 @@ def test_evaluate_post_step4_injects_structural_banner(
         encoding="utf-8",
         errors="replace",
         timeout=120,
+        env=env,
     )
     assert proc.returncode == 0, proc.stderr
     assert "STRUCTURAL PROBES" in proc.stdout

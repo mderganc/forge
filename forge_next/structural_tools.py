@@ -37,17 +37,40 @@ def skip_structural_tools() -> bool:
 
 def default_prefix() -> Path:
     """User-level directory for npm-installed knip/madge."""
+    override = (os.environ.get("FORGE_STRUCTURAL_TOOLS_PREFIX") or "").strip()
+    if override:
+        return Path(override).expanduser()
     if sys.platform == "win32":
-        base = os.environ.get("LOCALAPPDATA") or os.environ.get("APPDATA") or str(Path.home())
-        return Path(base) / "forge" / "structural-tools"
+        # Use ~/.forge, not %LOCALAPPDATA%\forge. Microsoft Store Python redirects
+        # writes under LocalAppData into the package sandbox; npm/node (non-packaged)
+        # then cannot see package.json at the real LocalAppData path.
+        return Path.home() / ".forge" / "structural-tools"
     xdg = os.environ.get("XDG_DATA_HOME")
     if xdg:
         return Path(xdg) / "forge" / "structural-tools"
     return Path.home() / ".local" / "share" / "forge" / "structural-tools"
 
 
+def legacy_windows_localappdata_prefix() -> Path | None:
+    """Pre-0.14.6 Windows prefix (%LOCALAPPDATA%\\forge\\structural-tools)."""
+    if sys.platform != "win32":
+        return None
+    base = os.environ.get("LOCALAPPDATA") or os.environ.get("APPDATA")
+    if not base:
+        return None
+    return Path(base) / "forge" / "structural-tools"
+
+
 def manifest_path() -> Path:
     return default_prefix().parent / "structural-tools.json"
+
+
+def _legacy_manifest_paths() -> list[Path]:
+    paths: list[Path] = []
+    legacy_prefix = legacy_windows_localappdata_prefix()
+    if legacy_prefix is not None:
+        paths.append(legacy_prefix.parent / "structural-tools.json")
+    return paths
 
 
 def _npm_executable() -> str | None:
@@ -152,8 +175,15 @@ def _install_npm_tools(prefix: Path, result: StructuralToolsInstallResult) -> No
     pkg_path = prefix / "package.json"
     pkg_path.write_text(json.dumps(NPM_PACKAGE_JSON, indent=2) + "\n", encoding="utf-8")
     result.steps.append(f"Wrote {pkg_path}")
+    if not pkg_path.exists():
+        result.warnings.append(
+            f"Could not create {pkg_path} (path not visible after write). "
+            "On Windows Store Python, set FORGE_STRUCTURAL_TOOLS_PREFIX to a folder under your profile "
+            "(e.g. %USERPROFILE%\\.forge\\structural-tools) or install Python from python.org."
+        )
+        return
 
-    code, out = _run([npm, "install", "--no-fund", "--no-audit", "--prefix", str(prefix)], timeout=600)
+    code, out = _run([npm, "install", "--no-fund", "--no-audit"], cwd=prefix, timeout=600)
     if code != 0:
         result.warnings.append(f"npm install failed ({code}): {out[:500]}")
         return
@@ -269,13 +299,14 @@ def install_structural_tools(*, prefix: Path | None = None) -> StructuralToolsIn
 
 
 def load_manifest() -> dict[str, Any] | None:
-    mp = manifest_path()
-    if not mp.is_file():
-        return None
-    try:
-        return json.loads(mp.read_text(encoding="utf-8"))
-    except (json.JSONDecodeError, OSError):
-        return None
+    for mp in (manifest_path(), *_legacy_manifest_paths()):
+        if not mp.is_file():
+            continue
+        try:
+            return json.loads(mp.read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, OSError):
+            continue
+    return None
 
 
 def resolve_knip_command() -> list[str]:

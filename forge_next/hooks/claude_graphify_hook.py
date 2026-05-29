@@ -73,8 +73,19 @@ def _cwd(data: dict) -> Path:
     return Path.cwd().resolve()
 
 
+def _graphify_enforcement_off(cwd: Path) -> bool:
+    try:
+        from forge_next.graphify_enforcement import graphify_fully_disabled
+
+        return graphify_fully_disabled(cwd)
+    except Exception:
+        return False
+
+
 def handle_session_start(data: dict) -> None:
     cwd = _cwd(data)
+    if _graphify_enforcement_off(cwd):
+        return
     if _graph_present(cwd):
         _emit("SessionStart", _SESSION_MSG)
         try:
@@ -86,7 +97,7 @@ def handle_session_start(data: dict) -> None:
 
 
 def _graphify_pre_tool_message(data: dict, cwd: Path) -> str | None:
-    if not _graph_present(cwd):
+    if _graphify_enforcement_off(cwd) or not _graph_present(cwd):
         return None
     tool = str(data.get("tool_name") or data.get("tool") or "").strip()
     ti = _tool_input(data)
@@ -120,7 +131,7 @@ def handle_pre_tool_use(data: dict) -> None:
 
 def handle_user_prompt_submit(data: dict) -> None:
     cwd = _cwd(data)
-    if not _graph_present(cwd):
+    if _graphify_enforcement_off(cwd) or not _graph_present(cwd):
         return
     prompt = str(data.get("prompt") or data.get("user_prompt") or "")
     if _FORGE_PROMPT.search(prompt):

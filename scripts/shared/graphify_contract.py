@@ -1,13 +1,23 @@
 """Graphify contract text injected into Forge skill step output.
 
 When a repo has a Graphify index, workflow steps print a mandatory reminder
-before agents grep/glob/search raw files. Suppress with FORGE_SKIP_GRAPHIFY=1.
+before agents grep/glob/search raw files.
+
+Disable entirely: ``FORGE_SKIP_GRAPHIFY=1`` or ``forge graphify off``.
+Defer during implement waves: ``forge graphify defer-waves`` or
+``forge implement --defer-graphify-waves`` on step 1.
 """
 
 from __future__ import annotations
 
 import os
 from pathlib import Path
+
+from forge_next.graphify_enforcement import (
+    graphify_deferred_note,
+    graphify_fully_disabled,
+    should_show_graphify_banner,
+)
 
 # Skills that primarily explore or map the codebase (stronger wording).
 INVESTIGATION_SKILLS = frozenset({"develop", "diagnose", "plan", "test", "evaluate"})
@@ -18,10 +28,9 @@ _GRAPH_REPORT_CANDIDATES = (
 )
 
 
-def skip_forge_graphify_banner() -> bool:
-    """Return True when the per-step Graphify block should be suppressed."""
-    v = os.environ.get("FORGE_SKIP_GRAPHIFY", "").strip().lower()
-    return v in ("1", "true", "yes", "on")
+def skip_forge_graphify_banner(repo_root: Path | None = None) -> bool:
+    """Return True when Graphify is fully disabled (env or ``forge graphify off``)."""
+    return graphify_fully_disabled((repo_root or Path.cwd()).resolve())
 
 
 def graph_index_present(repo_root: Path) -> bool:
@@ -78,14 +87,16 @@ def forge_graphify_banner(
     repo_root: Path | None = None,
 ) -> str:
     """Return a Graphify reminder block for skill step output, or empty string."""
-    if skip_forge_graphify_banner():
-        return ""
     root = (repo_root or Path.cwd()).resolve()
+    if graphify_fully_disabled(root):
+        return ""
     if not graph_index_present(root):
         return ""
+    slug = skill_name.strip().lower()
+    if not should_show_graphify_banner(slug, step, root):
+        return graphify_deferred_note(slug, step, root)
 
     bar = ("=" * 60) if os.environ.get("FORGE_ASCII") == "1" else ("━" * 60)
-    slug = skill_name.strip().lower()
     investigate = slug in INVESTIGATION_SKILLS
     lead = (
         "This phase explores or maps the codebase — **Graphify is mandatory** "
@@ -118,6 +129,9 @@ def forge_graphify_banner(
     if excerpt:
         lines.extend(["**Snapshot (read the full report for navigation):**", "", excerpt, ""])
 
-    lines.append(f"_Step {step} of `{slug}` — suppress this block in CI: `FORGE_SKIP_GRAPHIFY=1`._")
+    lines.append(
+        f"_Step {step} of `{slug}` — disable: `FORGE_SKIP_GRAPHIFY=1` or `forge graphify off`; "
+        "defer implement waves: `forge graphify defer-waves`._"
+    )
     lines.append("")
     return "\n".join(lines)

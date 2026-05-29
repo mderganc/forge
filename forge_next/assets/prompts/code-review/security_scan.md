@@ -22,7 +22,13 @@ From the target and handoff context, identify:
 - Security-sensitive paths (auth, data handling, external input)
 - Performance-critical paths
 
-### 2. Dispatch Reviewers in Parallel
+### 2. Dispatch eight structural subagents (parallel)
+
+When the **STRUCTURAL QUALITY — eight parallel subagents** banner is present, spawn
+`S1`–`S8` (quick mode: **S3, S4, S8**) per `templates/structural-quality-eight-agents.md`
+before the deep trace team. **S6** (error handling) and **S3/S7** complement security tracing.
+
+### 3. Dispatch core Forge reviewers (parallel)
 
 **Security Reviewer — Code Path Tracing:**
 - Trace all paths where external input enters the system
@@ -64,7 +70,7 @@ From the target and handoff context, identify:
 - Are error codes and failure modes documented?
 - Is the expected behavior documented for edge cases?
 
-### 3. Compile Findings
+### 4. Compile Findings
 
 Collect all findings into a unified list with:
 - Finding ID (F1, F2, ...)

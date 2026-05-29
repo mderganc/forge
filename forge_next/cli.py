@@ -97,6 +97,17 @@ def build_parser() -> argparse.ArgumentParser:
     pl.add_argument("--state", type=str)
     pl.add_argument("--quick", action="store_true")
     pl.add_argument("--force", action="store_true")
+    pl.add_argument(
+        "--mode",
+        choices=["default", "lite"],
+        default=None,
+        help="Plan mode: default (full governance) or lite (concise, same task rigor)",
+    )
+    pl.add_argument(
+        "--save-mode-preference",
+        action="store_true",
+        help="With --mode, persist that mode as the default for future plan sessions",
+    )
 
     # implement
     im = sub.add_parser("implement", help="Run the implement orchestrator")
@@ -235,6 +246,31 @@ def build_parser() -> argparse.ArgumentParser:
     add_common_output_flags(st_tools)
     st_sub = st_tools.add_subparsers(dest="structural_tools_cmd", required=True)
     st_sub.add_parser("install", help="Install tools under the Forge-managed prefix")
+
+    # structural-probes — run agent-selected knip/madge/pyscn after plan sidecar
+    st_probes = sub.add_parser(
+        "structural-probes",
+        help="Run knip/madge/pyscn per .structural-probes-plan.json beside session state",
+    )
+    add_common_repo_flag(st_probes)
+    add_common_output_flags(st_probes)
+    st_probes_sub = st_probes.add_subparsers(dest="structural_probes_cmd", required=True)
+    st_run = st_probes_sub.add_parser(
+        "run",
+        help="Execute tools listed in the probe plan; write .structural-probes.json",
+    )
+    st_run.add_argument(
+        "--state-dir",
+        type=str,
+        required=True,
+        help="Workflow state directory containing .structural-probes-plan.json",
+    )
+    st_run.add_argument(
+        "--tools",
+        type=str,
+        default=None,
+        help="Override plan: comma-separated knip,madge,pyscn",
+    )
 
     # codex-agents — merge ~/.codex/config.toml delegation snippet for Forge skills
     ca = sub.add_parser(
@@ -430,6 +466,44 @@ def main(argv: list[str] | None = None) -> None:
             raise SystemExit(0 if result.ok else 1)
         raise SystemExit(f"Unknown structural-tools subcommand: {subc!r}")
 
+    if cmd == "structural-probes":
+        from scripts.shared.structural_probes import (
+            format_probe_results_banner,
+            run_probes_from_state_dir,
+            sidecar_path,
+        )
+
+        subc = getattr(args, "structural_probes_cmd", None)
+        if subc == "run":
+            state_dir = Path(getattr(args, "state_dir", "")).resolve()
+            tools_arg = getattr(args, "tools", None)
+            tools = None
+            if tools_arg:
+                tools = [t.strip().lower() for t in tools_arg.split(",") if t.strip()]
+            payload = run_probes_from_state_dir(repo_root, state_dir, tools=tools)
+            sc = sidecar_path(state_dir)
+            banner = format_probe_results_banner(payload, sc)
+            if getattr(args, "json_output", False):
+                out = {
+                    "command": "structural-probes.run",
+                    "repo_root": str(repo_root),
+                    "state_dir": str(state_dir),
+                    "sidecar": str(sc) if sc else None,
+                    "payload": payload,
+                    "error": None,
+                }
+                failed = [p for p in payload.get("probes") or [] if p.get("status") == "fail"]
+                if failed:
+                    out["error"] = "one or more probes failed"
+                print(json.dumps(out, ensure_ascii=True))
+                if banner.strip():
+                    print(banner, file=sys.stderr)
+            else:
+                print(banner)
+            failed = [p for p in payload.get("probes") or [] if p.get("status") == "fail"]
+            raise SystemExit(1 if failed else 0)
+        raise SystemExit(f"Unknown structural-probes subcommand: {subc!r}")
+
     if cmd == "install":
         _run_install(
             json_output=getattr(args, "json_output", False),
@@ -503,6 +577,7 @@ def main(argv: list[str] | None = None) -> None:
     add_flag(passthrough, "--branch-prefix", getattr(args, "branch_prefix", None))
     add_flag(passthrough, "--state", getattr(args, "state", None))
     add_flag(passthrough, "--mode", getattr(args, "mode", None))
+    add_flag(passthrough, "--save-mode-preference", getattr(args, "save_mode_preference", None))
     add_flag(passthrough, "--team", getattr(args, "team", None))
     add_flag(passthrough, "--quick", getattr(args, "quick", None))
     add_flag(passthrough, "--force", getattr(args, "force", None))
@@ -539,6 +614,7 @@ def _run_status(repo_root: Path, json_output: bool = False) -> None:
     """Render a lightweight workflow dashboard for the target repo."""
     from scripts.shared.orchestrator import (
         collect_session_leak_hints,
+        collect_unreadable_state_files,
         detect_active_sessions,
         runtime_memory_dir,
         runtime_state_dir,
@@ -551,6 +627,8 @@ def _run_status(repo_root: Path, json_output: bool = False) -> None:
         state_dir = runtime_state_dir(repo_root)
         sessions = detect_active_sessions(repo_root)
         leak_hints = collect_session_leak_hints(repo_root)
+        state_issues = collect_unreadable_state_files(repo_root)
+        warnings = [*leak_hints, *state_issues]
 
         if json_output:
             payload = {
@@ -568,7 +646,7 @@ def _run_status(repo_root: Path, json_output: bool = False) -> None:
                     }
                     for s in sessions
                 ],
-                "warnings": leak_hints,
+                "warnings": warnings,
                 "error": None,
             }
             print(json.dumps(payload, ensure_ascii=True))
@@ -595,10 +673,10 @@ def _run_status(repo_root: Path, json_output: bool = False) -> None:
             mx = s.get("max_step")
             path = s.get("path")
             print(f"- {skill}: step {cur}/{mx} — {path}")
-        if leak_hints:
+        if warnings:
             print("")
-            print("Leak hints:")
-            for hint in leak_hints:
+            print("Warnings:")
+            for hint in warnings:
                 print(f"- {hint}")
     finally:
         os.chdir(old)

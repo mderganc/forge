@@ -10,10 +10,29 @@ import pytest
 from forge_next import structural_tools as st
 
 
-def test_default_prefix_is_under_user_data(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("LOCALAPPDATA", str(tmp_path))
+def test_default_prefix_windows_uses_home_forge(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(st.sys, "platform", "win32")
-    assert st.default_prefix() == tmp_path / "forge" / "structural-tools"
+    monkeypatch.setattr(st.Path, "home", lambda: tmp_path)
+    assert st.default_prefix() == tmp_path / ".forge" / "structural-tools"
+
+
+def test_default_prefix_windows_env_override(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(st.sys, "platform", "win32")
+    monkeypatch.setenv("FORGE_STRUCTURAL_TOOLS_PREFIX", str(tmp_path / "custom"))
+    assert st.default_prefix() == tmp_path / "custom"
+
+
+def test_load_manifest_falls_back_to_legacy_windows_path(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    legacy = tmp_path / "legacy" / "structural-tools.json"
+    legacy.parent.mkdir(parents=True)
+    legacy.write_text('{"version": 1, "knip": "/old/knip"}', encoding="utf-8")
+    monkeypatch.setattr(st, "manifest_path", lambda: tmp_path / "missing.json")
+    monkeypatch.setattr(st, "_legacy_manifest_paths", lambda: [legacy])
+    loaded = st.load_manifest()
+    assert loaded is not None
+    assert loaded["knip"] == "/old/knip"
 
 
 def test_skip_env(monkeypatch: pytest.MonkeyPatch) -> None:

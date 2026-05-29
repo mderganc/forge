@@ -44,7 +44,7 @@ export FORGE_SKIP_STRUCTURAL_TOOLS=1
 
 | Tool | Stack | Install method |
 |------|--------|----------------|
-| **knip** | JavaScript / TypeScript | `npm install` under `%LOCALAPPDATA%\forge\structural-tools` (Windows) or `~/.local/share/forge/structural-tools` (Unix) |
+| **knip** | JavaScript / TypeScript | `npm install` under `~/.forge/structural-tools` (Windows) or `~/.local/share/forge/structural-tools` (Unix) |
 | **madge** | JS/TS dependency graph | Same npm prefix |
 | **pyscn** | Python structure / dead code / clones | `pipx install pyscn`, else `uv tool install pyscn`, else `uvx pyscn@latest` |
 

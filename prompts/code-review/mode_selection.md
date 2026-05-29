@@ -57,4 +57,4 @@ Pass A issues often block “done”; Pass B issues may be warnings or follow-up
 
 ## Structural probes (Pass B)
 
-At team dispatch (step 3), the orchestrator may run **knip / madge / pyscn** and write **`.structural-probes.json`** next to the session state. Follow `templates/structural-quality-probes.md` and cite probe IDs in findings.
+At team dispatch (step 3), the orchestrator writes probe **inventory + plan** sidecars; **you** select tools and run `forge structural-probes run` before reviewers use **`.structural-probes.json`**. See `templates/structural-quality-probes.md`.

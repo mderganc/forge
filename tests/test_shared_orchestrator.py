@@ -146,3 +146,35 @@ def test_append_skill_run_memory_records_session_and_handoff_refs(tmp_path: Path
     assert payload["handoff_path"].endswith("handoff-develop.md")
     assert payload["session_ref"].startswith("develop:")
     assert payload["handoff_ref"].endswith("handoff-develop.md")
+
+
+def test_collect_session_leak_hints_tolerates_evaluate_state(tmp_path: Path):
+    docs = tmp_path / "docs"
+    docs.mkdir()
+    eval_state = docs / ".evaluate-state.json"
+    eval_state.write_text('{"mode": "pre", "current_step": 2, "last_completed_step": 1}')
+
+    hints = orchestrator.collect_session_leak_hints(tmp_path)
+    assert not any("unreadable" in h for h in hints)
+
+
+def test_collect_unreadable_state_files_reports_bad_json(tmp_path: Path):
+    state_path = orchestrator.runtime_state_path("plan", tmp_path)
+    state_path.parent.mkdir(parents=True, exist_ok=True)
+    state_path.write_text("{not json", encoding="utf-8")
+
+    issues = orchestrator.collect_unreadable_state_files(tmp_path)
+    assert len(issues) == 1
+    assert str(state_path) in issues[0]
+
+
+def test_status_does_not_crash_on_evaluate_state(monkeypatch):
+    import forge_next.cli as cli
+
+    repo = Path.cwd()
+
+    def fake_repo(_: str | None) -> Path:
+        return repo
+
+    monkeypatch.setattr(cli, "_repo_root_from_args", fake_repo)
+    cli._run_status(repo, json_output=True)

@@ -848,7 +848,18 @@ def collect_session_leak_hints(search_dir: Path | None = None) -> list[str]:
                 f"{skill}: active state with handoff present — {path} "
                 f"(run `forge resume --cleanup --force`)"
             )
-        if is_step1_abandoned(load_state(path), path):
+        if skill == "evaluate":
+            try:
+                path.resolve().relative_to(state_dir)
+            except ValueError:
+                hints.append(f"{skill}: state file outside runtime state dir — {path}")
+            continue
+        try:
+            state = load_state(path)
+        except Exception:
+            hints.append(f"{skill}: active session state unreadable — {path}")
+            continue
+        if is_step1_abandoned(state, path):
             hints.append(f"{skill}: step-1-only session idle >1h — {path}")
         try:
             path.resolve().relative_to(state_dir)
@@ -856,6 +867,34 @@ def collect_session_leak_hints(search_dir: Path | None = None) -> list[str]:
             hints.append(f"{skill}: state file outside runtime state dir — {path}")
 
     return hints
+
+
+def collect_unreadable_state_files(search_dir: Path | None = None) -> list[str]:
+    """State-shaped JSON on disk that does not load as SkillState (inactive files only)."""
+    cwd = search_dir or _detect_repo_root()
+    active_paths = {Path(s["path"]).resolve() for s in detect_active_sessions(cwd)}
+    issues: list[str] = []
+
+    for skill in KNOWN_SKILLS:
+        if skill == "evaluate":
+            continue
+        for candidate in _state_path_candidates(skill, cwd):
+            if not candidate.exists():
+                continue
+            resolved = candidate.resolve()
+            if resolved in active_paths:
+                continue
+            try:
+                state = load_state(candidate)
+            except Exception as exc:
+                issues.append(f"{candidate}: {exc}")
+                continue
+            if state.skill_name != skill:
+                issues.append(
+                    f"{candidate}: skill_name={state.skill_name!r} (expected {skill!r})"
+                )
+
+    return issues
 
 
 def print_remaining_session_warning(starting_skill: str, search_dir: Path | None = None) -> None:

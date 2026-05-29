@@ -544,6 +544,16 @@ def handle_step_1(args) -> None:
     if getattr(args, "branch_prefix", None):
         state.custom["branch_prefix"] = args.branch_prefix
 
+    if getattr(args, "defer_graphify_waves", False):
+        from forge_next.graphify_enforcement import set_graphify_defer_implement_waves
+
+        set_graphify_defer_implement_waves(REPO_ROOT, defer=True)
+        print(
+            "forge implement: Graphify deferred for wave steps 3–5 "
+            "(clear with `forge graphify undefer-waves`).",
+            file=sys.stderr,
+        )
+
     _sync_waves_from_plan(state)
 
     save_state(state, sp)
@@ -815,6 +825,14 @@ def main():
         help=(
             "Required with --allow-docs-incomplete: tracked follow-up item "
             "(recorded in handoff)."
+        ),
+    )
+    parser.add_argument(
+        "--defer-graphify-waves",
+        action="store_true",
+        help=(
+            "Defer GRAPHIFY banners during implement wave steps 3–5; "
+            "same as `forge graphify defer-waves` (step 1 only)"
         ),
     )
     args = parser.parse_args()

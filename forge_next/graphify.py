@@ -68,10 +68,19 @@ def _write_status(repo: Path, payload: dict) -> Path:
     return out
 
 
-def skip_graphify_refresh_spawn() -> bool:
+def skip_graphify_refresh_spawn(repo_root: Path | None = None) -> bool:
     """Return True when automatic background refresh should not run."""
-    v = os.environ.get("FORGE_SKIP_GRAPHIFY_REFRESH", "").strip().lower()
-    return v in ("1", "true", "yes", "on")
+    from forge_next.graphify_enforcement import graphify_refresh_disabled
+
+    root = repo_root
+    if root is None:
+        try:
+            from scripts.shared.orchestrator import REPO_ROOT
+
+            root = REPO_ROOT
+        except Exception:
+            root = Path.cwd()
+    return graphify_refresh_disabled(root)
 
 
 def _refresh_lock_path(repo_root: Path) -> Path:
@@ -92,7 +101,7 @@ def _read_status(repo_root: Path) -> dict:
 
 def refresh_needed(repo_root: Path) -> bool:
     """True when graphify is available and status is missing, stale, or behind HEAD."""
-    if skip_graphify_refresh_spawn():
+    if skip_graphify_refresh_spawn(repo_root):
         return False
     if not graphify_availability()[0]:
         return False
@@ -343,6 +352,42 @@ def uninstall_post_commit_hook(repo_root: Path) -> tuple[bool, str]:
     new_content = pre + post
     hook_path.write_text(new_content.lstrip("\n"), encoding="utf-8")
     return True, f"Removed Forge Graphify block from {hook_path}."
+
+
+def graphify_set_disabled(repo_root: Path, *, disabled: bool) -> tuple[bool, str]:
+    from forge_next.graphify_enforcement import (
+        graphify_prefs_summary,
+        set_graphify_disabled,
+    )
+
+    path = set_graphify_disabled(repo_root, disabled=disabled)
+    state = graphify_prefs_summary(repo_root)
+    if disabled:
+        return True, f"Graphify enforcement disabled for this repo ({state}). Prefs: {path}"
+    return True, f"Graphify enforcement enabled for this repo ({state})."
+
+
+def graphify_set_defer_implement_waves(repo_root: Path, *, defer: bool) -> tuple[bool, str]:
+    from forge_next.graphify_enforcement import (
+        graphify_prefs_summary,
+        set_graphify_defer_implement_waves,
+    )
+
+    path = set_graphify_defer_implement_waves(repo_root, defer=defer)
+    state = graphify_prefs_summary(repo_root)
+    if defer:
+        return (
+            True,
+            "Graphify banners deferred for implement wave steps 3–5 "
+            f"({state}). Prefs: {path}",
+        )
+    return True, f"Implement wave defer cleared ({state})."
+
+
+def graphify_status_message(repo_root: Path) -> tuple[bool, str]:
+    from forge_next.graphify_enforcement import graphify_prefs_summary
+
+    return True, f"Graphify enforcement: {graphify_prefs_summary(repo_root)}."
 
 
 def graphify_availability() -> tuple[bool, str]:

@@ -949,13 +949,21 @@ def forge_graphify_context_block(skill_name: str, step: int) -> str:
     from scripts.shared.graphify_contract import forge_graphify_banner, graph_index_present
 
     block = forge_graphify_banner(skill_name, step, REPO_ROOT)
-    if block and graph_index_present(REPO_ROOT):
-        try:
-            from forge_next.graphify import spawn_refresh_background
+    if not block or not graph_index_present(REPO_ROOT):
+        return block
+    try:
+        from forge_next.graphify_enforcement import graphify_refresh_disabled
 
-            spawn_refresh_background(REPO_ROOT)
-        except Exception:
-            pass
+        if graphify_refresh_disabled(REPO_ROOT):
+            return block
+    except Exception:
+        pass
+    try:
+        from forge_next.graphify import spawn_refresh_background
+
+        spawn_refresh_background(REPO_ROOT)
+    except Exception:
+        pass
     return block
 
 

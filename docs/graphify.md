@@ -82,13 +82,29 @@ Every `forge <skill> --step N` prints a **GRAPHIFY** banner when an index is pre
 - Investigation skills (develop, diagnose, plan, test, evaluate) use stronger wording.
 - Includes a short excerpt from `GRAPH_REPORT.md` when available.
 
-**Suppress in CI or automation:**
+**Disable or defer (session / implement waves):**
+
+| Goal | Command |
+|------|---------|
+| Turn off banners, Claude hook reminders, and auto-refresh for this clone | `forge graphify off` (prefs under `.codex/forge/state/graphify-prefs.json`) |
+| Turn enforcement back on | `forge graphify on` |
+| Check state | `forge graphify status` |
+| Skip GRAPHIFY on implement wave steps 3–5 only; resumes at step 6+ | `forge graphify defer-waves` or `forge implement --step 1 --defer-graphify-waves` |
+| Clear wave defer | `forge graphify undefer-waves` |
+
+**Suppress in CI or automation (no prefs file):**
 
 ```bash
 export FORGE_SKIP_GRAPHIFY=1
 ```
 
-(Accepts `true`, `yes`, `on`.)
+Also suppresses automatic background refresh (same as setting both skip flags). Accepts `true`, `yes`, `on`.
+
+**Refresh only** (keep banners, skip auto-spawn):
+
+```bash
+export FORGE_SKIP_GRAPHIFY_REFRESH=1
+```
 
 Skill packs repeat the same contract: [`skills/`](../skills/), [`integrations/cursor-plugin/commands/`](../integrations/cursor-plugin/commands/), [`integrations/claude/commands/`](../integrations/claude/commands/), [`integrations/codex/skills/`](../integrations/codex/skills/).
 
@@ -211,5 +227,7 @@ Restart Claude Code and Codex.
 | `forge graphify install-hook` | Post-commit refresh (fail-soft) |
 | `forge claude-graphify` | Merge Claude Graphify hooks |
 | `forge codex-agents` | Merge Codex `developer_instructions` |
-| `FORGE_SKIP_GRAPHIFY=1` | Suppress per-step GRAPHIFY banner |
-| `FORGE_SKIP_GRAPHIFY_REFRESH=1` | Suppress automatic background `forge graphify refresh` (hooks + orchestrator) |
+| `forge graphify off` / `on` / `status` | Persist disable or show enforcement state per repo |
+| `forge graphify defer-waves` / `undefer-waves` | Defer implement wave-step banners (steps 3–5) |
+| `FORGE_SKIP_GRAPHIFY=1` | Disable banners, hooks, and auto-refresh (CI) |
+| `FORGE_SKIP_GRAPHIFY_REFRESH=1` | Suppress auto-refresh only (keep banners) |

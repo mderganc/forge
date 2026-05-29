@@ -217,6 +217,25 @@ def build_parser() -> argparse.ArgumentParser:
     add_common_repo_flag(gfi)
     gfu = gf_sub.add_parser("uninstall-hook", help="Remove Forge Graphify block from .git/hooks/post-commit")
     add_common_repo_flag(gfu)
+    gfo = gf_sub.add_parser(
+        "off",
+        help="Disable Graphify banners, hooks, and auto-refresh for this repo (persisted)",
+    )
+    add_common_repo_flag(gfo)
+    gfn = gf_sub.add_parser("on", help="Re-enable Graphify enforcement (clear repo off prefs)")
+    add_common_repo_flag(gfn)
+    gfs = gf_sub.add_parser("status", help="Show Graphify enforcement state for this repo")
+    add_common_repo_flag(gfs)
+    gfd = gf_sub.add_parser(
+        "defer-waves",
+        help="Defer GRAPHIFY banners during implement wave steps 3–5 (persisted)",
+    )
+    add_common_repo_flag(gfd)
+    gfud = gf_sub.add_parser(
+        "undefer-waves",
+        help="Clear implement wave defer; GRAPHIFY shows on every implement step again",
+    )
+    add_common_repo_flag(gfud)
 
     # Studio is dispatched in main() before build_parser() so it never appears in `forge --help`.
 
@@ -433,6 +452,26 @@ def main(argv: list[str] | None = None) -> None:
             raise SystemExit(0 if ok else 1)
         if subc == "uninstall-hook":
             ok, msg = forge_graphify.uninstall_post_commit_hook(rr)
+            print(msg)
+            raise SystemExit(0 if ok else 1)
+        if subc == "off":
+            ok, msg = forge_graphify.graphify_set_disabled(rr, disabled=True)
+            print(msg)
+            raise SystemExit(0 if ok else 1)
+        if subc == "on":
+            ok, msg = forge_graphify.graphify_set_disabled(rr, disabled=False)
+            print(msg)
+            raise SystemExit(0 if ok else 1)
+        if subc == "status":
+            ok, msg = forge_graphify.graphify_status_message(rr)
+            print(msg)
+            raise SystemExit(0 if ok else 1)
+        if subc == "defer-waves":
+            ok, msg = forge_graphify.graphify_set_defer_implement_waves(rr, defer=True)
+            print(msg)
+            raise SystemExit(0 if ok else 1)
+        if subc == "undefer-waves":
+            ok, msg = forge_graphify.graphify_set_defer_implement_waves(rr, defer=False)
             print(msg)
             raise SystemExit(0 if ok else 1)
         raise SystemExit(f"Unknown graphify subcommand: {subc!r}")

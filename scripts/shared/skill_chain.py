@@ -22,9 +22,9 @@ SKILL_CHAIN: dict[str, SkillTransition] = {
     "develop":     SkillTransition("plan",                 ["evaluate --mode pre", "implement", "diagnose"]),
     "plan":        SkillTransition("evaluate --mode pre",  ["implement", "develop", "code-review"]),
     "evaluate":    SkillTransition("implement",            ["plan", "evaluate --mode review", "test"]),
-    "implement":   SkillTransition("code-review",          ["test", "evaluate --mode post", "diagnose"]),
-    "code-review": SkillTransition("test",                 ["implement", "diagnose", "evaluate --mode review"]),
-    "test":        SkillTransition("diagnose",             ["test --mode flows", "code-review", "implement"]),
+    "implement":   SkillTransition("code-review",          ["ship", "test", "evaluate --mode post", "diagnose"]),
+    "code-review": SkillTransition("test",                 ["ship", "implement", "diagnose", "evaluate --mode review"]),
+    "test":        SkillTransition("diagnose",             ["ship", "test --mode flows", "code-review", "implement"]),
     "diagnose":    SkillTransition(None,                   ["plan", "implement", "develop"]),
 }
 
@@ -42,4 +42,5 @@ COMMAND_DESCRIPTIONS: dict[str, str] = {
     "test --mode flows":     "author end-to-end mock flows",
     "develop":               "investigate, brainstorm, and design before planning (use after diagnose when solution space is still open)",
     "diagnose":              "root-cause analysis on observed issues",
+    "ship":                  "commit, push, PR, merge, and/or publish release artifacts",
 }

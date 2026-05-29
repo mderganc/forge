@@ -23,6 +23,8 @@ The canonical skill-chain mapping lives in `scripts/shared/skill_chain.py` as th
 
 The `(stop)` option is always last. The state file persists, and workflows can resume with `forge resume` at any time.
 
+**Ship (finalize coding):** not a pipeline orchestrator — use **`$forge:ship`** / **`/forge:ship`** or the **`ship`** Cursor skill (`.cursor/skills/ship/SKILL.md`) for commit, push, PR, merge, and publish. Handoff menus after **implement**, **code-review**, and **test** list **`ship`** as an alternative.
+
 ## Session opt-in (step 1)
 
 Orchestrator output for **step 1** of workflow skills includes a **SESSION OPT-IN** block: the agent should confirm whether the user wants structured Forge for the chat vs ad hoc help, **before** mirroring phase todos. Suppress the block in automation with **`FORGE_SKIP_SESSION_OPTIN=1`** (see README Advanced). Codex installs should run **`forge codex-agents`** so `developer_instructions` includes the same expectation.

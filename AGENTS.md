@@ -41,7 +41,7 @@ Orchestrator output for **step 1** of workflow skills includes a **SESSION OPT-I
 
 **Docs:** [`docs/graphify.md`](docs/graphify.md) is the canonical user guide (refresh, hooks, orchestrator banners, CI flags, upgrade path).
 
-**Structural quality (knip / madge / pyscn):** installed by default with `forge install` (warns if any tool missing); `forge structural-tools install` to refresh; skip with `forge install --skip-structural-tools` or `FORGE_SKIP_STRUCTURAL_TOOLS=1`. Shell helpers: `scripts/install/structural_tools.sh` and `.ps1`. Templates: `templates/structural-quality-probes.md`, `templates/structural-quality-eight-agents.md` (eight parallel Civil Learning subagents at dispatch); sidecars `.structural-probes.json`, `.structural-eight-agents.json`. See [`docs/structural-quality.md`](docs/structural-quality.md).
+**Structural quality (knip / madge / pyscn / skylos):** installed by default with `forge install` (warns if any tool missing); `forge structural-tools install` to refresh; skip with `forge install --skip-structural-tools` or `FORGE_SKIP_STRUCTURAL_TOOLS=1`. Shell helpers: `scripts/install/structural_tools.sh` and `.ps1`. Templates: `templates/structural-quality-probes.md`, `templates/structural-quality-eight-agents.md` (eight parallel Civil Learning subagents at dispatch); sidecars `.structural-probes.json`, `.structural-eight-agents.json`. See [`docs/structural-quality.md`](docs/structural-quality.md).
 
 ## Process-first skill choice (Superpowers-style)
 

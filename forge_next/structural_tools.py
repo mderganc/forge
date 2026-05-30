@@ -1,4 +1,4 @@
-"""Install and resolve structural quality CLI tools (knip, madge, pyscn).
+"""Install and resolve structural quality CLI tools (knip, madge, pyscn, skylos).
 
 Used by ``forge install --structural-tools`` and ``forge structural-tools install``.
 """
@@ -145,6 +145,8 @@ class StructuralToolsInstallResult:
     madge: str | None = None
     pyscn: str | None = None
     pyscn_via: str | None = None
+    skylos: str | None = None
+    skylos_via: str | None = None
     node_version: str | None = None
     warnings: list[str] = field(default_factory=list)
     steps: list[str] = field(default_factory=list)
@@ -213,6 +215,50 @@ def _install_npm_tools(prefix: Path, result: StructuralToolsInstallResult) -> No
                 result.warnings.append(f"npx warm-up failed: {' '.join(warmup[:3])}")
 
 
+def _install_skylos(result: StructuralToolsInstallResult) -> None:
+    if shutil.which("skylos"):
+        result.skylos = shutil.which("skylos")
+        result.skylos_via = "path"
+        result.steps.append("skylos already on PATH")
+        return
+
+    pipx = shutil.which("pipx")
+    if pipx:
+        code, out = _run([pipx, "install", "skylos", "--force"], timeout=300)
+        if code == 0 and shutil.which("skylos"):
+            result.skylos = shutil.which("skylos")
+            result.skylos_via = "pipx"
+            result.steps.append("Installed skylos via pipx")
+            return
+        result.warnings.append(f"pipx install skylos failed ({code}): {out[:300]}")
+
+    uv = shutil.which("uv")
+    if uv:
+        code, out = _run([uv, "tool", "install", "skylos"], timeout=300)
+        if code == 0:
+            skylos = shutil.which("skylos")
+            if skylos:
+                result.skylos = skylos
+                result.skylos_via = "uv"
+                result.steps.append("Installed skylos via uv tool")
+                return
+        result.warnings.append(f"uv tool install skylos failed ({code}): {out[:300]}")
+
+    uvx = shutil.which("uvx") or shutil.which("uv")
+    if uvx:
+        code, out = _run([uvx, "skylos@latest", "--version"], timeout=120)
+        if code == 0:
+            result.skylos = f"{uvx} skylos@latest"
+            result.skylos_via = "uvx"
+            result.steps.append("skylos available via uvx (no global install)")
+            return
+        result.warnings.append(f"uvx skylos probe failed ({code}): {out[:200]}")
+
+    result.warnings.append(
+        "skylos not installed. Install with: pipx install skylos  OR  uv tool install skylos  OR  uvx skylos@latest"
+    )
+
+
 def _install_pyscn(result: StructuralToolsInstallResult) -> None:
     if shutil.which("pyscn"):
         result.pyscn = shutil.which("pyscn")
@@ -269,6 +315,8 @@ def write_manifest(prefix: Path, result: StructuralToolsInstallResult) -> Path:
         "madge": result.madge,
         "pyscn": result.pyscn,
         "pyscn_via": result.pyscn_via,
+        "skylos": result.skylos,
+        "skylos_via": result.skylos_via,
         "knip_npx": f"knip@{KNIP_VERSION.lstrip('^')}",
         "madge_npx": f"madge@{MADGE_VERSION.lstrip('^')}",
     }
@@ -291,9 +339,10 @@ def install_structural_tools(*, prefix: Path | None = None) -> StructuralToolsIn
     result = StructuralToolsInstallResult(ok=True, prefix=str(root), manifest_path="")
     _install_npm_tools(root, result)
     _install_pyscn(result)
+    _install_skylos(result)
     write_manifest(root, result)
     result.ok = not any("failed" in w.lower() for w in result.warnings) or bool(
-        result.knip or result.madge or result.pyscn
+        result.knip or result.madge or result.pyscn or result.skylos
     )
     return result
 
@@ -347,6 +396,28 @@ def resolve_madge_command() -> list[str]:
     return []
 
 
+def resolve_skylos_command() -> list[str]:
+    override = (os.environ.get("FORGE_SKYLOS_COMMAND") or "").strip()
+    if override:
+        return override.split()
+    manifest = load_manifest()
+    skylos = manifest.get("skylos") if manifest else None
+    via = (manifest or {}).get("skylos_via") if manifest else None
+    if skylos and via == "uvx":
+        return str(skylos).split()
+    if skylos:
+        p = Path(str(skylos))
+        if p.is_file() or shutil.which(str(skylos)):
+            return [str(skylos)]
+    which = shutil.which("skylos")
+    if which:
+        return [which]
+    uvx = shutil.which("uvx") or shutil.which("uv")
+    if uvx:
+        return [uvx, "skylos@latest"]
+    return []
+
+
 def resolve_pyscn_command() -> list[str]:
     override = (os.environ.get("FORGE_PYSCN_COMMAND") or "").strip()
     if override:
@@ -381,9 +452,11 @@ def doctor_checks() -> dict[str, Any]:
         "knip": None,
         "madge": None,
         "pyscn": None,
+        "skylos": None,
         "knip_command": resolve_knip_command(),
         "madge_command": resolve_madge_command(),
         "pyscn_command": resolve_pyscn_command(),
+        "skylos_command": resolve_skylos_command(),
     }
     knip = resolve_knip_command()
     if knip:
@@ -396,13 +469,17 @@ def doctor_checks() -> dict[str, Any]:
         checks["pyscn"] = _tool_version([*pyscn, "check", "--help"]) or _tool_version(
             [*pyscn, "--version"]
         )
+    skylos = resolve_skylos_command()
+    if skylos:
+        checks["skylos"] = _tool_version([*skylos, "--version"])
     if manifest:
         checks["manifest_pyscn_via"] = manifest.get("pyscn_via")
+        checks["manifest_skylos_via"] = manifest.get("skylos_via")
     return checks
 
 
 def structural_tools_missing_warnings() -> list[str]:
-    """Warn for each probe CLI (knip, madge, pyscn) that cannot be resolved."""
+    """Warn for each probe CLI (knip, madge, pyscn, skylos) that cannot be resolved."""
     if skip_structural_tools():
         return []
     warnings: list[str] = []
@@ -421,6 +498,11 @@ def structural_tools_missing_warnings() -> list[str]:
         warnings.append(
             f"pyscn not available — re-run {reinstall} (pipx/uv), "
             "or set FORGE_PYSCN_COMMAND / use `uvx pyscn@latest`"
+        )
+    if not resolve_skylos_command():
+        warnings.append(
+            f"skylos not available — re-run {reinstall} (pipx/uv), "
+            "or set FORGE_SKYLOS_COMMAND / use `uvx skylos@latest`"
         )
     return warnings
 
@@ -461,7 +543,7 @@ def structural_tools_install_notice_lines(result: StructuralToolsInstallResult |
 
     lines = [
         "",
-        "Structural quality tools (knip, madge, pyscn — code-review / evaluate Pass B):",
+        "Structural quality tools (knip, madge, pyscn, skylos — code-review / evaluate Pass B):",
         f"  Prefix: {result.prefix}",
     ]
     if result.knip:
@@ -470,6 +552,8 @@ def structural_tools_install_notice_lines(result: StructuralToolsInstallResult |
         lines.append(f"  madge: {result.madge}")
     if result.pyscn:
         lines.append(f"  pyscn: {result.pyscn} ({result.pyscn_via or 'unknown'})")
+    if result.skylos:
+        lines.append(f"  skylos: {result.skylos} ({result.skylos_via or 'unknown'})")
     if result.warnings:
         lines.append("  Warnings:")
         for w in result.warnings:

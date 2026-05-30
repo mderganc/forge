@@ -281,10 +281,10 @@ def build_parser() -> argparse.ArgumentParser:
     st_sub = st_tools.add_subparsers(dest="structural_tools_cmd", required=True)
     st_sub.add_parser("install", help="Install tools under the Forge-managed prefix")
 
-    # structural-probes — run agent-selected knip/madge/pyscn after plan sidecar
+    # structural-probes — run agent-selected knip/madge/pyscn/skylos after plan sidecar
     st_probes = sub.add_parser(
         "structural-probes",
-        help="Run knip/madge/pyscn per .structural-probes-plan.json beside session state",
+        help="Run knip/madge/pyscn/skylos per .structural-probes-plan.json beside session state",
     )
     add_common_repo_flag(st_probes)
     add_common_output_flags(st_probes)
@@ -303,7 +303,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--tools",
         type=str,
         default=None,
-        help="Override plan: comma-separated knip,madge,pyscn",
+        help="Override plan: comma-separated knip,madge,pyscn,skylos",
     )
 
     # codex-agents — merge ~/.codex/config.toml delegation snippet for Forge skills
@@ -529,6 +529,7 @@ def main(argv: list[str] | None = None) -> None:
 
         subc = getattr(args, "structural_probes_cmd", None)
         if subc == "run":
+            repo_root = _repo_root_from_args(getattr(args, "repo", None))
             state_dir = Path(getattr(args, "state_dir", "")).resolve()
             tools_arg = getattr(args, "tools", None)
             tools = None

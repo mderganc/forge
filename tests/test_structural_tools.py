@@ -88,12 +88,17 @@ def test_install_structural_tools_mocked(
         result.pyscn = "/bin/pyscn"
         result.pyscn_via = "pipx"
 
+    def fake_skylos(result: st.StructuralToolsInstallResult) -> None:
+        result.skylos = "/bin/skylos"
+        result.skylos_via = "pipx"
+
     monkeypatch.setattr(st, "_install_npm_tools", fake_npm)
     monkeypatch.setattr(st, "_install_pyscn", fake_pyscn)
+    monkeypatch.setattr(st, "_install_skylos", fake_skylos)
 
     result = st.install_structural_tools()
     assert result.ok
-    assert result.knip and result.madge and result.pyscn
+    assert result.knip and result.madge and result.pyscn and result.skylos
     assert tmp_path.joinpath("manifest.json").is_file()
     data = json.loads(tmp_path.joinpath("manifest.json").read_text(encoding="utf-8"))
     assert data["knip"] == result.knip
@@ -106,10 +111,11 @@ def test_doctor_checks_without_tools(monkeypatch: pytest.MonkeyPatch) -> None:
     checks = st.doctor_checks()
     assert checks["knip"] is None
     warnings = st.structural_tools_warnings_for_doctor()
-    assert len(warnings) == 3
+    assert len(warnings) == 4
     assert any("knip" in w for w in warnings)
     assert any("madge" in w for w in warnings)
     assert any("pyscn" in w for w in warnings)
+    assert any("skylos" in w for w in warnings)
 
 
 def test_missing_warnings_empty_when_skip_env(monkeypatch: pytest.MonkeyPatch) -> None:

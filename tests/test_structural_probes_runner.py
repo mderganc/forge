@@ -132,9 +132,14 @@ def test_run_probes_skip_without_node(tmp_path: Path, monkeypatch: pytest.Monkey
         "forge_next.structural_tools.resolve_madge_command",
         lambda: None,
     )
+    monkeypatch.setattr(
+        "forge_next.structural_tools.resolve_skylos_command",
+        lambda: None,
+    )
     payload = sp.run_probes(tmp_path, state_dir=state_dir)
     knip = next(p for p in payload["probes"] if p["tool"] == "knip")
     assert knip["status"] == "skip"
+    assert "not selected" in knip["summary"]
     sidecar = state_dir / sp.SIDECAR_NAME
     assert sidecar.is_file()
     loaded = json.loads(sidecar.read_text(encoding="utf-8"))
@@ -209,6 +214,7 @@ def test_code_review_step3_auto_runs_without_env(
     monkeypatch.setattr("forge_next.structural_tools.resolve_knip_command", lambda: None)
     monkeypatch.setattr("forge_next.structural_tools.resolve_madge_command", lambda: None)
     monkeypatch.setattr("forge_next.structural_tools.resolve_pyscn_command", lambda: None)
+    monkeypatch.setattr("forge_next.structural_tools.resolve_skylos_command", lambda: None)
 
     body, sidecar, payload = sp.inject_structural_probes_section(
         "body",
@@ -220,11 +226,117 @@ def test_code_review_step3_auto_runs_without_env(
     assert "STRUCTURAL PROBES — results" in body
     assert sidecar is not None
     assert payload is not None
-    assert "pyscn" in (payload.get("selected_tools") or [])
+    selected = payload.get("selected_tools") or []
+    assert "pyscn" in selected
+    assert "skylos" in selected
 
 
-def test_ensure_primary_probe_plan_adds_pyscn(tmp_path: Path) -> None:
+def test_filter_applicable_probe_tools_python_only(tmp_path: Path) -> None:
+    (tmp_path / "pyproject.toml").write_text("[project]\nname='x'\n", encoding="utf-8")
     inv = sp.build_stack_inventory(tmp_path)
+    filtered = sp.filter_applicable_probe_tools(
+        ["knip", "madge", "pyscn", "skylos"],
+        inv,
+    )
+    assert filtered == ["pyscn", "skylos"]
+
+
+def test_filter_applicable_probe_tools_node_only(tmp_path: Path) -> None:
+    (tmp_path / "package.json").write_text('{"name":"app"}', encoding="utf-8")
+    (tmp_path / "src").mkdir()
+    (tmp_path / "src" / "index.ts").write_text("export {}\n", encoding="utf-8")
+    inv = sp.build_stack_inventory(tmp_path)
+    filtered = sp.filter_applicable_probe_tools(
+        ["knip", "madge", "pyscn", "skylos"],
+        inv,
+    )
+    assert filtered == ["knip", "madge"]
+
+
+def test_parse_skylos_json_empty_definitions_no_false_findings() -> None:
+    payload = {"definitions": {}, "unused_functions": []}
+    findings = sp._parse_skylos_json_findings(json.dumps(payload))
+    assert findings == []
+
+
+def test_parse_skylos_json_findings_definitions_dead() -> None:
+    payload = {
+        "definitions": {
+            "pkg.fn": {
+                "name": "dead_fn",
+                "file": "pkg/mod.py",
+                "line": 12,
+                "dead": True,
+                "dead_code_classification": "likely_dead",
+            }
+        }
+    }
+    findings = sp._parse_skylos_json_findings(json.dumps(payload))
+    assert len(findings) == 1
+    assert findings[0]["path"] == "pkg/mod.py:12"
+
+
+def test_parse_skylos_json_findings_unused() -> None:
+    payload = {
+        "unused_functions": [
+            {
+                "name": "dead_fn",
+                "file": "pkg/mod.py",
+                "line": 10,
+                "confidence": 90,
+                "message": "unused function",
+            }
+        ],
+        "analysis_summary": {"dead_code_evidence": {"classifications": {"likely_dead": 1}}},
+    }
+    findings = sp._parse_skylos_json_findings(json.dumps(payload))
+    assert len(findings) == 1
+    assert findings[0]["id"] == "Y1"
+    assert findings[0]["path"] == "pkg/mod.py:10"
+    assert "dead_fn" in findings[0]["detail"]
+
+
+def test_extract_stdout_json_skips_uv_prefix() -> None:
+    raw = "Installed 72 packages in 849ms\n" + json.dumps({"unused_files": []})
+    data = sp._extract_stdout_json(raw)
+    assert data is not None
+    assert "unused_files" in data
+
+
+def test_extract_stdout_json_tolerates_uv_suffix() -> None:
+    raw = json.dumps({"unused_functions": []}) + "\nInstalled 72 packages in 849ms\n"
+    data = sp._extract_stdout_json(raw)
+    assert data is not None
+    assert "unused_functions" in data
+
+
+def test_skylos_scan_command_code_review_quick() -> None:
+    cmd = sp._skylos_scan_command(
+        ["uvx", "skylos@latest"],
+        ["scripts/shared"],
+        quick_scan=True,
+    )
+    assert "--json" in cmd
+    assert "-a" not in cmd
+
+
+def test_ensure_primary_probe_plan_replaces_reasoning(tmp_path: Path) -> None:
+    (tmp_path / "pyproject.toml").write_text("[project]\nname='x'\n", encoding="utf-8")
+    inv = sp.build_stack_inventory(tmp_path)
+    plan = sp.ensure_primary_probe_plan(
+        {
+            "tools": ["knip"],
+            "reasoning": "Old heuristic. pyscn is required when Python is present.",
+        },
+        inv,
+        skill_name="code-review",
+        step=3,
+    )
+    assert "Old heuristic" not in plan["reasoning"]
+    assert "stack-applicable" in plan["reasoning"]
+
+
+def test_ensure_primary_probe_plan_python_only(tmp_path: Path) -> None:
     (tmp_path / "pyproject.toml").write_text("[project]\nname='x'\n", encoding="utf-8")
     inv = sp.build_stack_inventory(tmp_path)
     plan = sp.ensure_primary_probe_plan(
@@ -232,9 +344,11 @@ def test_ensure_primary_probe_plan_adds_pyscn(tmp_path: Path) -> None:
         inv,
         skill_name="code-review",
         step=3,
+        scope_paths=["scripts/shared/structural_probes.py"],
     )
-    assert plan["tools"][0] == "pyscn"
-    assert "knip" in plan["tools"]
+    assert plan["tools"] == ["pyscn", "skylos"]
+    assert "knip" not in plan["tools"]
+    assert plan["scope_paths"] == ["scripts/shared/structural_probes.py"]
 
 
 def test_inject_auto_mode_runs_probes(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -245,6 +359,7 @@ def test_inject_auto_mode_runs_probes(tmp_path: Path, monkeypatch: pytest.Monkey
     monkeypatch.setattr("forge_next.structural_tools.resolve_knip_command", lambda: None)
     monkeypatch.setattr("forge_next.structural_tools.resolve_madge_command", lambda: None)
     monkeypatch.setattr("forge_next.structural_tools.resolve_pyscn_command", lambda: None)
+    monkeypatch.setattr("forge_next.structural_tools.resolve_skylos_command", lambda: None)
 
     (tmp_path / "package.json").write_text("{}", encoding="utf-8")
     body, sidecar, payload = sp.inject_structural_probes_section(
@@ -275,12 +390,14 @@ def test_run_probes_respects_plan_tools(tmp_path: Path, monkeypatch: pytest.Monk
     monkeypatch.setattr("forge_next.structural_tools.resolve_knip_command", lambda: None)
     monkeypatch.setattr("forge_next.structural_tools.resolve_madge_command", lambda: None)
     monkeypatch.setattr("forge_next.structural_tools.resolve_pyscn_command", lambda: None)
+    monkeypatch.setattr("forge_next.structural_tools.resolve_skylos_command", lambda: None)
 
     payload = sp.run_probes(tmp_path, state_dir=state_dir, plan=sp.load_probe_plan(state_dir))
     by_tool = {p["tool"]: p for p in payload["probes"]}
     assert by_tool["knip"]["status"] == "skip"
     assert "not selected" in by_tool["madge"]["summary"]
     assert "not selected" in by_tool["pyscn"]["summary"]
+    assert "not selected" in by_tool["skylos"]["summary"]
 
 
 def test_code_review_step3_mentions_sidecar(monkeypatch: pytest.MonkeyPatch) -> None:

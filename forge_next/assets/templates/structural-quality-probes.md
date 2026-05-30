@@ -59,7 +59,7 @@ Do not run pyscn on repos where Python is only scripts/tooling next to a TS app.
 
 ## Eight parallel subagents (Civil Learning)
 
-**Default Pass B dispatch:** spawn **eight parallel subagents** with the Civil Learning master prompt and per-agent missions — see **`templates/structural-quality-eight-agents.md`**. The orchestrator prints the dispatch table on code-review step 3 and evaluate post step 4 / review step 1.
+**Eight parallel subagents:** see **`templates/structural-quality-eight-agents.md`**. The orchestrator prints the dispatch table on **code-review step 3** and **evaluate review step 1** only (not post-evaluate step 4 — probes only there). Default dispatch is **S3, S4, S8**; set `FORGE_STRUCTURAL_EIGHT_AGENTS_FULL=1` for all eight. Skip with `FORGE_SKIP_STRUCTURAL_EIGHT_AGENTS=1`.
 
 | Lens | Subagent ID | Tool signal |
 |------|-------------|-------------|

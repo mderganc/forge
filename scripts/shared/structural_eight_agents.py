@@ -112,6 +112,37 @@ SIDECAR_NAME = ".structural-eight-agents.json"
 QUICK_MODE_AGENT_IDS = ("S3", "S4", "S8")
 
 
+def skip_structural_eight_agents() -> bool:
+    v = os.environ.get("FORGE_SKIP_STRUCTURAL_EIGHT_AGENTS", "").strip().lower()
+    return v in ("1", "true", "yes", "on")
+
+
+def structural_eight_agents_full_dispatch() -> bool:
+    """When set, dispatch all eight Civil Learning subagents (not the default quick trio)."""
+    v = os.environ.get("FORGE_STRUCTURAL_EIGHT_AGENTS_FULL", "").strip().lower()
+    return v in ("1", "true", "yes", "on")
+
+
+def should_dispatch_eight_agents(skill_name: str, step: int, mode: str | None = None) -> bool:
+    """Whether to append the eight-subagent dispatch banner for this orchestrator step."""
+    if skip_structural_eight_agents():
+        return False
+    slug = skill_name.strip().lower()
+    if slug == "code-review" and step == 3:
+        return True
+    if slug == "evaluate" and step == 1 and mode == "review":
+        return True
+    # evaluate post step 4: structural probes only (eight agents duplicate code-review and stall agents)
+    return False
+
+
+def default_eight_agents_quick_mode(*, user_quick: bool = False) -> bool:
+    """Default to S3/S4/S8 unless the session or env requests full eight-agent dispatch."""
+    if user_quick:
+        return True
+    return not structural_eight_agents_full_dispatch()
+
+
 def _template_path() -> Path | None:
     repo = _detect_repo_root()
     candidates = [
@@ -176,6 +207,8 @@ def format_eight_agents_dispatch_banner(*, quick_mode: bool = False) -> str:
             "(merge into a single file with an `agents` array).",
             "- **Close each subagent** as soon as it finishes (`close_agent` / Task completes). "
             "Do not leave all eight open across the next orchestrator step.",
+            "- **Do not block the orchestrator step** on finishing every agent or probe — write the "
+            "phase findings sidecar and run the next `forge … --step` when Pass B is time-boxed.",
             "",
             "### Parallel dispatch table",
             "",

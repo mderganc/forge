@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import pytest
+
 from scripts.shared import structural_eight_agents as sea
 
 
@@ -38,3 +40,21 @@ def test_template_file_exists() -> None:
     text = sea.load_eight_agents_template()
     assert "Civil Learning" in text
     assert "S1" in text
+
+
+def test_should_dispatch_eight_agents_matrix() -> None:
+    assert sea.should_dispatch_eight_agents("code-review", 3)
+    assert sea.should_dispatch_eight_agents("evaluate", 1, mode="review")
+    assert not sea.should_dispatch_eight_agents("evaluate", 4, mode="post")
+    assert not sea.should_dispatch_eight_agents("evaluate", 4, mode="pre")
+
+
+def test_default_eight_agents_quick_mode() -> None:
+    assert sea.default_eight_agents_quick_mode(user_quick=False) is True
+    assert sea.default_eight_agents_quick_mode(user_quick=True) is True
+
+
+def test_skip_structural_eight_agents(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("FORGE_SKIP_STRUCTURAL_EIGHT_AGENTS", "1")
+    assert sea.skip_structural_eight_agents()
+    assert not sea.should_dispatch_eight_agents("code-review", 3)

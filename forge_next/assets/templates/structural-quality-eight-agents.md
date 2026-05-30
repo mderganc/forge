@@ -1,6 +1,6 @@
 # Structural quality — eight parallel subagents (Civil Learning)
 
-Pass B structural review uses **eight parallel subagents**, not a single reviewer wearing eight hats. The orchestrator spawns all eight at team dispatch (code-review step 3, evaluate post step 4, evaluate review step 1) after structural probes are planned or run.
+Pass B structural review uses **parallel subagents** (default **S3, S4, S8**; full eight with `FORGE_STRUCTURAL_EIGHT_AGENTS_FULL=1`), not a single reviewer wearing eight hats. The orchestrator prints the dispatch table at **code-review step 3** and **evaluate review step 1** after structural probes are planned or run (post-evaluate step 4 is probes-only).
 
 ## Master prompt (source wording)
 

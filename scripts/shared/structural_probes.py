@@ -659,6 +659,8 @@ def format_probe_planning_banner(
         "Full guide: `templates/structural-quality-probes.md`.",
         "",
         "_Automation (skip agent plan): `FORGE_STRUCTURAL_PROBES_AUTO=1` on the orchestrator step._",
+        "_Skip eight subagents: `FORGE_SKIP_STRUCTURAL_EIGHT_AGENTS=1`._",
+        "_Full eight-agent dispatch (not default quick trio): `FORGE_STRUCTURAL_EIGHT_AGENTS_FULL=1`._",
         "",
     ]
     counts = inventory.get("counts") or {}
@@ -697,9 +699,16 @@ def inject_structural_probes_section(
     if not plan_file.is_file():
         write_probe_plan(state_dir, suggestion)
 
-    from scripts.shared.structural_eight_agents import format_eight_agents_dispatch_banner
+    from scripts.shared.structural_eight_agents import (
+        default_eight_agents_quick_mode,
+        format_eight_agents_dispatch_banner,
+        should_dispatch_eight_agents,
+    )
 
-    eight_banner = format_eight_agents_dispatch_banner(quick_mode=quick_mode)
+    eight_banner = ""
+    if should_dispatch_eight_agents(skill_name, step, mode):
+        eight_quick = default_eight_agents_quick_mode(user_quick=quick_mode)
+        eight_banner = "\n\n" + format_eight_agents_dispatch_banner(quick_mode=eight_quick)
 
     if auto_run_structural_probes():
         plan = load_probe_plan(state_dir) or suggestion
@@ -712,10 +721,10 @@ def inject_structural_probes_section(
         )
         sc = sidecar_path(state_dir)
         banner = format_probe_results_banner(payload, sc)
-        return body + "\n\n" + banner + "\n\n" + eight_banner, sc, payload
+        return body + "\n\n" + banner + eight_banner, sc, payload
 
     banner = format_probe_planning_banner(state_dir, inventory, suggestion)
-    return body + "\n\n" + banner + "\n\n" + eight_banner, None, None
+    return body + "\n\n" + banner + eight_banner, None, None
 
 
 def run_probes_from_state_dir(

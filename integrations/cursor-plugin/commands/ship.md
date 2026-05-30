@@ -1,21 +1,26 @@
 ---
 name: forge:ship
-description: Commit, push, open or update a PR, merge, and publish — finalize coding without retyping git steps.
+description: Commit, push, PR, merge, publish — refresh Graphify at ship time, then finalize git steps.
 ---
 
-## Hard rule — Graphify
+## Graphify (first when `graphify-out/` exists)
 
-If `graphify-out/` exists and you changed code this session: run `graphify update .` before committing.
+```bash
+forge ship --step 1
+```
+
+Workflow skills no longer print GRAPHIFY per step; refresh runs here before commit.
 
 ## What to tell the user first
 
-- **Ship** finalizes your work: preflight, optional commit, push, PR, and (only if you ask) merge or publish.
+- **Ship** finalizes your work: graphify preflight (optional), git status, commit, push, PR, merge/publish only if asked.
 - Say what you want if not everything: e.g. "commit only", "open PR", "publish PyPI".
 
 ## What you run (agent)
 
-Follow **`.cursor/skills/ship/SKILL.md`** in this repo (or `~/.cursor/skills/ship/` if copied there). Use git and `gh`; do not skip safety rules (no secret commits, no force-push to main unless explicit).
+1. **`forge ship --step 1`** when `graphify-out/` exists (unless `FORGE_SKIP_GRAPHIFY=1`).
+2. Follow **`.cursor/skills/ship/SKILL.md`** for git/`gh` steps.
 
-Present results in prose with links (PR URL, commit SHA) — argv is fine for ship since the user expects git operations.
+Present results in prose with links (PR URL, commit SHA).
 
 ---

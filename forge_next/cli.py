@@ -23,12 +23,18 @@ def _is_readme_root(path: Path) -> bool:
 
 
 def resolve_repo_root(start: Path) -> Path | None:
-    """Resolve a target repo root from a starting directory.
+    """Resolve a writable target repo root (sandbox-safe path aliases)."""
+    import sys
 
-    Policy (pinned):
-    - Prefer nearest ancestor containing `.git/`.
-    - Fallback to nearest ancestor containing `README.md`.
-    """
+    repo_root = Path(__file__).resolve().parents[1]
+    if str(repo_root) not in sys.path:
+        sys.path.insert(0, str(repo_root))
+    from scripts.shared.repo_paths import resolve_repo_root as _resolve
+
+    try:
+        return _resolve(start)
+    except Exception:
+        pass
     start = start.resolve()
     readme_candidate: Path | None = None
     for cur in (start, *start.parents):
@@ -124,6 +130,15 @@ def build_parser() -> argparse.ArgumentParser:
         default=None,
         help="Git branch prefix for feature/task branches (default: feat; stored in state on step 1)",
     )
+
+    # ship (graphify preflight + ship skill handoff)
+    sh = sub.add_parser(
+        "ship",
+        help="Ship preflight: refresh Graphify index before commit/PR (then follow ship skill)",
+    )
+    add_common_repo_flag(sh)
+    add_common_output_flags(sh)
+    sh.add_argument("--step", type=int, required=True)
 
     # code-review
     cr = sub.add_parser("code-review", help="Run the code-review orchestrator")
@@ -591,6 +606,7 @@ def main(argv: list[str] | None = None) -> None:
         "test": "scripts.test.test",
         "diagnose": "scripts.diagnose.orchestrate",
         "iterate": "scripts.iterate.iterate",
+        "ship": "scripts.ship.ship",
         "resume": "scripts.shared.resume",
     }
     module_name = module_map[cmd]

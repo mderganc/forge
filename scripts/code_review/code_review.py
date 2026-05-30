@@ -86,10 +86,10 @@ PHASE_TODOS = {
          "activeForm": "Selecting mode"},
     ],
     3: [
-        {"content": "Dispatch reviewers in parallel",
-         "activeForm": "Dispatching reviewers"},
-        {"content": "Wait for all reviewer findings",
-         "activeForm": "Waiting for findings"},
+        {"content": "Run forge step 3 prompt (structural Pass B + team dispatch)",
+         "activeForm": "Running team dispatch"},
+        {"content": "Write findings or advance when time-boxed (do not block on every subagent)",
+         "activeForm": "Recording findings"},
     ],
     4: [
         {"content": "Dispatch Investigator for deep dive on critical findings",
@@ -402,15 +402,26 @@ def handle_step_n(step: int, state_file: str | None = None) -> None:
     body = render_template(template, variables)
 
     if step == 3:
+        import sys
+
+        print(
+            "forge: code-review step 3 — loading template and structural Pass B…",
+            file=sys.stderr,
+            flush=True,
+        )
         from scripts.shared.structural_probes import inject_structural_probes_section
 
         scope = state.custom.get("target_tokens") or []
+        from scripts.shared.repo_paths import equivalent_path_in_repo, resolve_repo_root
+
+        scan_root = resolve_repo_root(Path.cwd())
+        state_dir = equivalent_path_in_repo(sp.parent, scan_root)
         body, sidecar, _payload = inject_structural_probes_section(
             body,
             skill_name=SKILL_NAME,
             step=step,
-            repo_root=_detect_repo_root(Path.cwd()),
-            state_dir=sp.parent,
+            repo_root=scan_root,
+            state_dir=state_dir,
             scope_paths=scope if scope else None,
             quick_mode=state.quick_mode,
         )
@@ -469,14 +480,16 @@ def handle_step_n(step: int, state_file: str | None = None) -> None:
 
     phase_name = PHASE_NAMES.get(step, f"Step {step}")
     next_cmd = _next_command(step, state_path=str(sp)) if step < MAX_STEP else None
-    print(format_step_output(
+    output = format_step_output(
         SKILL_NAME, step, MAX_STEP, phase_name, body,
         next_cmd=next_cmd,
         phase_todos=PHASE_TODOS.get(step, []),
         handoff_menu=handoff_menu,
         all_phase_names=PHASE_NAMES,
         all_phase_todos=PHASE_TODOS,
-    ))
+    )
+    # Flush before large step bodies so terminals show output immediately.
+    print(output, flush=True)
 
 
 # ---------------------------------------------------------------------------

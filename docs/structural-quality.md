@@ -40,6 +40,8 @@ Skip in CI or automation:
 export FORGE_SKIP_STRUCTURAL_TOOLS=1
 ```
 
+Inventory scans use a pruned directory walk (they do **not** descend into `.venv`, `node_modules`, `graphify-out`, or vendored `forge_next-0.*` trees). If step 3/4 still feels slow, set `FORGE_SKIP_STRUCTURAL_TOOLS=1` as above.
+
 ## What gets installed
 
 | Tool | Stack | Install method |

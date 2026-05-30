@@ -1,11 +1,10 @@
-"""Graphify contract text injected into Forge skill step output.
+"""Graphify contract text injected into Forge orchestrator step output.
 
-When a repo has a Graphify index, workflow steps print a mandatory reminder
-before agents grep/glob/search raw files.
+Graphify **refresh and GRAPHIFY banners** run on **`forge ship --step 1`** (or
+``$forge:ship``) at finalize time — not on develop/plan/implement/code-review/test/
+diagnose/evaluate steps.
 
 Disable entirely: ``FORGE_SKIP_GRAPHIFY=1`` or ``forge graphify off``.
-Defer during implement waves: ``forge graphify defer-waves`` or
-``forge implement --defer-graphify-waves`` on step 1.
 """
 
 from __future__ import annotations
@@ -18,9 +17,6 @@ from forge_next.graphify_enforcement import (
     graphify_fully_disabled,
     should_show_graphify_banner,
 )
-
-# Skills that primarily explore or map the codebase (stronger wording).
-INVESTIGATION_SKILLS = frozenset({"develop", "diagnose", "plan", "test", "evaluate"})
 
 _GRAPH_REPORT_CANDIDATES = (
     "graphify-out/GRAPH_REPORT.md",
@@ -97,31 +93,21 @@ def forge_graphify_banner(
         return graphify_deferred_note(slug, step, root)
 
     bar = ("=" * 60) if os.environ.get("FORGE_ASCII") == "1" else ("━" * 60)
-    investigate = slug in INVESTIGATION_SKILLS
-    lead = (
-        "This phase explores or maps the codebase — **Graphify is mandatory** "
-        "before search tools or bulk source reads."
-        if investigate
-        else "This repo has a Graphify knowledge graph — follow it before raw search."
-    )
-
     lines = [
         bar,
-        "GRAPHIFY — codebase map (required before raw search)",
+        "GRAPHIFY — refresh before you ship",
         bar,
         "",
-        lead,
+        "You are on **`forge ship`** — update the knowledge graph **before** commit/PR/publish.",
         "",
-        "**Before** grep, glob, ripgrep, semantic/codebase search, or reading source "
-        "files for architecture or cross-module questions:",
+        "1. The orchestrator already ran **`forge graphify refresh`** (foreground) for this step.",
+        "2. Read **`graphify-out/GRAPH_REPORT.md`** if you need navigation context for the ship summary.",
+        "3. If **`graphify-out/wiki/index.md`** exists, use it instead of bulk file reads.",
+        "4. For cross-module questions in the PR body or review, prefer **`graphify query`**, "
+        "**`graphify path`**, **`graphify explain`**.",
         "",
-        "1. Read **`graphify-out/GRAPH_REPORT.md`** (god nodes + communities).",
-        "2. If **`graphify-out/wiki/index.md`** exists, navigate the wiki instead of raw files.",
-        "3. For “how does X relate to Y”, prefer **`graphify query`**, **`graphify path`**, "
-        "or **`graphify explain`** over scanning the tree.",
-        "",
-        "**After** you edit tracked code in this session, run **`graphify update .`** "
-        "(AST-only, no API cost).",
+        "Other workflow skills (`develop`, `plan`, `implement`, `code-review`, `test`, "
+        "`diagnose`, `evaluate`) **do not** print GRAPHIFY blocks — graphify runs here at ship time.",
         "",
     ]
 
@@ -130,8 +116,7 @@ def forge_graphify_banner(
         lines.extend(["**Snapshot (read the full report for navigation):**", "", excerpt, ""])
 
     lines.append(
-        f"_Step {step} of `{slug}` — disable: `FORGE_SKIP_GRAPHIFY=1` or `forge graphify off`; "
-        "defer implement waves: `forge graphify defer-waves`._"
+        f"_Step {step} of `{slug}` — disable: `FORGE_SKIP_GRAPHIFY=1` or `forge graphify off`._"
     )
     lines.append("")
     return "\n".join(lines)

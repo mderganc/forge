@@ -34,9 +34,19 @@ If multiple repos or no changes, say so and stop.
 - **Only commit when the user asked** to commit or ship (shipping implies commit when there are changes).
 - **Only push/merge/publish when the user asked** or chose full **ship**.
 - Use **`gh`** for GitHub (PR, checks, merge). If `gh` is unavailable, say so and give manual steps.
-- After **code edits in this session**, run **`graphify update .`** when `graphify-out/` exists before committing.
+## Phase 0 — Graphify (when `graphify-out/` exists)
 
-## Phase 0 — Preflight
+Run **once** before git preflight — refreshes the index for the code you are about to ship:
+
+```bash
+forge ship --step 1
+```
+
+Or invoke **`$forge:ship`** / this skill with graphify first. Workflow skills no longer run graphify per step.
+
+Skip with `FORGE_SKIP_GRAPHIFY=1` or `forge graphify off`.
+
+## Phase 1 — Preflight
 
 Run in parallel when possible:
 
@@ -50,7 +60,7 @@ Summarize: what will ship, target branch, blockers (dirty tree, wrong branch, no
 
 Optional (ask or infer): run project tests / lint the user cares about before commit.
 
-## Phase 1 — Commit
+## Phase 2 — Commit
 
 Skip if nothing to commit and user did not ask for an empty commit.
 
@@ -60,7 +70,7 @@ Skip if nothing to commit and user did not ask for an empty commit.
    - Prefer a single `-m` with a full message, or `-F` with a temp file on Windows if the message is multi-line.
    - Do **not** use interactive git (`-i`).
 
-## Phase 2 — Push
+## Phase 3 — Push
 
 ```bash
 git push -u origin HEAD
@@ -68,7 +78,7 @@ git push -u origin HEAD
 
 Use `-u` when the branch has no upstream. If push is rejected, report and suggest rebase/merge — do not force without explicit approval.
 
-## Phase 3 — Pull request
+## Phase 4 — Pull request
 
 If a PR already exists for this branch, summarize `gh pr view` and offer to update title/body or push new commits.
 
@@ -90,13 +100,13 @@ On Windows PowerShell without heredoc, use `gh pr create` with `--body-file` poi
 
 **Test plan** should be concrete checkboxes from what actually changed.
 
-## Phase 4 — Merge (explicit only)
+## Phase 5 — Merge (explicit only)
 
 - Prefer **`gh pr merge`** with the repo’s usual method (`--squash`, `--merge`, or `--rebase`) when the user named it; otherwise ask once.
 - Wait for required checks when the user wants a green merge; report failing checks with `gh pr checks`.
 - Do **not** merge if the user only asked to open a PR.
 
-## Phase 5 — Publish / release
+## Phase 6 — Publish / release
 
 Detect from the repo root:
 

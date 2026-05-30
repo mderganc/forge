@@ -13,9 +13,9 @@ This project has a knowledge graph at `graphify-out/` with god nodes, community 
 
 When you run a Forge workflow (`/forge:develop`, `/forge:plan`, etc.):
 
-1. **Follow every GRAPHIFY block** printed at the top of each `forge … --step` output (when `graphify-out/` exists).
-2. **Hard rule — Graphify** in each slash command body repeats the same contract.
-3. Claude hooks (if installed via `forge claude-graphify`) remind you on **Grep**, **Glob**, **Read**, and search-like **Bash** before raw search.
+1. **Graphify refresh at ship** — run `forge ship --step 1` or `/forge:ship` before commit/PR (not on every workflow `--step`).
+2. You may still use the graph during investigation when helpful (`graphify query`, `path`, `explain`).
+3. Claude hooks (if installed via `forge claude-graphify`) may remind on search tools; workflow steps no longer print GRAPHIFY banners.
 
 Install or refresh hooks after upgrading **forge-next**:
 
@@ -25,4 +25,4 @@ forge claude-graphify
 ```
 
 Full documentation: [`docs/graphify.md`](docs/graphify.md).  
-CI: set `FORGE_SKIP_GRAPHIFY=1` to suppress per-step GRAPHIFY banners.
+CI: set `FORGE_SKIP_GRAPHIFY=1` to suppress ship-time GRAPHIFY refresh/banners.

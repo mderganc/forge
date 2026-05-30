@@ -1,10 +1,11 @@
 ## Graphify (codebase map)
 
-When **`graphify-out/`** exists, treat the knowledge graph as the primary map:
+When **`graphify-out/`** exists:
 
-1. Read **`graphify-out/GRAPH_REPORT.md`** before grep/glob/semantic search or bulk source reads for architecture questions.
-2. If **`graphify-out/wiki/index.md`** exists, navigate the wiki instead of raw files.
-3. For cross-module relationships, prefer **`graphify query`**, **`graphify path`**, or **`graphify explain`**.
-4. After editing tracked code in this session, run **`graphify update .`** (AST-only, no API cost).
+1. **Refresh at ship** — run **`forge ship --step 1`** or **`$forge:ship`** before commit/PR/publish (foreground `forge graphify refresh` + GRAPHIFY banner).
+2. During investigation you may read **`graphify-out/GRAPH_REPORT.md`** or use **`graphify query`**, **`graphify path`**, **`graphify explain`** instead of blind grep — optional, not injected on every workflow step.
+3. If **`graphify-out/wiki/index.md`** exists, prefer the wiki over bulk raw reads when navigating.
 
-Forge step output includes a **GRAPHIFY** banner on every step when an index is present.
+Workflow skills (`develop`, `plan`, `implement`, `code-review`, `test`, `diagnose`, `evaluate`) **do not** print per-step GRAPHIFY blocks.
+
+Disable: **`FORGE_SKIP_GRAPHIFY=1`** or **`forge graphify off`**.

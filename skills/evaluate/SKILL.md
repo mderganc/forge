@@ -28,9 +28,9 @@ Invoking any `forge:*` skill implicitly authorizes the agent dispatch required b
 Read `templates/codex-runtime.md` before executing the workflow if you need a
 tooling reminder.
 
-## CRITICAL: Graphify before raw search
+## Graphify (optional during this skill)
 
-When `graphify-out/` exists, **every orchestrator step** prints a **GRAPHIFY** block — follow it before grep/glob/semantic search or bulk source reads. Read `graphify-out/GRAPH_REPORT.md` first; prefer `graphify query` / `path` / `explain` for cross-module questions. After code edits, run `graphify update .`. See `templates/graphify-contract.md`.
+Per-step GRAPHIFY blocks are **disabled**; refresh at ship (`forge ship --step 1` / `$forge:ship`). You may still read `graphify-out/GRAPH_REPORT.md` or use `graphify query` / `path` / `explain` when helpful. See `templates/graphify-contract.md`.
 
 In **post** step 4 and **review** step 1, read **`.structural-probes.json`** and `templates/structural-quality-probes.md` when a structural-probes banner is shown.
 

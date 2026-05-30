@@ -16,7 +16,10 @@ _TRUTHY = frozenset({"1", "true", "yes", "on"})
 
 PREFS_FILENAME = "graphify-prefs.json"
 
-# Implement steps 3–5 are the per-wave loop (dispatch / review / complete).
+# Graphify orchestrator banners + foreground refresh run only on ship (end of workflow).
+GRAPHIFY_ORCHESTRATOR_SKILL = "ship"
+
+# Legacy pref: defer_implement_waves (no longer affects banners; kept for prefs migration).
 IMPLEMENT_WAVE_STEPS = frozenset({3, 4, 5})
 
 
@@ -91,31 +94,15 @@ def should_show_graphify_banner(
     step: int,
     repo_root: Path,
 ) -> bool:
-    """Whether the per-step GRAPHIFY orchestrator block should print."""
+    """Whether the per-step GRAPHIFY orchestrator block should print (ship only)."""
     if graphify_fully_disabled(repo_root):
         return False
     slug = skill_name.strip().lower()
-    if slug == "implement" and step in IMPLEMENT_WAVE_STEPS:
-        if graphify_defer_implement_waves(repo_root):
-            return False
-    return True
+    return slug == GRAPHIFY_ORCHESTRATOR_SKILL
 
 
 def graphify_deferred_note(skill_name: str, step: int, repo_root: Path) -> str:
-    """Short note when implement wave steps defer the full GRAPHIFY banner."""
-    if not should_show_graphify_banner(skill_name, step, repo_root):
-        if (
-            skill_name.strip().lower() == "implement"
-            and step in IMPLEMENT_WAVE_STEPS
-            and graphify_defer_implement_waves(repo_root)
-            and not graphify_fully_disabled(repo_root)
-        ):
-            return (
-                "_Graphify is deferred for implement wave steps (3–5). "
-                "Full GRAPHIFY resumes at step 6+. "
-                "Disable entirely: `forge graphify off` or `FORGE_SKIP_GRAPHIFY=1`. "
-                "Clear defer: `forge graphify undefer-waves`._\n\n"
-            )
+    """Unused — workflow skills no longer print per-step GRAPHIFY blocks."""
     return ""
 
 
@@ -149,9 +136,9 @@ def graphify_prefs_summary(repo_root: Path) -> str:
         if _env_truthy("FORGE_SKIP_GRAPHIFY"):
             return "disabled (FORGE_SKIP_GRAPHIFY is set)"
         return "disabled (repo prefs)"
-    parts: list[str] = ["enabled"]
+    parts: list[str] = [f"orchestrator banners on `{GRAPHIFY_ORCHESTRATOR_SKILL}` only"]
     if graphify_defer_implement_waves(repo_root):
-        parts.append("implement waves deferred (steps 3–5)")
+        parts.append("legacy defer_implement_waves pref set (no effect on banners)")
     if _env_truthy("FORGE_SKIP_GRAPHIFY_REFRESH"):
         parts.append("auto-refresh suppressed (FORGE_SKIP_GRAPHIFY_REFRESH)")
     return ", ".join(parts)

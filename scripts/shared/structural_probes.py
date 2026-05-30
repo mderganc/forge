@@ -1,4 +1,4 @@
-"""Structural probes (knip, madge, pyscn) with agent-selected execution."""
+"""Structural probes (knip, madge, pyscn, skylos) with agent-selected execution."""
 
 from __future__ import annotations
 
@@ -15,7 +15,9 @@ from typing import Any
 SIDECAR_NAME = ".structural-probes.json"
 INVENTORY_NAME = ".structural-probes-inventory.json"
 PLAN_NAME = ".structural-probes-plan.json"
-VALID_PROBE_TOOLS = frozenset({"knip", "madge", "pyscn"})
+VALID_PROBE_TOOLS = frozenset({"knip", "madge", "pyscn", "skylos"})
+NODE_PROBE_TOOLS = frozenset({"knip", "madge"})
+PYTHON_PROBE_TOOLS = frozenset({"pyscn", "skylos"})
 
 _NODE_MARKERS = (
     "package.json",
@@ -109,39 +111,120 @@ def should_auto_run_structural_probes(
     return False
 
 
-def ensure_primary_probe_plan(
-    plan: dict[str, Any],
+def inventory_stack_capabilities(
     inventory: dict[str, Any],
-    *,
-    skill_name: str,
-    step: int,
-) -> dict[str, Any]:
-    """Ensure code-review step 3 always includes pyscn when the repo is Python-capable."""
-    merged = dict(plan or {})
-    if skill_name.strip().lower() != "code-review" or step != 3:
-        return merged
-    tools = normalize_probe_tools(merged.get("tools"))
+) -> tuple[bool, bool]:
+    """Return ``(node_capable, python_capable)`` from probe inventory."""
     hints = inventory.get("stack_hints") or {}
     markers = inventory.get("markers") or {}
     counts = inventory.get("counts") or {}
+    node_capable = bool(hints.get("node"))
     python_capable = bool(
         hints.get("python")
         or markers.get("pyproject")
         or markers.get("setup_py")
         or counts.get("py", 0) >= 5
     )
+    return node_capable, python_capable
+
+
+def filter_applicable_probe_tools(
+    tools: list[str],
+    inventory: dict[str, Any],
+) -> list[str]:
+    """Drop stack-inapplicable tools (e.g. knip on Python-only repos)."""
+    node_capable, python_capable = inventory_stack_capabilities(inventory)
+    out: list[str] = []
+    for tool in normalize_probe_tools(tools):
+        if tool in NODE_PROBE_TOOLS and not node_capable:
+            continue
+        if tool in PYTHON_PROBE_TOOLS and not python_capable:
+            continue
+        out.append(tool)
+    return out
+
+
+def _merge_plan_reasoning(prior: str, note: str, *, replace: bool = False) -> str:
+    """Dedupe sentence-level reasoning; orchestrator may replace stale heuristic text."""
+    if replace or not prior.strip():
+        return note.strip()
+    parts: list[str] = []
+    seen: set[str] = set()
+    for chunk in (prior, note):
+        for sentence in re.split(r"(?<=[.!?])\s+", chunk.strip()):
+            s = sentence.strip()
+            if not s or s in seen:
+                continue
+            seen.add(s)
+            parts.append(s)
+    return " ".join(parts)
+
+
+def skylos_full_audit_enabled() -> bool:
+    v = os.environ.get("FORGE_SKYLOS_AUDIT", "").strip().lower()
+    return v in ("1", "true", "yes", "on")
+
+
+def skylos_use_quick_scan(
+    skill_name: str | None,
+    step: int | None,
+    *,
+    scope_paths: list[str] | None = None,
+) -> bool:
+    """Dead-code-only skylos unless FORGE_SKYLOS_AUDIT=1 (code-review step 3 or scoped runs)."""
+    if skylos_full_audit_enabled():
+        return False
+    if skill_name is not None and skill_name.strip().lower() == "code-review" and step == 3:
+        return True
+    return bool(scope_paths)
+
+
+def ensure_primary_probe_plan(
+    plan: dict[str, Any],
+    inventory: dict[str, Any],
+    *,
+    skill_name: str,
+    step: int,
+    scope_paths: list[str] | None = None,
+) -> dict[str, Any]:
+    """Code-review step 3: applicable tools only; pyscn+skylos when Python is present."""
+    merged = dict(plan or {})
+    if skill_name.strip().lower() != "code-review" or step != 3:
+        return merged
+    node_capable, python_capable = inventory_stack_capabilities(inventory)
+    tools = filter_applicable_probe_tools(
+        normalize_probe_tools(merged.get("tools")),
+        inventory,
+    )
     if python_capable:
-        if "pyscn" not in tools:
-            tools = ["pyscn", *tools]
+        for required in ("pyscn", "skylos"):
+            if required not in tools:
+                tools.append(required)
     merged["tools"] = tools
     roots = inventory.get("suggested_probe_roots") or {}
-    if "pyscn" in tools and not merged.get("python_root") and roots.get("python"):
-        merged["python_root"] = roots["python"]
-    note = "Code-review step 3 runs structural probes from the orchestrator; pyscn is required when Python is present."
-    prior = str(merged.get("reasoning") or "").strip()
-    if note not in prior:
-        merged["reasoning"] = f"{prior} {note}".strip() if prior else note
-    merged.setdefault("source", "orchestrator")
+    if tools and any(t in PYTHON_PROBE_TOOLS for t in tools):
+        if not merged.get("python_root") and roots.get("python"):
+            merged["python_root"] = roots["python"]
+    if tools and any(t in NODE_PROBE_TOOLS for t in tools):
+        if not merged.get("node_root") and roots.get("node"):
+            merged["node_root"] = roots["node"]
+    if scope_paths:
+        merged["scope_paths"] = list(scope_paths)
+    note = (
+        "Code-review step 3 runs stack-applicable probes only "
+        "(knip/madge when Node; pyscn/skylos when Python). "
+        "Skylos uses dead-code scan unless FORGE_SKYLOS_AUDIT=1."
+    )
+    merged["reasoning"] = _merge_plan_reasoning(
+        str(merged.get("reasoning") or ""),
+        note,
+        replace=True,
+    )
+    merged["source"] = "orchestrator"
+    merged["stack_applicable"] = {
+        "node": node_capable,
+        "python": python_capable,
+    }
     return merged
 
 
@@ -408,8 +491,10 @@ def suggest_probe_plan(
         tools.extend(["knip", "madge"])
         notes.append("Node/TS markers present → knip (dead exports) + madge (cycles).")
     if hints.get("python"):
-        tools.append("pyscn")
-        notes.append("Python markers present → pyscn (dead code / clones).")
+        tools.extend(["pyscn", "skylos"])
+        notes.append(
+            "Python markers present → pyscn (clones/complexity) + skylos (dead code / SAST)."
+        )
     if not tools:
         notes.append("No strong stack signal — consider skipping all probes or scoping manually.")
 
@@ -417,7 +502,9 @@ def suggest_probe_plan(
     return {
         "tools": tools,
         "node_root": roots.get("node"),
-        "python_root": roots.get("python") if "pyscn" in tools else None,
+        "python_root": roots.get("python")
+        if any(t in PYTHON_PROBE_TOOLS for t in tools)
+        else None,
         "scope_paths": list(scope_paths or []),
         "reasoning": " ".join(notes) or "Heuristic suggestion only.",
         "source": "heuristic",
@@ -514,7 +601,7 @@ def _tool_findings(tool: str, code: int, out: str, *, max_findings: int = 8) -> 
     if code == 0 and len(out) < 200:
         return []
     findings: list[dict[str, Any]] = []
-    prefix = {"knip": "K", "madge": "M", "pyscn": "P"}.get(tool, "X")
+    prefix = {"knip": "K", "madge": "M", "pyscn": "P", "skylos": "Y"}.get(tool, "X")
     lines = [ln for ln in out.splitlines() if ln.strip()]
     for i, line in enumerate(lines[:max_findings], start=1):
         path = ""
@@ -538,6 +625,119 @@ def _tool_findings(tool: str, code: int, out: str, *, max_findings: int = 8) -> 
                 "detail": out[:1500] or f"{tool} exited {code}",
             }
         )
+    return findings
+
+
+def _extract_stdout_json(raw: str) -> dict[str, Any] | None:
+    """Parse the first JSON object from tool stdout (tolerates uv install lines after JSON)."""
+    text = raw.strip()
+    if not text:
+        return None
+    decoder = json.JSONDecoder()
+    start = 0
+    while True:
+        idx = text.find("{", start)
+        if idx < 0:
+            return None
+        try:
+            data, _end = decoder.raw_decode(text, idx)
+        except json.JSONDecodeError:
+            start = idx + 1
+            continue
+        return data if isinstance(data, dict) else None
+
+
+def _skylos_scan_targets(
+    *,
+    repo_root: Path,
+    python_root: Path,
+    scope_paths: list[str] | None,
+) -> list[str]:
+    if scope_paths:
+        return [str(p) for p in scope_paths if str(p).strip()]
+    if python_root != repo_root:
+        try:
+            return [str(python_root.relative_to(repo_root))]
+        except ValueError:
+            return [str(python_root)]
+    return ["."]
+
+
+def _skylos_scan_command(
+    resolved: list[str],
+    targets: list[str],
+    *,
+    quick_scan: bool = True,
+) -> list[str]:
+    """Dead-code JSON scan by default; full audit with ``-a`` when ``quick_scan`` is false."""
+    base = [*resolved, *targets]
+    if quick_scan:
+        return [*base, "--json"]
+    return [*base, "-a", "--json"]
+
+
+def _skylos_item_to_finding(item: dict[str, Any], *, category: str) -> dict[str, Any] | None:
+    path = str(item.get("file") or item.get("path") or "").replace("\\\\", "/")
+    if path.startswith("/") and len(path) > 2 and path[2] == ":":
+        path = path.lstrip("/")
+    line = item.get("line")
+    if path and line:
+        path = f"{path}:{line}"
+    name = str(item.get("name") or item.get("simple_name") or item.get("rule_id") or category)
+    message = str(item.get("message") or item.get("dead_code_classification") or category)
+    conf = item.get("confidence")
+    detail_parts = [message, f"name={name}"]
+    if conf is not None:
+        detail_parts.append(f"conf={conf}")
+    severity = str(item.get("severity") or "warning").lower()
+    if severity in ("low", "info"):
+        severity = "suggestion"
+    return {
+        "severity": severity,
+        "path": path,
+        "detail": " — ".join(detail_parts)[:500],
+    }
+
+
+def _parse_skylos_json_findings(raw: str, *, max_findings: int = 8) -> list[dict[str, Any]]:
+    data = _extract_stdout_json(raw)
+    if not data:
+        return []
+    candidates: list[tuple[str, dict[str, Any]]] = []
+    for category in (
+        "unused_functions",
+        "unused_imports",
+        "unused_classes",
+        "unused_variables",
+        "unused_parameters",
+        "unused_files",
+    ):
+        chunk = data.get(category)
+        if not isinstance(chunk, list):
+            continue
+        for item in chunk:
+            if isinstance(item, dict):
+                candidates.append((category, item))
+    definitions = data.get("definitions")
+    if isinstance(definitions, dict):
+        for item in definitions.values():
+            if not isinstance(item, dict):
+                continue
+            if item.get("dead") or item.get("dead_code_classification") in (
+                "likely_dead",
+                "dead",
+            ):
+                candidates.append(("definitions", item))
+    findings: list[dict[str, Any]] = []
+    for i, (category, item) in enumerate(candidates[:max_findings], start=1):
+        row = _skylos_item_to_finding(item, category=category)
+        if not row:
+            continue
+        detail = row.get("detail") or ""
+        if "Installed " in detail and "packages" in detail:
+            continue
+        row["id"] = f"Y{i}"
+        findings.append(row)
     return findings
 
 
@@ -577,25 +777,39 @@ def run_probes(
     quick_mode: bool = False,
     tools: list[str] | None = None,
     plan: dict[str, Any] | None = None,
+    skill_name: str | None = None,
+    step: int | None = None,
 ) -> dict[str, Any]:
     """Run only the probes listed in ``plan`` / ``tools``; write results sidecar."""
     from forge_next.structural_tools import (
         resolve_knip_command,
         resolve_madge_command,
         resolve_pyscn_command,
+        resolve_skylos_command,
         skip_structural_tools,
     )
 
     root = repo_root.resolve()
     stack = detect_stack(root)
+    inventory = build_stack_inventory(root)
     merged_plan = merge_plan_with_scope(plan, scope_paths=scope_paths)
     if tools is not None:
-        selected = normalize_probe_tools(tools)
+        selected = filter_applicable_probe_tools(
+            normalize_probe_tools(tools),
+            inventory,
+        )
     elif merged_plan.get("tools"):
-        selected = normalize_probe_tools(merged_plan["tools"])
+        selected = filter_applicable_probe_tools(
+            normalize_probe_tools(merged_plan["tools"]),
+            inventory,
+        )
     else:
-        inventory = build_stack_inventory(root)
-        selected = normalize_probe_tools(suggest_probe_plan(inventory, scope_paths=scope_paths)["tools"])
+        selected = filter_applicable_probe_tools(
+            normalize_probe_tools(
+                suggest_probe_plan(inventory, scope_paths=scope_paths)["tools"]
+            ),
+            inventory,
+        )
 
     node_root = _resolve_probe_root(
         root, merged_plan.get("node_root"), node_probe_root(root)
@@ -628,6 +842,7 @@ def run_probes(
     want_knip = "knip" in selected
     want_madge = "madge" in selected
     want_pyscn = "pyscn" in selected
+    want_skylos = "skylos" in selected
 
     if want_knip:
         knip = resolve_knip_command()
@@ -670,12 +885,15 @@ def run_probes(
     if want_pyscn:
         pyscn = resolve_pyscn_command()
         if pyscn:
-            py_target = "."
-            if python_root != root:
-                try:
-                    py_target = str(python_root.relative_to(root))
-                except ValueError:
-                    py_target = str(python_root)
+            if effective_scope:
+                py_target = effective_scope[0]
+            else:
+                py_target = "."
+                if python_root != root:
+                    try:
+                        py_target = str(python_root.relative_to(root))
+                    except ValueError:
+                        py_target = str(python_root)
             cmd = _pyscn_check_command(pyscn, target=py_target)
             code, out = _run_cmd(cmd, cwd=root, timeout=timeout_per_tool)
             probes.append(
@@ -691,6 +909,46 @@ def run_probes(
             probes.append(_skip_probe("pyscn", "pyscn not available — run forge structural-tools install"))
     else:
         probes.append(_skip_probe("pyscn", "not selected in probe plan"))
+
+    if want_skylos:
+        skylos = resolve_skylos_command()
+        if skylos:
+            sky_targets = _skylos_scan_targets(
+                repo_root=root,
+                python_root=python_root,
+                scope_paths=effective_scope,
+            )
+            quick_scan = quick_mode or skylos_use_quick_scan(
+                skill_name, step, scope_paths=effective_scope
+            )
+            cmd = _skylos_scan_command(skylos, sky_targets, quick_scan=quick_scan)
+            code, out = _run_cmd(cmd, cwd=root, timeout=timeout_per_tool)
+            parsed = _extract_stdout_json(out)
+            findings = _parse_skylos_json_findings(out) if parsed is not None else []
+            if parsed is None:
+                findings = [
+                    f
+                    for f in _tool_findings("skylos", code, out)
+                    if "Installed " not in (f.get("detail") or "")
+                ]
+            probes.append(
+                {
+                    "tool": "skylos",
+                    "status": "pass" if code == 0 else "fail",
+                    "command": cmd,
+                    "summary": (out.splitlines() or [f"exit {code}"])[0][:200],
+                    "findings": findings,
+                }
+            )
+        else:
+            probes.append(
+                _skip_probe(
+                    "skylos",
+                    "skylos not available — run forge structural-tools install",
+                )
+            )
+    else:
+        probes.append(_skip_probe("skylos", "not selected in probe plan"))
 
     payload = {
         "generated_at": datetime.now(timezone.utc).isoformat(),
@@ -748,11 +1006,16 @@ def format_probe_results_banner(payload: dict[str, Any], sidecar: Path | None) -
         n = len(probe.get("findings") or [])
         lines.append(f"- {tool}: {status} ({n} finding(s)) — {summary[:120]}")
     lines.append("")
-    pyscn_row = next((p for p in (payload.get("probes") or []) if p.get("tool") == "pyscn"), None)
-    if pyscn_row:
+    py_rows = [
+        p
+        for p in (payload.get("probes") or [])
+        if p.get("tool") in ("pyscn", "skylos") and p.get("status") != "skip"
+    ]
+    if py_rows:
         lines.insert(
             6,
-            "**Primary (Python):** review **pyscn** output first; cite finding IDs in Pass B.",
+            "**Primary (Python):** review **pyscn** and **skylos** output first; "
+            "cite `P*` / `Y*` finding IDs in Pass B.",
         )
     lines.append("_Suppress: `FORGE_SKIP_STRUCTURAL_TOOLS=1`._")
     lines.append("_Planning-only (no auto-run): `FORGE_STRUCTURAL_PROBES_MANUAL=1`._")
@@ -784,7 +1047,7 @@ def format_probe_planning_banner(
         f"   `{plan_file}`",
         "",
         "   Plan fields:",
-        "   - `tools`: subset of `knip`, `madge`, `pyscn` (empty `[]` = skip all)",
+        "   - `tools`: subset of `knip`, `madge`, `pyscn`, `skylos` (empty `[]` = skip all)",
         "   - `node_root` / `python_root`: relative paths when not repo root",
         "   - `scope_paths`: optional paths for madge/knip focus (e.g. changed packages)",
         "   - `reasoning`: one short paragraph (required — documents your choice)",
@@ -800,7 +1063,7 @@ def format_probe_planning_banner(
         "",
         "Full guide: `templates/structural-quality-probes.md`.",
         "",
-        "_Code-review step 3 runs probes automatically (pyscn when Python is present)._",
+        "_Code-review step 3 runs stack-applicable probes (pyscn+skylos when Python; knip+madge when Node)._",
         "_Planning-only: `FORGE_STRUCTURAL_PROBES_MANUAL=1`._",
         "_Force auto on other steps: `FORGE_STRUCTURAL_PROBES_AUTO=1`._",
         "_Skip eight subagents: `FORGE_SKIP_STRUCTURAL_EIGHT_AGENTS=1`._",
@@ -869,6 +1132,7 @@ def inject_structural_probes_section(
             inventory,
             skill_name=skill_name,
             step=step,
+            scope_paths=scope_paths,
         )
         write_probe_plan(write_dir, plan)
         _probe_progress(
@@ -881,6 +1145,8 @@ def inject_structural_probes_section(
             state_dir=write_dir,
             quick_mode=quick_mode,
             plan=plan,
+            skill_name=skill_name,
+            step=step,
         )
         sc = sidecar_path(write_dir)
         banner = format_probe_results_banner(payload, sc)
@@ -936,7 +1202,7 @@ def cli_run(argv: list[str] | None = None) -> int:
         "--tools",
         type=str,
         default=None,
-        help="Override plan tools (comma-separated: knip,madge,pyscn)",
+        help="Override plan tools (comma-separated: knip,madge,pyscn,skylos)",
     )
     args = parser.parse_args(argv)
 

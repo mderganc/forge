@@ -1,4 +1,4 @@
-# Structural quality probes (knip, madge, pyscn)
+# Structural quality probes (knip, madge, pyscn, skylos)
 
 Use during **code-review** and **evaluate** Pass B (engineering quality). Pass A (spec/intent) is unchanged.
 
@@ -6,17 +6,17 @@ Install tools once: `forge install` (default) or `forge structural-tools install
 
 ## Code-review step 3 (default: orchestrator runs probes)
 
-On **code-review step 3**, the orchestrator **runs** probes before printing the step body and writes **`.structural-probes.json`**. **pyscn is always included** when the repo is Python-capable (`pyproject.toml`, stack hint, or enough `.py` files).
+On **code-review step 3**, the orchestrator **runs** stack-applicable probes before printing the step body and writes **`.structural-probes.json`**. **pyscn and skylos** run when the repo is Python-capable; **knip and madge** only when Node/TS markers are present (not on Python-only trees).
 
 | File | Purpose |
 |------|---------|
 | `.structural-probes-inventory.json` | Repo facts (counts, `package.json` roots, stack hints) |
-| `.structural-probes-plan.json` | Tools/roots used for the run (heuristic + orchestrator ensures pyscn) |
-| `.structural-probes.json` | **Primary input** — knip/madge/pyscn output; cite `P*` / `K*` / `M*` IDs in Pass B |
+| `.structural-probes-plan.json` | Tools/roots used for the run (heuristic + orchestrator filters by stack) |
+| `.structural-probes.json` | **Primary input** — probe output; cite `P*` / `Y*` / `K*` / `M*` IDs in Pass B |
 
 **Agent workflow (step 3):**
 
-1. Read **`.structural-probes.json`** from the banner path — **start with pyscn** on Python repos.
+1. Read **`.structural-probes.json`** from the banner path — **start with pyscn and skylos** on Python repos.
 2. Fold probe findings into Pass B before dispatching reviewers or subagents.
 
 **Planning-only:** `FORGE_STRUCTURAL_PROBES_MANUAL=1` — you edit the plan and run `forge structural-probes run --state-dir <state-dir>`.
@@ -44,9 +44,10 @@ On **evaluate post step 4** and **evaluate review step 1**, the orchestrator usu
 |------|-----------------|--------|
 | **knip** | JS/TS package with real app code | Unused exports/files |
 | **madge** | Same Node root as knip | Circular imports |
-| **pyscn** | Meaningful Python **application** tree | Dead code, clones, complexity |
+| **pyscn** | Meaningful Python **application** tree | Clones, complexity, CFG dead code |
+| **skylos** | Same Python root as pyscn | Dead code, secrets, SAST, quality thresholds |
 
-Do not run pyscn on repos where Python is only scripts/tooling next to a TS app.
+Do not run pyscn/skylos on repos where Python is only scripts/tooling next to a TS app. Do not run knip/madge without a real Node app root.
 
 ## Commands (override with env)
 
@@ -55,8 +56,9 @@ Do not run pyscn on repos where Python is only scripts/tooling next to a TS app.
 | knip | `FORGE_KNIP_COMMAND` or Forge manifest / npx | `knip` (repo may need `knip.json`) |
 | madge | `FORGE_MADGE_COMMAND` | `madge --circular src/` |
 | pyscn | `FORGE_PYSCN_COMMAND` | `pyscn check .` |
+| skylos | `FORGE_SKYLOS_COMMAND` | `skylos . --json` (dead code); `skylos . -a --json` when `FORGE_SKYLOS_AUDIT=1` |
 
-**Quick mode:** prefer `pyscn check .` only; skip full `analyze` HTML unless the user asks.
+**Code-review step 3:** skylos runs dead-code `--json` on `scope_paths` (or changed files) by default. Full audit: `FORGE_SKYLOS_AUDIT=1`.
 
 ## Eight parallel subagents (Civil Learning)
 
@@ -66,7 +68,7 @@ Do not run pyscn on repos where Python is only scripts/tooling next to a TS app.
 |------|-------------|-------------|
 | 1 DRY / duplication | S1 | pyscn clones |
 | 2 Shared types | S2 | mypy/tsc + graphify |
-| 3 Dead code | S3 | knip, pyscn deadcode |
+| 3 Dead code | S3 | knip, pyscn, skylos dead code |
 | 4 Circular deps | S4 | madge `--circular` |
 | 5 Weak types | S5 | mypy, tsc |
 | 6 Error handling | S6 | manual + bandit |
@@ -82,6 +84,7 @@ Default severity for raw tool hits: **warning** until a reviewer confirms **crit
 - **knip:** barrel `index.ts`, framework entry files, test-only imports, monorepo workspace roots
 - **madge:** type-only imports, bundler aliases — confirm with a second tool or import trace
 - **pyscn:** `TYPE_CHECKING`, decorators (routes, pytest fixtures), `__all__`, dynamic imports
+- **skylos:** framework entrypoints, FastAPI routes, pytest fixtures, dynamic dispatch — use `--trace` when unsure
 
 Do not recommend deletion without confirming references (graphify path/query preferred over blind grep).
 

@@ -56,7 +56,7 @@ EIGHT_AGENTS: list[dict[str, str]] = [
             "Use tools like knip to find all unused code and remove, ensuring that it's "
             "actually not referenced anywhere"
         ),
-        "tools": "knip; pyscn deadcode",
+        "tools": "knip; pyscn deadcode; skylos dead code",
     },
     {
         "id": "S4",
@@ -202,7 +202,7 @@ def format_eight_agents_dispatch_banner(*, quick_mode: bool = False) -> str:
             "- **Implement** high-confidence fixes only when this workflow is allowed to edit "
             "(e.g. `forge:implement`, or the user asked for fix-in-place). On "
             "**code-review** and **evaluate**, default to **findings only** — no commits.",
-            "- Read `.structural-probes.json` when present; cite probe IDs (`K*`, `M*`, `P*`).",
+            "- Read `.structural-probes.json` when present; cite probe IDs (`K*`, `M*`, `P*`, `Y*`).",
             f"- Write one JSON object per agent to **`{SIDECAR_NAME}`** beside session state "
             "(merge into a single file with an `agents` array).",
             "- **Close each subagent** as soon as it finishes (`close_agent` / Task completes). "

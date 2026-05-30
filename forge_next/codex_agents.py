@@ -53,7 +53,9 @@ def apply_codex_agents_config(
     if existing is not None and existing != target and not force:
         print(
             f"Refusing to overwrite existing developer_instructions in {config_path}.\n"
-            "Re-run with --force to replace it with the Forge delegation text.",
+            "`forge install` does not update this field when it already differs.\n"
+            "Run: forge codex-agents --force\n"
+            "(replaces developer_instructions with Forge Graphify + delegation text).",
             file=sys.stderr,
         )
         return 1

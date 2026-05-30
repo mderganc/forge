@@ -1042,8 +1042,10 @@ def _run_install(
             installed["codex_developer_instructions"] = str(default_codex_config_path())
         elif rc == 1:
             warnings.append(
-                "Codex developer_instructions not updated (existing value differs). "
-                "Run `forge codex-agents --force` to pick up Graphify + delegation text."
+                "Codex developer_instructions not updated in "
+                f"{default_codex_config_path()} (existing value differs). "
+                "`forge install` does not pass --force. "
+                "Run: forge codex-agents --force"
             )
 
     from forge_next.graphify import graphify_availability, graphify_install_notice_lines

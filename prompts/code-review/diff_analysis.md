@@ -16,13 +16,13 @@ Dispatch all reviewers to analyze the PR diff in parallel.
 
 ## Instructions
 
-### 0. Structural probes (Pass B)
+### 0. Structural probes (Pass B) — required
 
-When the step includes a **STRUCTURAL PROBES** banner:
+The orchestrator **already ran** knip/madge/pyscn on this step (see **STRUCTURAL PROBES — results** banner).
 
-1. Read `.structural-probes-inventory.json` and edit `.structural-probes-plan.json` per `templates/structural-quality-probes.md` — choose only the tools that fit this repo (use `[]` to skip; do not run pyscn on TS-primary apps with incidental `.py` scripts).
-2. Optionally run `forge structural-probes run --state-dir <session state dir>` (path is in the banner).
-3. Read `.structural-probes.json` when present before dispatching reviewers; cite probe IDs in findings.
+1. Read **`.structural-probes.json`** in the session state dir (path in the banner). **Start with pyscn** on Python repos — cite `P*` finding IDs in Pass B.
+2. If the banner is **planning-only** (`FORGE_STRUCTURAL_PROBES_MANUAL=1`), edit `.structural-probes-plan.json` then run `forge structural-probes run --state-dir <state dir>`.
+3. Do not skip probe results when dispatching reviewers; merge tool output before spawning subagents.
 
 Use diff paths / changed packages in `scope_paths` when helpful.
 
@@ -38,7 +38,7 @@ Use diff paths / changed packages in `scope_paths` when helpful.
 The step output includes a **STRUCTURAL QUALITY — eight parallel subagents** banner
 with the Civil Learning **master prompt** and spawn table (`S1`–`S8`).
 
-1. Optional: structural probes (section 0).
+1. **Required:** structural probes (section 0) — especially **pyscn** on Python repos.
 2. Spawn subagents per the orchestrator banner (default **S3, S4, S8**; full eight only with `FORGE_STRUCTURAL_EIGHT_AGENTS_FULL=1`) using `templates/structural-quality-eight-agents.md`.
 3. Merge outputs into `.structural-eight-agents.json` when subagents ran.
 4. **Close each subagent** before the core team below — **do not block step 3** if time-boxed; write findings and continue.

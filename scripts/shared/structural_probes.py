@@ -86,6 +86,65 @@ def auto_run_structural_probes() -> bool:
     return v in ("1", "true", "yes", "on")
 
 
+def manual_structural_probes() -> bool:
+    """When set, step 3 only writes inventory/plan; agent must run ``forge structural-probes run``."""
+    v = os.environ.get("FORGE_STRUCTURAL_PROBES_MANUAL", "").strip().lower()
+    return v in ("1", "true", "yes", "on")
+
+
+def should_auto_run_structural_probes(
+    skill_name: str,
+    step: int,
+    mode: str | None = None,
+) -> bool:
+    """Whether the orchestrator runs probes before printing the step body."""
+    if manual_structural_probes() or skip_structural_probes():
+        return False
+    if auto_run_structural_probes():
+        return True
+    slug = skill_name.strip().lower()
+    # Code-review team dispatch: pyscn/knip/madge are primary Pass B inputs, not optional.
+    if slug == "code-review" and step == 3:
+        return True
+    return False
+
+
+def ensure_primary_probe_plan(
+    plan: dict[str, Any],
+    inventory: dict[str, Any],
+    *,
+    skill_name: str,
+    step: int,
+) -> dict[str, Any]:
+    """Ensure code-review step 3 always includes pyscn when the repo is Python-capable."""
+    merged = dict(plan or {})
+    if skill_name.strip().lower() != "code-review" or step != 3:
+        return merged
+    tools = normalize_probe_tools(merged.get("tools"))
+    hints = inventory.get("stack_hints") or {}
+    markers = inventory.get("markers") or {}
+    counts = inventory.get("counts") or {}
+    python_capable = bool(
+        hints.get("python")
+        or markers.get("pyproject")
+        or markers.get("setup_py")
+        or counts.get("py", 0) >= 5
+    )
+    if python_capable:
+        if "pyscn" not in tools:
+            tools = ["pyscn", *tools]
+    merged["tools"] = tools
+    roots = inventory.get("suggested_probe_roots") or {}
+    if "pyscn" in tools and not merged.get("python_root") and roots.get("python"):
+        merged["python_root"] = roots["python"]
+    note = "Code-review step 3 runs structural probes from the orchestrator; pyscn is required when Python is present."
+    prior = str(merged.get("reasoning") or "").strip()
+    if note not in prior:
+        merged["reasoning"] = f"{prior} {note}".strip() if prior else note
+    merged.setdefault("source", "orchestrator")
+    return merged
+
+
 def should_run_probes(skill_name: str, step: int, mode: str | None = None) -> bool:
     slug = skill_name.strip().lower()
     if slug == "code-review" and step == 3:
@@ -689,7 +748,14 @@ def format_probe_results_banner(payload: dict[str, Any], sidecar: Path | None) -
         n = len(probe.get("findings") or [])
         lines.append(f"- {tool}: {status} ({n} finding(s)) — {summary[:120]}")
     lines.append("")
+    pyscn_row = next((p for p in (payload.get("probes") or []) if p.get("tool") == "pyscn"), None)
+    if pyscn_row:
+        lines.insert(
+            6,
+            "**Primary (Python):** review **pyscn** output first; cite finding IDs in Pass B.",
+        )
     lines.append("_Suppress: `FORGE_SKIP_STRUCTURAL_TOOLS=1`._")
+    lines.append("_Planning-only (no auto-run): `FORGE_STRUCTURAL_PROBES_MANUAL=1`._")
     lines.append("")
     return "\n".join(lines)
 
@@ -734,7 +800,9 @@ def format_probe_planning_banner(
         "",
         "Full guide: `templates/structural-quality-probes.md`.",
         "",
-        "_Automation (skip agent plan): `FORGE_STRUCTURAL_PROBES_AUTO=1` on the orchestrator step._",
+        "_Code-review step 3 runs probes automatically (pyscn when Python is present)._",
+        "_Planning-only: `FORGE_STRUCTURAL_PROBES_MANUAL=1`._",
+        "_Force auto on other steps: `FORGE_STRUCTURAL_PROBES_AUTO=1`._",
         "_Skip eight subagents: `FORGE_SKIP_STRUCTURAL_EIGHT_AGENTS=1`._",
         "_Full eight-agent dispatch (not default quick trio): `FORGE_STRUCTURAL_EIGHT_AGENTS_FULL=1`._",
         "",
@@ -763,7 +831,7 @@ def inject_structural_probes_section(
     scope_paths: list[str] | None = None,
     quick_mode: bool = False,
 ) -> tuple[str, Path | None, dict[str, Any] | None]:
-    """Append planning or results banner; agent runs probes via ``forge structural-probes run``."""
+    """Append planning or results banner; code-review step 3 auto-runs probes (pyscn when Python)."""
     if not should_run_probes(skill_name, step, mode) or skip_structural_probes():
         return body, None, None
 
@@ -795,8 +863,18 @@ def inject_structural_probes_section(
         eight_quick = default_eight_agents_quick_mode(user_quick=quick_mode)
         eight_banner = "\n\n" + format_eight_agents_dispatch_banner(quick_mode=eight_quick)
 
-    if auto_run_structural_probes():
-        plan = load_probe_plan(write_dir) or suggestion
+    if should_auto_run_structural_probes(skill_name, step, mode):
+        plan = ensure_primary_probe_plan(
+            load_probe_plan(write_dir) or suggestion,
+            inventory,
+            skill_name=skill_name,
+            step=step,
+        )
+        write_probe_plan(write_dir, plan)
+        _probe_progress(
+            "structural Pass B — running probes "
+            f"({', '.join(plan.get('tools') or []) or 'none'})…"
+        )
         payload = run_probes(
             scan_root,
             scope_paths=scope_paths,

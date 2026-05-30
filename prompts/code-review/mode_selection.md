@@ -57,4 +57,4 @@ Pass A issues often block “done”; Pass B issues may be warnings or follow-up
 
 ## Structural probes (Pass B)
 
-At team dispatch (step 3), the orchestrator writes probe **inventory + plan** sidecars; **you** select tools and run `forge structural-probes run` before reviewers use **`.structural-probes.json`**. See `templates/structural-quality-probes.md`.
+At team dispatch (step 3), the orchestrator **runs** structural probes ( **pyscn** when Python is present) and writes **`.structural-probes.json`**. Read that sidecar before reviewers; planning-only mode: `FORGE_STRUCTURAL_PROBES_MANUAL=1`. See `templates/structural-quality-probes.md`.

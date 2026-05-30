@@ -4,25 +4,26 @@ Use during **code-review** and **evaluate** Pass B (engineering quality). Pass A
 
 Install tools once: `forge install` (default) or `forge structural-tools install`. Skip with `forge install --skip-structural-tools` or `FORGE_SKIP_STRUCTURAL_TOOLS=1`.
 
-## Agent-driven selection (default)
+## Code-review step 3 (default: orchestrator runs probes)
 
-On **code-review step 3**, **evaluate post step 4**, and **evaluate review step 1**, the orchestrator writes:
+On **code-review step 3**, the orchestrator **runs** probes before printing the step body and writes **`.structural-probes.json`**. **pyscn is always included** when the repo is Python-capable (`pyproject.toml`, stack hint, or enough `.py` files).
 
 | File | Purpose |
 |------|---------|
 | `.structural-probes-inventory.json` | Repo facts (counts, `package.json` roots, stack hints) |
-| `.structural-probes-plan.json` | **You** choose `tools`, roots, `reasoning` (heuristic draft included) |
-| `.structural-probes.json` | Tool output after you run probes |
+| `.structural-probes-plan.json` | Tools/roots used for the run (heuristic + orchestrator ensures pyscn) |
+| `.structural-probes.json` | **Primary input** — knip/madge/pyscn output; cite `P*` / `K*` / `M*` IDs in Pass B |
 
-**Workflow:**
+**Agent workflow (step 3):**
 
-1. Read the inventory (and `graphify-out/GRAPH_REPORT.md` when present).
-2. Decide which tools apply to the **app under review** (not vendored Forge/tooling trees).
-3. Edit `.structural-probes-plan.json` — set `tools` to any subset of `knip`, `madge`, `pyscn` (use `[]` to skip all).
-4. Run: `forge structural-probes run --state-dir <state-dir>`
-5. Read `.structural-probes.json` and cite probe IDs (`K1`, `M2`, `P3`) in findings.
+1. Read **`.structural-probes.json`** from the banner path — **start with pyscn** on Python repos.
+2. Fold probe findings into Pass B before dispatching reviewers or subagents.
 
-**Automation / CI:** set `FORGE_STRUCTURAL_PROBES_AUTO=1` to apply the heuristic plan and run probes without the agent step.
+**Planning-only:** `FORGE_STRUCTURAL_PROBES_MANUAL=1` — you edit the plan and run `forge structural-probes run --state-dir <state-dir>`.
+
+## Evaluate (agent-driven unless `FORGE_STRUCTURAL_PROBES_AUTO=1`)
+
+On **evaluate post step 4** and **evaluate review step 1**, the orchestrator usually writes inventory + plan; run probes when the banner says planning-only or you need to refresh results.
 
 ## Probe plan schema (`.structural-probes-plan.json`)
 

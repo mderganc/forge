@@ -68,9 +68,9 @@ Override commands if needed:
 
 ## Usage in workflows
 
-During **forge code-review** (step 3) and **forge evaluate** (post step 4, review step 1), the orchestrator writes probe **inventory + plan** sidecars; run **`forge structural-probes run --state-dir <state-dir>`** to produce **`.structural-probes.json`**. The **eight Civil Learning subagents** dispatch on **code-review step 3** and **evaluate review step 1** only (default **S3/S4/S8**; not on post-evaluate step 4). Agents follow [`templates/structural-quality-probes.md`](../templates/structural-quality-probes.md).
+During **forge code-review** step 3, the orchestrator **runs** knip/madge/pyscn and writes **`.structural-probes.json`** (**pyscn** when Python is present). Planning-only: `FORGE_STRUCTURAL_PROBES_MANUAL=1`. **Evaluate** (post step 4, review step 1) still uses inventory/plan unless `FORGE_STRUCTURAL_PROBES_AUTO=1`. The **eight Civil Learning subagents** dispatch on **code-review step 3** and **evaluate review step 1** only (default **S3/S4/S8**). See [`templates/structural-quality-probes.md`](../templates/structural-quality-probes.md).
 
-Skip probes: `FORGE_SKIP_STRUCTURAL_TOOLS=1`. Skip eight subagents: `FORGE_SKIP_STRUCTURAL_EIGHT_AGENTS=1`. Full eight-agent dispatch: `FORGE_STRUCTURAL_EIGHT_AGENTS_FULL=1`.
+Skip probes: `FORGE_SKIP_STRUCTURAL_TOOLS=1`. Planning-only on code-review step 3: `FORGE_STRUCTURAL_PROBES_MANUAL=1`. Skip eight subagents: `FORGE_SKIP_STRUCTURAL_EIGHT_AGENTS=1`. Full eight-agent dispatch: `FORGE_STRUCTURAL_EIGHT_AGENTS_FULL=1`.
 
 Example commands:
 

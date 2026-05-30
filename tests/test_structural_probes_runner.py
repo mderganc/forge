@@ -181,6 +181,7 @@ def test_inject_planning_banner_writes_plan(tmp_path: Path, monkeypatch: pytest.
     state_dir.mkdir()
     (tmp_path / "package.json").write_text("{}", encoding="utf-8")
     monkeypatch.delenv("FORGE_STRUCTURAL_PROBES_AUTO", raising=False)
+    monkeypatch.setenv("FORGE_STRUCTURAL_PROBES_MANUAL", "1")
 
     body, sidecar, payload = sp.inject_structural_probes_section(
         "body",
@@ -196,10 +197,51 @@ def test_inject_planning_banner_writes_plan(tmp_path: Path, monkeypatch: pytest.
     assert (state_dir / sp.INVENTORY_NAME).is_file()
 
 
+def test_code_review_step3_auto_runs_without_env(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Code-review step 3 runs probes by default (pyscn when Python present)."""
+    state_dir = tmp_path / "state"
+    state_dir.mkdir()
+    (tmp_path / "pyproject.toml").write_text("[project]\nname='x'\n", encoding="utf-8")
+    monkeypatch.delenv("FORGE_STRUCTURAL_PROBES_AUTO", raising=False)
+    monkeypatch.delenv("FORGE_STRUCTURAL_PROBES_MANUAL", raising=False)
+    monkeypatch.setattr("forge_next.structural_tools.resolve_knip_command", lambda: None)
+    monkeypatch.setattr("forge_next.structural_tools.resolve_madge_command", lambda: None)
+    monkeypatch.setattr("forge_next.structural_tools.resolve_pyscn_command", lambda: None)
+
+    body, sidecar, payload = sp.inject_structural_probes_section(
+        "body",
+        skill_name="code-review",
+        step=3,
+        repo_root=tmp_path,
+        state_dir=state_dir,
+    )
+    assert "STRUCTURAL PROBES — results" in body
+    assert sidecar is not None
+    assert payload is not None
+    assert "pyscn" in (payload.get("selected_tools") or [])
+
+
+def test_ensure_primary_probe_plan_adds_pyscn(tmp_path: Path) -> None:
+    inv = sp.build_stack_inventory(tmp_path)
+    (tmp_path / "pyproject.toml").write_text("[project]\nname='x'\n", encoding="utf-8")
+    inv = sp.build_stack_inventory(tmp_path)
+    plan = sp.ensure_primary_probe_plan(
+        {"tools": ["knip"], "reasoning": "test"},
+        inv,
+        skill_name="code-review",
+        step=3,
+    )
+    assert plan["tools"][0] == "pyscn"
+    assert "knip" in plan["tools"]
+
+
 def test_inject_auto_mode_runs_probes(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     state_dir = tmp_path / "state"
     state_dir.mkdir()
     monkeypatch.setenv("FORGE_STRUCTURAL_PROBES_AUTO", "1")
+    monkeypatch.delenv("FORGE_STRUCTURAL_PROBES_MANUAL", raising=False)
     monkeypatch.setattr("forge_next.structural_tools.resolve_knip_command", lambda: None)
     monkeypatch.setattr("forge_next.structural_tools.resolve_madge_command", lambda: None)
     monkeypatch.setattr("forge_next.structural_tools.resolve_pyscn_command", lambda: None)
@@ -255,6 +297,7 @@ def test_code_review_step3_mentions_sidecar(monkeypatch: pytest.MonkeyPatch) -> 
     save_state(st, state)
     env = os.environ.copy()
     env.pop("FORGE_STRUCTURAL_PROBES_AUTO", None)
+    env.pop("FORGE_STRUCTURAL_PROBES_MANUAL", None)
     proc = subprocess.run(
         [
             sys.executable,

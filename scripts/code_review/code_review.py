@@ -86,8 +86,10 @@ PHASE_TODOS = {
          "activeForm": "Selecting mode"},
     ],
     3: [
-        {"content": "Run forge step 3 prompt (structural Pass B + team dispatch)",
-         "activeForm": "Running team dispatch"},
+        {"content": "Run forge step 3 (orchestrator runs pyscn/knip/madge; read .structural-probes.json)",
+         "activeForm": "Running structural probes and team dispatch"},
+        {"content": "Cite pyscn finding IDs in Pass B before dispatching reviewers",
+         "activeForm": "Incorporating pyscn results"},
         {"content": "Write findings or advance when time-boxed (do not block on every subagent)",
          "activeForm": "Recording findings"},
     ],

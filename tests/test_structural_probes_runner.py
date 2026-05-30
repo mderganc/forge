@@ -116,6 +116,41 @@ def test_run_probes_skip_without_node(tmp_path: Path, monkeypatch: pytest.Monkey
     assert loaded["stack"]["node"] is False
 
 
+def test_inject_post_evaluate_step4_omits_eight_agents(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    state_dir = tmp_path / "state"
+    state_dir.mkdir()
+    (tmp_path / "package.json").write_text("{}", encoding="utf-8")
+    monkeypatch.delenv("FORGE_SKIP_STRUCTURAL_EIGHT_AGENTS", raising=False)
+
+    body, _, _ = sp.inject_structural_probes_section(
+        "body",
+        skill_name="evaluate",
+        step=4,
+        repo_root=tmp_path,
+        state_dir=state_dir,
+        mode="post",
+    )
+    assert "agent selects tools" in body
+    assert "STRUCTURAL QUALITY — eight parallel subagents" not in body
+
+
+def test_inject_code_review_step3_includes_eight_agents(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    state_dir = tmp_path / "state"
+    state_dir.mkdir()
+    (tmp_path / "package.json").write_text("{}", encoding="utf-8")
+    monkeypatch.delenv("FORGE_SKIP_STRUCTURAL_EIGHT_AGENTS", raising=False)
+
+    body, _, _ = sp.inject_structural_probes_section(
+        "body",
+        skill_name="code-review",
+        step=3,
+        repo_root=tmp_path,
+        state_dir=state_dir,
+    )
+    assert "STRUCTURAL QUALITY — eight parallel subagents" in body
+    assert "S3, S4, S8" in body
+
+
 def test_inject_planning_banner_writes_plan(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     state_dir = tmp_path / "state"
     state_dir.mkdir()

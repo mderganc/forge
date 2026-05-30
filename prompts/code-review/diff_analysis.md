@@ -20,9 +20,9 @@ Dispatch all reviewers to analyze the PR diff in parallel.
 
 When the step includes a **STRUCTURAL PROBES** banner:
 
-1. Read `.structural-probes-inventory.json` and edit `.structural-probes-plan.json` per `templates/structural-quality-probes.md` — choose only the tools that fit this repo (do not run pyscn on TS-primary apps with incidental `.py` scripts).
-2. Run `forge structural-probes run --state-dir <session state dir>` (path is in the banner).
-3. Read `.structural-probes.json` before dispatching reviewers; cite probe IDs in findings.
+1. Read `.structural-probes-inventory.json` and edit `.structural-probes-plan.json` per `templates/structural-quality-probes.md` — choose only the tools that fit this repo (use `[]` to skip; do not run pyscn on TS-primary apps with incidental `.py` scripts).
+2. Optionally run `forge structural-probes run --state-dir <session state dir>` (path is in the banner).
+3. Read `.structural-probes.json` when present before dispatching reviewers; cite probe IDs in findings.
 
 Use diff paths / changed packages in `scope_paths` when helpful.
 
@@ -38,11 +38,10 @@ Use diff paths / changed packages in `scope_paths` when helpful.
 The step output includes a **STRUCTURAL QUALITY — eight parallel subagents** banner
 with the Civil Learning **master prompt** and spawn table (`S1`–`S8`).
 
-1. Complete structural probes (section 0) first.
-2. Spawn **all eight** subagents in parallel using the per-agent spawn prompts in
-   `templates/structural-quality-eight-agents.md` (quick mode: **S3, S4, S8** only).
-3. Merge outputs into `.structural-eight-agents.json` beside session state.
-4. **Close each subagent** before dispatching the core team below.
+1. Optional: structural probes (section 0).
+2. Spawn subagents per the orchestrator banner (default **S3, S4, S8**; full eight only with `FORGE_STRUCTURAL_EIGHT_AGENTS_FULL=1`) using `templates/structural-quality-eight-agents.md`.
+3. Merge outputs into `.structural-eight-agents.json` when subagents ran.
+4. **Close each subagent** before the core team below — **do not block step 3** if time-boxed; write findings and continue.
 
 ### 3. Dispatch core Forge reviewers (parallel)
 

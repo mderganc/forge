@@ -25,12 +25,17 @@ def test_codex_agents_idempotent(tmp_path: Path) -> None:
     assert apply_codex_agents_config(cfg) == 0
 
 
-def test_codex_agents_refuses_overwrite_without_force(tmp_path: Path) -> None:
+def test_codex_agents_refuses_overwrite_without_force(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
     cfg = tmp_path / "config.toml"
     cfg.write_text('developer_instructions = "keep me"\n', encoding="utf-8")
     rc = apply_codex_agents_config(cfg, force=False)
     assert rc == 1
     assert cfg.read_text(encoding="utf-8") == 'developer_instructions = "keep me"\n'
+    err = capsys.readouterr().err
+    assert "forge codex-agents --force" in err
+    assert "forge install` does not" in err
 
 
 def test_codex_agents_dry_run_skips_write(tmp_path: Path) -> None:

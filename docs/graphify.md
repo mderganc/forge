@@ -6,7 +6,7 @@ This document covers:
 
 1. **Building the graph** (CLI, refresh, git hook)
 2. **Resume context** (`forge resume`)
-3. **Workflow enforcement** (GRAPHIFY blocks every step)
+3. **Ship-time enforcement** (GRAPHIFY on `forge ship` only)
 4. **Claude Code hooks** (`forge claude-graphify`)
 5. **Codex policy** (`forge codex-agents`)
 6. **CI / automation** (`FORGE_SKIP_GRAPHIFY`)
@@ -42,8 +42,8 @@ Forge writes **`.codex/forge/state/graphify-status.json`** (fail-soft on errors)
 | Trigger | Environment |
 |---------|-------------|
 | **Claude SessionStart** hook | After `forge claude-graphify` |
-| **Every `forge <skill> --step N`** GRAPHIFY banner | Cursor, Codex, Claude, terminal |
-| **`$forge:graphify`** skill | Codex uses `--background` on invoke |
+| **`forge ship --step 1`** | Foreground refresh + GRAPHIFY banner before commit/PR |
+| **`$forge:graphify`** skill | Manual refresh / hook setup (not per workflow step) |
 
 Suppress auto-spawn with **`FORGE_SKIP_GRAPHIFY_REFRESH=1`** (CI). Debounced ~2 minutes per repo via `graphify-refresh.lock` under the Forge state dir.
 
@@ -75,22 +75,20 @@ Project-level reminders:
 
 ---
 
-## 3. Forge workflow enforcement (orchestrator)
+## 3. Ship-time enforcement (orchestrator)
 
-Every `forge <skill> --step N` prints a **GRAPHIFY** banner when an index is present — **before** phase todos and the step body.
+**`forge ship --step 1`** prints a **GRAPHIFY** banner and runs **`forge graphify refresh`** (foreground) when an index is present.
 
-- Investigation skills (develop, diagnose, plan, test, evaluate) use stronger wording.
-- Includes a short excerpt from `GRAPH_REPORT.md` when available.
+Workflow skills (`develop`, `plan`, `implement`, `code-review`, `test`, `diagnose`, `evaluate`, `iterate`) **do not** print GRAPHIFY blocks or spawn background refresh on each `--step`.
 
-**Disable or defer (session / implement waves):**
+**Disable:**
 
 | Goal | Command |
 |------|---------|
-| Turn off banners, Claude hook reminders, and auto-refresh for this clone | `forge graphify off` (prefs under `.codex/forge/state/graphify-prefs.json`) |
-| Turn enforcement back on | `forge graphify on` |
+| Turn off ship banner and refresh for this clone | `forge graphify off` (prefs under `.codex/forge/state/graphify-prefs.json`) |
+| Turn back on | `forge graphify on` |
 | Check state | `forge graphify status` |
-| Skip GRAPHIFY on implement wave steps 3–5 only; resumes at step 6+ | `forge graphify defer-waves` or `forge implement --step 1 --defer-graphify-waves` |
-| Clear wave defer | `forge graphify undefer-waves` |
+| Legacy implement wave defer (no effect on banners after ship-only change) | `forge graphify defer-waves` |
 
 **Suppress in CI or automation (no prefs file):**
 
@@ -107,6 +105,10 @@ export FORGE_SKIP_GRAPHIFY_REFRESH=1
 ```
 
 Skill packs repeat the same contract: [`skills/`](../skills/), [`integrations/cursor-plugin/commands/`](../integrations/cursor-plugin/commands/), [`integrations/claude/commands/`](../integrations/claude/commands/), [`integrations/codex/skills/`](../integrations/codex/skills/).
+
+### Sandbox path aliases (Codex / WSL)
+
+The same repo may appear as ``H:\Code\forge`` (writable) and ``/mnt/h/Code/forge`` (read-only). Forge resolves a **writable** git root and remaps ``--state`` paths via ``scripts/shared/repo_paths.py``. Override with **`FORGE_REPO`** if needed.
 
 ---
 

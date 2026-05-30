@@ -22,20 +22,18 @@ from typing import Any
 from uuid import uuid4
 
 def _detect_repo_root(start: Path | None = None) -> Path:
-    """Detect the target repo root from the current working directory.
+    """Detect the target repo root (writable, sandbox-safe).
 
     This module is used both from a repo checkout and from an installed package
     (e.g. via `pipx`). In installed mode, `__file__` points into site-packages,
     so we must anchor runtime state to the *target repo*, not the package.
+
+  Sandboxed agents may see the same tree as ``/mnt/h/...`` (read-only) and
+  ``H:\\...`` (writable); see ``scripts.shared.repo_paths``.
     """
-    cur = (start or Path.cwd()).resolve()
-    readme_candidate: Path | None = None
-    for p in (cur, *cur.parents):
-        if (p / ".git").is_dir():
-            return p
-        if readme_candidate is None and (p / "README.md").is_file():
-            readme_candidate = p
-    return readme_candidate or cur
+    from scripts.shared.repo_paths import resolve_repo_root
+
+    return resolve_repo_root(start or Path.cwd())
 
 
 # Runtime defaults are anchored to the detected target repo root (cwd-based).
@@ -945,26 +943,10 @@ def skip_forge_session_opt_in() -> bool:
 
 
 def forge_graphify_context_block(skill_name: str, step: int) -> str:
-    """Per-step Graphify reminder when the repo has an index (see graphify_contract)."""
-    from scripts.shared.graphify_contract import forge_graphify_banner, graph_index_present
+    """Graphify banner (ship skill only). Background refresh is not spawned here."""
+    from scripts.shared.graphify_contract import forge_graphify_banner
 
-    block = forge_graphify_banner(skill_name, step, REPO_ROOT)
-    if not block or not graph_index_present(REPO_ROOT):
-        return block
-    try:
-        from forge_next.graphify_enforcement import graphify_refresh_disabled
-
-        if graphify_refresh_disabled(REPO_ROOT):
-            return block
-    except Exception:
-        pass
-    try:
-        from forge_next.graphify import spawn_refresh_background
-
-        spawn_refresh_background(REPO_ROOT)
-    except Exception:
-        pass
-    return block
+    return forge_graphify_banner(skill_name, step, _detect_repo_root())
 
 
 def forge_session_opt_in_banner(skill_name: str, step: int) -> str:
@@ -973,7 +955,7 @@ def forge_session_opt_in_banner(skill_name: str, step: int) -> str:
     Shown at the start of any skill when ``step == 1``, unless
     ``FORGE_SKIP_SESSION_OPTIN`` is set (automation / CI).
     """
-    if step != 1 or skip_forge_session_opt_in():
+    if step != 1 or skip_forge_session_opt_in() or skill_name.strip().lower() == "ship":
         return ""
     bar = ("=" * 60) if os.environ.get("FORGE_ASCII") == "1" else ("━" * 60)
     slug = skill_name.strip().lower()
@@ -1042,16 +1024,21 @@ def validate_state_path(state_file: str, skill_name: str) -> Path | None:
     Returns the resolved Path if valid, or None if the argument should be
     ignored (doesn't exist, outside project).
     """
-    sp = Path(state_file).resolve()
-    repo_root = _detect_repo_root().resolve()
+    from scripts.shared.repo_paths import equivalent_path_in_repo, same_git_repo
 
-    # Reject paths outside the repository directory
+    repo_root = _detect_repo_root().resolve()
+    sp = equivalent_path_in_repo(Path(state_file), repo_root)
+
     try:
         sp.relative_to(repo_root)
     except ValueError:
-        print(f"WARNING: --state path is outside the repository, ignoring: {state_file}",
-              file=sys.stderr)
-        return None
+        if not same_git_repo(sp, repo_root):
+            print(
+                f"WARNING: --state path is outside the repository, ignoring: {state_file}",
+                file=sys.stderr,
+            )
+            return None
+        sp = equivalent_path_in_repo(sp, repo_root)
 
     # Reject paths that don't look like state files for this skill.
     looks_like_state = _is_skill_state_filename(sp.name, skill_name)
@@ -1083,11 +1070,15 @@ def resolve_step1_state_path(
     repo_root = _detect_repo_root(search_dir).resolve()
 
     if state_file:
-        sp = Path(state_file).resolve()
+        from scripts.shared.repo_paths import equivalent_path_in_repo, same_git_repo
+
+        sp = equivalent_path_in_repo(Path(state_file), repo_root)
         try:
             sp.relative_to(repo_root)
         except ValueError:
-            sys.exit(f"ERROR: --state path is outside the repository: {state_file}")
+            if not same_git_repo(sp, repo_root):
+                sys.exit(f"ERROR: --state path is outside the repository: {state_file}")
+            sp = equivalent_path_in_repo(sp, repo_root)
         if not _is_skill_state_filename(sp.name, skill_name):
             sys.exit(
                 f"ERROR: --state must look like `{skill_name}.json` or "

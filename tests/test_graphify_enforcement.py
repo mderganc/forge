@@ -1,4 +1,4 @@
-"""Graphify disable / defer enforcement."""
+"""Graphify disable / ship-only orchestrator banners."""
 
 from __future__ import annotations
 
@@ -27,6 +27,7 @@ def test_forge_skip_graphify_disables_banner_and_refresh(
 
     monkeypatch.setenv("FORGE_SKIP_GRAPHIFY", "1")
     assert graphify_fully_disabled(prefs_repo)
+    assert forge_graphify_banner("ship", 1, prefs_repo) == ""
     assert forge_graphify_banner("implement", 3, prefs_repo) == ""
     assert skip_graphify_refresh_spawn(prefs_repo)
 
@@ -39,21 +40,53 @@ def test_repo_prefs_off_disables_banner(
 
     monkeypatch.delenv("FORGE_SKIP_GRAPHIFY", raising=False)
     set_graphify_disabled(prefs_repo, disabled=True)
+    assert forge_graphify_banner("ship", 1, prefs_repo) == ""
     assert forge_graphify_banner("develop", 1, prefs_repo) == ""
 
 
-def test_defer_implement_waves_suppresses_wave_steps_only(
+def test_workflow_skills_suppress_graphify_banner(
     prefs_repo: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    from forge_next.graphify_enforcement import set_graphify_defer_implement_waves
     from scripts.shared.graphify_contract import forge_graphify_banner
 
     monkeypatch.delenv("FORGE_SKIP_GRAPHIFY", raising=False)
-    set_graphify_defer_implement_waves(prefs_repo, defer=True)
-    wave_banner = forge_graphify_banner("implement", 3, prefs_repo)
-    assert "GRAPHIFY — codebase map" not in wave_banner
-    assert "deferred" in wave_banner.lower()
-    assert "GRAPHIFY — codebase map" in forge_graphify_banner("implement", 6, prefs_repo)
+    for skill in ("develop", "implement", "code-review", "plan", "test", "diagnose", "evaluate"):
+        assert forge_graphify_banner(skill, 1, prefs_repo) == ""
+        assert forge_graphify_banner(skill, 6, prefs_repo) == ""
+
+
+def test_ship_shows_graphify_banner(
+    prefs_repo: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from scripts.shared.graphify_contract import forge_graphify_banner
+
+    monkeypatch.delenv("FORGE_SKIP_GRAPHIFY", raising=False)
+    banner = forge_graphify_banner("ship", 1, prefs_repo)
+    assert "GRAPHIFY — refresh before you ship" in banner
+    assert "GRAPHIFY — codebase map" not in banner
+
+
+def test_forge_graphify_context_block_does_not_spawn_on_implement(
+    prefs_repo: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from scripts.shared import orchestrator as orch
+
+    monkeypatch.delenv("FORGE_SKIP_GRAPHIFY", raising=False)
+    monkeypatch.setattr(orch, "REPO_ROOT", prefs_repo)
+    calls: list[Path] = []
+
+    def fake_spawn(root: Path) -> bool:
+        calls.append(root)
+        return True
+
+    monkeypatch.setattr("forge_next.graphify.spawn_refresh_background", fake_spawn)
+    block = orch.forge_graphify_context_block("implement", 3)
+    assert block == ""
+    assert calls == []
+
+    block_ship = orch.forge_graphify_context_block("ship", 1)
+    assert "GRAPHIFY" in block_ship
+    assert calls == []
 
 
 def test_forge_skip_graphify_also_blocks_refresh_spawn(

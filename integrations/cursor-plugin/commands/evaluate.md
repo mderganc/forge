@@ -9,9 +9,10 @@ description: Review work against a plan (evaluate workflow).
 
 If they explicitly ask “exact command for my terminal,” answer once, briefly.
 
-## Hard rule — Graphify
+## Graphify
 
-If `graphify-out/` exists: read `graphify-out/GRAPH_REPORT.md` **before** grep/glob/semantic search; follow every **GRAPHIFY** block the orchestrator prints on each step; after code edits run `graphify update .`.
+Runs at **ship** only (orge ship --step 1 / $forge:ship). This workflow does not print GRAPHIFY per step.
+
 
 ## What to tell the user first
 

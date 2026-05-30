@@ -9,4 +9,4 @@ This project has a graphify knowledge graph at graphify-out/.
 - If graphify-out/wiki/index.md exists, navigate it instead of reading raw files
 - For cross-module questions, prefer `graphify query`, `graphify path`, or `graphify explain` over grep/glob scans
 - After modifying code files in this session, run `graphify update .` to keep the graph current (AST-only, no API cost)
-- When running Forge workflow skills, follow the **GRAPHIFY** block printed on each orchestrator step unless disabled (`forge graphify off`, `FORGE_SKIP_GRAPHIFY=1`) or deferred for implement waves (`forge graphify defer-waves`)
+- Refresh the graph at **ship** (`forge ship --step 1` or `$forge:ship`); workflow skills do not print per-step GRAPHIFY blocks

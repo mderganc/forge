@@ -7,6 +7,7 @@ import json
 import os
 import re
 import sys
+from collections.abc import Iterator
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -52,7 +53,26 @@ _SKIP_PROBE_PARTS = frozenset({
     ".pytest_cache",
     "graphify-out",
     ".forge",
+    "htmlcov",
+    ".eggs",
+    "site-packages",
+    ".nox",
+    ".ruff_cache",
+    ".hypothesis",
+    "coverage",
 })
+
+_COUNT_SUFFIXES = (".py", ".ts", ".tsx", ".js")
+
+
+def _is_vendored_forge_snapshot_dir(part: str) -> bool:
+    """PyPI extract trees like ``forge_next-0.14.9/`` (not the live ``forge_next/`` package)."""
+    return part.startswith("forge_next-") and part != "forge_next"
+
+
+def _probe_progress(message: str) -> None:
+    """stderr progress so step output is not silent while inventory scans run."""
+    print(f"forge: {message}", file=sys.stderr, flush=True)
 
 
 def skip_structural_probes() -> bool:
@@ -77,12 +97,72 @@ def should_run_probes(skill_name: str, step: int, mode: str | None = None) -> bo
     return False
 
 
+def _should_prune_dirname(name: str) -> bool:
+    """True if ``os.walk`` must not descend into this directory name."""
+    if name in _SKIP_PROBE_PARTS:
+        return True
+    return _is_vendored_forge_snapshot_dir(name)
+
+
 def _path_under_probe_ignore(path: Path, repo_root: Path) -> bool:
     try:
         rel = path.resolve().relative_to(repo_root.resolve())
     except ValueError:
         return True
-    return any(part in _SKIP_PROBE_PARTS for part in rel.parts)
+    for part in rel.parts:
+        if part in _SKIP_PROBE_PARTS:
+            return True
+        if _is_vendored_forge_snapshot_dir(part):
+            return True
+    return False
+
+
+def _walk_repo_files(
+    repo_root: Path,
+    *,
+    suffix: str | None = None,
+    basename: str | None = None,
+) -> Iterator[Path]:
+    """Walk the repo without descending into venv/node_modules/etc.
+
+    ``Path.rglob`` matches files inside ignored trees first (very slow on ``.venv``).
+    This prunes directory names in ``os.walk`` before recursion.
+    """
+    root = repo_root.resolve()
+    for dirpath, dirnames, filenames in os.walk(root, topdown=True, followlinks=False):
+        dirnames[:] = [d for d in dirnames if not _should_prune_dirname(d)]
+        current = Path(dirpath)
+        if _path_under_probe_ignore(current, root):
+            dirnames.clear()
+            continue
+        for name in filenames:
+            if basename is not None and name != basename:
+                continue
+            if suffix is not None and not name.endswith(suffix):
+                continue
+            path = current / name
+            if _path_under_probe_ignore(path, root):
+                continue
+            yield path
+
+
+def _source_suffix_counts(
+    repo_root: Path,
+    *,
+    limit_per_suffix: int = 250,
+) -> dict[str, int]:
+    """Count ``.py`` / ``.ts`` / ``.tsx`` / ``.js`` files in one pruned walk."""
+    counts = {s: 0 for s in _COUNT_SUFFIXES}
+    for path in _walk_repo_files(repo_root):
+        suf = path.suffix
+        if suf not in counts:
+            continue
+        if counts[suf] >= limit_per_suffix:
+            if all(counts[s] >= limit_per_suffix for s in _COUNT_SUFFIXES):
+                break
+            continue
+        counts[suf] += 1
+    return counts
 
 
 def _rel_path(path: Path, repo_root: Path) -> str:
@@ -93,10 +173,10 @@ def _rel_path(path: Path, repo_root: Path) -> str:
 
 
 def _count_source_files(repo_root: Path, suffix: str, *, limit: int = 250) -> int:
+    if suffix in _COUNT_SUFFIXES:
+        return _source_suffix_counts(repo_root, limit_per_suffix=limit).get(suffix, 0)
     count = 0
-    for path in repo_root.rglob(f"*{suffix}"):
-        if _path_under_probe_ignore(path, repo_root):
-            continue
+    for _path in _walk_repo_files(repo_root, suffix=suffix):
         count += 1
         if count >= limit:
             return count
@@ -106,11 +186,10 @@ def _count_source_files(repo_root: Path, suffix: str, *, limit: int = 250) -> in
 def _find_shallow_package_json(repo_root: Path, *, max_depth: int = 4) -> Path | None:
     best: Path | None = None
     best_depth = max_depth + 1
-    for pkg in repo_root.rglob("package.json"):
-        if _path_under_probe_ignore(pkg, repo_root):
-            continue
+    root = repo_root.resolve()
+    for pkg in _walk_repo_files(repo_root, basename="package.json"):
         try:
-            depth = len(pkg.parent.relative_to(repo_root).parts)
+            depth = len(pkg.parent.relative_to(root).parts)
         except ValueError:
             continue
         if depth > max_depth:
@@ -123,11 +202,10 @@ def _find_shallow_package_json(repo_root: Path, *, max_depth: int = 4) -> Path |
 
 def _list_package_json_roots(repo_root: Path, *, limit: int = 12) -> list[str]:
     roots: list[tuple[int, str]] = []
-    for pkg in repo_root.rglob("package.json"):
-        if _path_under_probe_ignore(pkg, repo_root):
-            continue
+    root = repo_root.resolve()
+    for pkg in _walk_repo_files(repo_root, basename="package.json"):
         try:
-            depth = len(pkg.parent.relative_to(repo_root).parts)
+            depth = len(pkg.parent.relative_to(root).parts)
         except ValueError:
             continue
         if depth > 5:
@@ -163,12 +241,17 @@ def _has_node_project(repo_root: Path) -> bool:
     return _find_shallow_package_json(root) is not None
 
 
-def detect_stack(repo_root: Path) -> dict[str, bool]:
+def detect_stack(
+    repo_root: Path,
+    *,
+    suffix_counts: dict[str, int] | None = None,
+) -> dict[str, bool]:
     """Heuristic stack flags (hints only — agents choose tools via plan)."""
     root = repo_root.resolve()
     node = _has_node_project(root)
-    py_count = _count_source_files(root, ".py")
-    ts_count = _count_source_files(root, ".ts") + _count_source_files(root, ".tsx")
+    counts = suffix_counts if suffix_counts is not None else _source_suffix_counts(root)
+    py_count = counts.get(".py", 0)
+    ts_count = counts.get(".ts", 0) + counts.get(".tsx", 0)
     has_py_project = (root / "pyproject.toml").is_file() or (root / "setup.py").is_file()
 
     if has_py_project:
@@ -200,20 +283,12 @@ def python_probe_root(repo_root: Path) -> Path:
     root = repo_root.resolve()
     if (root / "pyproject.toml").is_file() or (root / "setup.py").is_file():
         return root
-    best_dir = root
-    best_count = 0
-    for path in root.rglob("*.py"):
-        if _path_under_probe_ignore(path, root):
-            continue
-        parent = path.parent
-        count = sum(
-            1
-            for sibling in parent.glob("*.py")
-            if not _path_under_probe_ignore(sibling, root)
-        )
-        if count > best_count:
-            best_count = count
-            best_dir = parent
+    per_dir: dict[Path, int] = {}
+    for path in _walk_repo_files(repo_root, suffix=".py"):
+        per_dir[path.parent] = per_dir.get(path.parent, 0) + 1
+    if not per_dir:
+        return root
+    best_dir, best_count = max(per_dir.items(), key=lambda item: item[1])
     return best_dir if best_count >= 3 else root
 
 
@@ -229,7 +304,8 @@ def _resolve_probe_root(repo_root: Path, hint: str | None, default: Path) -> Pat
 def build_stack_inventory(repo_root: Path) -> dict[str, Any]:
     """Factual repo signals for the agent to choose probes."""
     root = repo_root.resolve()
-    stack = detect_stack(root)
+    suffix_counts = _source_suffix_counts(root)
+    stack = detect_stack(root, suffix_counts=suffix_counts)
     n_root = node_probe_root(root)
     p_root = python_probe_root(root)
     graphify_report = root / "graphify-out" / "GRAPH_REPORT.md"
@@ -238,10 +314,10 @@ def build_stack_inventory(repo_root: Path) -> dict[str, Any]:
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "stack_hints": stack,
         "counts": {
-            "py": _count_source_files(root, ".py"),
-            "ts": _count_source_files(root, ".ts"),
-            "tsx": _count_source_files(root, ".tsx"),
-            "js": _count_source_files(root, ".js"),
+            "py": suffix_counts.get(".py", 0),
+            "ts": suffix_counts.get(".ts", 0),
+            "tsx": suffix_counts.get(".tsx", 0),
+            "js": suffix_counts.get(".js", 0),
         },
         "markers": {
             "package_json_roots": _list_package_json_roots(root),
@@ -691,13 +767,22 @@ def inject_structural_probes_section(
     if not should_run_probes(skill_name, step, mode) or skip_structural_probes():
         return body, None, None
 
-    inventory = build_stack_inventory(repo_root)
-    suggestion = suggest_probe_plan(inventory, scope_paths=scope_paths)
-    write_stack_inventory(state_dir, inventory, suggestion)
+    from scripts.shared.repo_paths import equivalent_path_in_repo, resolve_repo_root
 
-    plan_file = Path(state_dir) / PLAN_NAME
+    scan_root = resolve_repo_root(repo_root)
+    write_dir = equivalent_path_in_repo(Path(state_dir), scan_root)
+    write_dir.mkdir(parents=True, exist_ok=True)
+
+    _probe_progress(
+        f"structural Pass B — scanning repo inventory ({skill_name} step {step})…"
+    )
+    inventory = build_stack_inventory(scan_root)
+    suggestion = suggest_probe_plan(inventory, scope_paths=scope_paths)
+    write_stack_inventory(write_dir, inventory, suggestion)
+
+    plan_file = write_dir / PLAN_NAME
     if not plan_file.is_file():
-        write_probe_plan(state_dir, suggestion)
+        write_probe_plan(write_dir, suggestion)
 
     from scripts.shared.structural_eight_agents import (
         default_eight_agents_quick_mode,
@@ -711,19 +796,19 @@ def inject_structural_probes_section(
         eight_banner = "\n\n" + format_eight_agents_dispatch_banner(quick_mode=eight_quick)
 
     if auto_run_structural_probes():
-        plan = load_probe_plan(state_dir) or suggestion
+        plan = load_probe_plan(write_dir) or suggestion
         payload = run_probes(
-            repo_root,
+            scan_root,
             scope_paths=scope_paths,
-            state_dir=state_dir,
+            state_dir=write_dir,
             quick_mode=quick_mode,
             plan=plan,
         )
-        sc = sidecar_path(state_dir)
+        sc = sidecar_path(write_dir)
         banner = format_probe_results_banner(payload, sc)
         return body + "\n\n" + banner + eight_banner, sc, payload
 
-    banner = format_probe_planning_banner(state_dir, inventory, suggestion)
+    banner = format_probe_planning_banner(write_dir, inventory, suggestion)
     return body + "\n\n" + banner + eight_banner, None, None
 
 

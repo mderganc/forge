@@ -4,15 +4,14 @@ from __future__ import annotations
 
 # Shown first in Codex developer_instructions — agents often skim the opening.
 GRAPHIFY_DEVELOPER_INSTRUCTIONS_LEAD = (
-    "GRAPHIFY (mandatory when graphify-out/ or GRAPH_REPORT.md exists in the repo): "
-    "Read graphify-out/GRAPH_REPORT.md before grep, glob, ripgrep, semantic/codebase search, "
-    "Task explore agents, or bulk Read of source files for architecture or cross-module questions. "
-    "If graphify-out/wiki/index.md exists, use the wiki instead of raw file trees. "
-    "Prefer graphify query, graphify path, and graphify explain over scanning the repo. "
-    "After editing tracked code in the session, run graphify update . (AST-only). "
-    "Every forge workflow step prints a GRAPHIFY block when an index is present — follow it. "
-    "When graphify-out/ exists and metadata may be stale, run forge graphify refresh --background "
-    "once per session (non-blocking); Claude SessionStart and forge --step output trigger this automatically."
+    "GRAPHIFY (when graphify-out/ or GRAPH_REPORT.md exists): "
+    "Refresh the index at ship time — run `forge ship --step 1` or `$forge:ship` before commit/PR; "
+    "that step runs `forge graphify refresh` and prints the GRAPHIFY block. "
+    "Workflow skills (develop, plan, implement, code-review, test, diagnose, evaluate) do NOT "
+    "print per-step GRAPHIFY banners or spawn background refresh. "
+    "During investigation you may still read graphify-out/GRAPH_REPORT.md or use graphify query/path/explain "
+    "instead of blind grep when helpful. "
+    "Disable: FORGE_SKIP_GRAPHIFY=1 or forge graphify off."
 )
 
 FORGE_DELEGATION_INSTRUCTIONS = (
@@ -34,21 +33,13 @@ FORGE_DEVELOPER_INSTRUCTIONS_BODY = (
 
 # Claude command pack — paste under frontmatter in workflow commands.
 CLAUDE_COMMAND_GRAPHIFY_BLOCK = """\
-## Hard rule — Graphify (before any codebase search)
+## Graphify (ship time only for orchestrator refresh)
 
-If `graphify-out/` or `GRAPH_REPORT.md` exists in this repo:
-
-1. **Read** `graphify-out/GRAPH_REPORT.md` before Grep, Glob, Bash search, Task explore, or bulk file reads for architecture questions.
-2. **Follow** every **GRAPHIFY** block printed by `forge … --step` output on each step.
-3. **Prefer** `graphify query`, `graphify path`, or `graphify explain` for cross-module questions.
-4. **After** code edits, run `graphify update .` (AST-only).
-
-Run `forge claude-graphify` once per machine to install Claude hooks that reinforce this in tool use.
+If `graphify-out/` exists: run **`forge ship --step 1`** or **`$forge:ship`** before commit/PR so the index matches shipped code. Workflow `forge … --step` skills do not print GRAPHIFY blocks. You may still use `graphify query` / `path` / `explain` during investigation when helpful.
 """
 
-# Codex skill body line (short).
+# Codex skill body line (short) — omit from workflow skills; ship skill carries graphify.
 CODEX_SKILL_GRAPHIFY_LINE = (
-    "When `graphify-out/` exists: follow every **GRAPHIFY** block in step output before "
-    "grep/glob/search; read `graphify-out/GRAPH_REPORT.md` first; after code edits run "
-    "`graphify update .`. Run `forge codex-agents --force` after upgrading forge-next."
+    "Graphify refresh runs at ship (`forge ship --step 1` / `$forge:ship`), not on other "
+    "forge workflow steps. Run `forge codex-agents --force` after upgrading forge-next."
 )

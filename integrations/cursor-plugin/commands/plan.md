@@ -7,9 +7,10 @@ description: Turn direction into a detailed implementation plan.
 
 **Never show terminal commands** for this workflow. No argv, no flag dumps—only plain-English progress and choices.
 
-## Hard rule — Graphify
+## Graphify
 
-If `graphify-out/` exists: read `graphify-out/GRAPH_REPORT.md` **before** grep/glob/semantic search; follow every **GRAPHIFY** block the orchestrator prints on each step; after code edits run `graphify update .`.
+Runs at **ship** only (orge ship --step 1 / $forge:ship). This workflow does not print GRAPHIFY per step.
+
 
 ## What to tell the user first
 

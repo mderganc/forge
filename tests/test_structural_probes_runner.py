@@ -42,6 +42,31 @@ def test_detect_stack_ts_primary_with_few_python_scripts(tmp_path: Path) -> None
     assert stack["python"] is False
 
 
+def test_source_counts_skip_venv_without_descending(tmp_path: Path) -> None:
+    """Regression: rglob walked .venv and timed out; pruned os.walk must not."""
+    (tmp_path / "module.py").write_text("x = 1\n", encoding="utf-8")
+    venv_pkg = tmp_path / ".venv" / "lib" / "python3.12" / "site-packages"
+    venv_pkg.mkdir(parents=True)
+    for i in range(500):
+        (venv_pkg / f"dep{i}.py").write_text("pass\n", encoding="utf-8")
+
+    assert sp._count_source_files(tmp_path, ".py") == 1
+    inv = sp.build_stack_inventory(tmp_path)
+    assert inv["counts"]["py"] == 1
+
+
+def test_probe_ignore_skips_vendored_forge_next_snapshots(tmp_path: Path) -> None:
+    live = tmp_path / "forge_next" / "pkg.py"
+    live.parent.mkdir(parents=True)
+    live.write_text("x = 1\n", encoding="utf-8")
+    snap = tmp_path / "forge_next-0.14.9" / "duplicate.py"
+    snap.parent.mkdir(parents=True)
+    snap.write_text("y = 2\n", encoding="utf-8")
+
+    assert sp._path_under_probe_ignore(snap, tmp_path) is True
+    assert sp._path_under_probe_ignore(live, tmp_path) is False
+
+
 def test_detect_stack_finds_package_json_under_client(tmp_path: Path) -> None:
     client = tmp_path / "client"
     client.mkdir()

@@ -1,11 +1,11 @@
 ---
 name: forge:develop
-description: Run the Forge develop (investigation) workflow via the global forge CLI. Use when exploring a problem or feature before planning. When graphify-out/ exists, read GRAPH_REPORT.md before codebase search; follow GRAPHIFY blocks in each step.
+description: Run the Forge develop (investigation) workflow via the global forge CLI. Use when exploring a problem or feature before planning. When graphify-out/ exists, read GRAPH_REPORT.md before codebase search; Graphify refresh runs at ship, not per workflow step.
 ---
 
 Do **not** modify repository files unless the user explicitly permits it; follow phase output for session memory under `.codex/forge-codex/memory/` only.
 
-When `graphify-out/` exists, follow every **GRAPHIFY** block in step output before grep/glob/search; read `graphify-out/GRAPH_REPORT.md` first; after code edits run `graphify update .`.
+When `graphify-out/` exists, read `graphify-out/GRAPH_REPORT.md` before grep/glob/search; refresh at ship (`forge ship --step 1` / `$forge:ship`). Workflow `forge … --step` skills do not print per-step GRAPHIFY banners. After code edits run `graphify update .`.
 
 Medium/large scope may require a design spec and `.develop-spec-gate.json` before step 7; see phase output.
 

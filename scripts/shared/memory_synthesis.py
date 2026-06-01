@@ -107,7 +107,7 @@ def write_memory_synthesis(
         project_chunks: list[str] = []
         current_chunks: list[str] = []
         for mem in _memory_candidates(search_dir):
-            proj = mem / "project.md"
+            proj = _first_existing([mem / "project.md"]) or (mem / "project.md")
             t = _read_if(proj, MAX_PROJECT_CHARS)
             if t:
                 project_chunks.append(f"### From `{proj.name}` @ `{mem}`\n\n{t}")

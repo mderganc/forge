@@ -98,6 +98,8 @@ export FORGE_SKIP_GRAPHIFY=1
 
 Also suppresses automatic background refresh (same as setting both skip flags). Accepts `true`, `yes`, `on`.
 
+**Claude Code SessionStart:** background `graphify refresh` on session start is **off** by default (ship-only policy). Opt in with `FORGE_GRAPHIFY_SESSION_REFRESH=1`.
+
 **Refresh only** (keep banners, skip auto-spawn):
 
 ```bash

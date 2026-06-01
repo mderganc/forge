@@ -240,6 +240,16 @@ def _build_variables(
 
     native_hints = format_native_plan_hints(_detect_repo_root(Path.cwd()))
 
+    probe_summary = "_Structural probes: not run (pre mode or no sidecar)._"
+    if state.custom.get("structural_probes_sidecar") or state_dir:
+        from scripts.shared.structural_probes import resolve_probe_summary_for_state
+
+        probe_summary = resolve_probe_summary_for_state(
+            state.custom,
+            state_dir,
+            style="full" if step == _max_step_for_mode(state.mode or "pre") else "brief",
+        ).strip() or probe_summary
+
     return {
         "PLAN_CONTENT": plan_content,
         "PLAN_PATH": state.plan_path,
@@ -251,6 +261,7 @@ def _build_variables(
         "QUICK_MODE_NOTE": "",
         "FINDINGS_SIDECAR": sidecar_path,
         "NATIVE_PLAN_HINTS": native_hints,
+        "STRUCTURAL_PROBES_SUMMARY": probe_summary,
     }
 
 
@@ -378,7 +389,7 @@ def handle_step_1(args: argparse.Namespace) -> None:
         mode, matched, total = detect_mode(refs, str(cwd), plan_mtime)
 
     sp = _resolve_evaluate_state_path(
-        base_dir=plan_path.parent,
+        plan_path=plan_path,
         state_file=args.state,
         parallel=getattr(args, "parallel", False),
     )
@@ -443,7 +454,7 @@ def handle_step_1_review(args: argparse.Namespace) -> None:
     cwd = Path.cwd()
 
     sp = _resolve_evaluate_state_path(
-        base_dir=cwd,
+        plan_path=None,
         state_file=args.state,
         parallel=getattr(args, "parallel", False),
     )
@@ -495,8 +506,15 @@ def _is_evaluate_state_name(name: str) -> bool:
     return bool(re.match(r"^\.evaluate-state(?:-[^.\\/]+)?\.json$", name))
 
 
-def _resolve_evaluate_state_path(base_dir: Path, state_file: str | None, parallel: bool) -> Path:
+def _resolve_evaluate_state_path(
+    *,
+    plan_path: Path | None,
+    state_file: str | None,
+    parallel: bool,
+) -> Path:
     """Resolve where evaluate step 1 should write state."""
+    from scripts.evaluate.state import state_path_for_plan
+
     repo_root = _detect_repo_root().resolve()
     if state_file:
         sp = Path(state_file).resolve()
@@ -511,16 +529,22 @@ def _resolve_evaluate_state_path(base_dir: Path, state_file: str | None, paralle
             )
         return sp
 
-    base_dir = base_dir.resolve()
+    plan_dir = (
+        plan_path.resolve().parent
+        if plan_path is not None
+        else _detect_repo_root().resolve()
+    )
     if not parallel:
         existing = _find_state_file(include_stale=False)
         if existing is not None and auto_parallel_on_conflict_enabled():
             parallel = True
+        elif plan_path is not None:
+            return state_path_for_plan(str(plan_path))
         else:
-            return base_dir / STATE_FILENAME
+            return plan_dir / STATE_FILENAME
 
     stamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
-    candidate = base_dir / f".evaluate-state-{stamp}.json"
+    candidate = plan_dir / f".evaluate-state-{stamp}.json"
     idx = 2
     while candidate.exists():
         candidate = base_dir / f".evaluate-state-{stamp}-{idx}.json"
@@ -529,96 +553,28 @@ def _resolve_evaluate_state_path(base_dir: Path, state_file: str | None, paralle
 
 
 def _find_state_file(*, include_stale: bool = False) -> Path | None:
-    """Search for evaluate state files and return the most recent one."""
-    cwd = Path.cwd()
-    repo_root = _detect_repo_root()
-    candidates: list[Path] = []
+    from scripts.evaluate.evaluate_steps import find_state_file
 
-    def _collect(dir_path: Path) -> None:
-        if not dir_path.exists():
-            return
-        direct = dir_path / STATE_FILENAME
-        if direct.exists():
-            candidates.append(direct)
-        candidates.extend(sorted(dir_path.glob(".evaluate-state-*.json")))
-
-    _collect(cwd)
-    _collect(repo_root / ".codex" / "forge" / "state")
-    _collect(repo_root / ".codex" / "forge-codex" / "state")
-
-    docs_dir = cwd / "docs"
-    if docs_dir.is_dir():
-        candidates.extend(docs_dir.rglob(STATE_FILENAME))
-        candidates.extend(docs_dir.rglob(".evaluate-state-*.json"))
-
-    existing = []
-    for p in candidates:
-        if not p.exists():
-            continue
-        if not include_stale:
-            try:
-                data = json.loads(p.read_text(encoding="utf-8"))
-            except Exception:
-                continue
-            if is_evaluate_state_stale(data, p):
-                continue
-        existing.append(p)
-    if not existing:
-        return None
-    return max(existing, key=lambda p: p.stat().st_mtime)
+    return find_state_file(include_stale=include_stale)
 
 
 def handle_step_n(step: int, state_file: str | None = None) -> None:
     """Steps 2-6: Load state, render appropriate template, output prompt."""
-    sp = Path(state_file).resolve() if state_file else None
+    from scripts.evaluate.evaluate_steps import (
+        load_evaluate_state,
+        load_plan_content,
+        render_step_body,
+        resolve_state_path,
+    )
 
-    if sp is not None:
-        repo_root = _detect_repo_root().resolve()
-        try:
-            sp.relative_to(repo_root)
-        except ValueError:
-            print(f"WARNING: --state path is outside the repository, ignoring: {state_file}", file=sys.stderr)
-            sp = None
-        else:
-            if not _is_evaluate_state_name(sp.name):
-                print(f"WARNING: --state path doesn't look like an evaluate state file, ignoring: {state_file}", file=sys.stderr)
-                sp = None
+    sp = resolve_state_path(state_file)
+    state = load_evaluate_state(sp)
 
-    # Search for state file if not provided or doesn't exist
-    if sp is None or not sp.exists():
-        sp = _find_state_file()
-
-    if sp is None or not sp.exists():
-        print("ERROR: No evaluation in progress. Run step 1 first with --plan.")
-        print("If the state file is elsewhere, pass --state <path>")
-        sys.exit(1)
-
-    try:
-        state = load_state(sp)
-    except json.JSONDecodeError:
-        print(f"ERROR: State file is corrupted: {sp}")
-        print("Delete it and re-run step 1.")
-        sys.exit(1)
-    except KeyError as e:
-        print(f"ERROR: State file is invalid — {e}")
-        print("Delete it and re-run step 1.")
-        sys.exit(1)
-    except FileNotFoundError:
-        print(f"ERROR: State file not found at {sp}")
-        sys.exit(1)
-
-    # Pull in findings the LLM dumped to sidecar files during prior steps.
     ingested = _ingest_findings_sidecars(state, sp.parent, step)
     if ingested:
         save_state(state, sp)
 
-    plan_path = Path(state.plan_path)
-    if state.mode == "review":
-        plan_content = "(review mode — no plan)"
-    elif plan_path.exists():
-        plan_content = plan_path.read_text(encoding="utf-8")
-    else:
-        plan_content = "(plan file not found)"
+    plan_content = load_plan_content(state)
 
     if state.mode == "review":
         phases = REVIEW_PHASES
@@ -633,30 +589,9 @@ def handle_step_n(step: int, state_file: str | None = None) -> None:
         print(f"ERROR: Invalid step {step} for mode {state.mode}")
         sys.exit(1)
 
-    # Load template before mutating state — a missing template must not leave
-    # state half-written.
     template = load_template(template_name)
     variables = _build_variables(state, plan_content, state_dir=sp.parent, step=step)
-    body = render_template(template, variables)
-
-    run_probes = (
-        (state.mode == "post" and step == 4)
-        or (state.mode == "review" and step == 1)
-    )
-    if run_probes:
-        from scripts.shared.structural_probes import inject_structural_probes_section
-
-        body, sidecar, _payload = inject_structural_probes_section(
-            body,
-            skill_name="evaluate",
-            step=step,
-            repo_root=_detect_repo_root(),
-            state_dir=sp.parent,
-            mode=state.mode,
-            quick_mode=False,
-        )
-        if sidecar:
-            state.custom["structural_probes_sidecar"] = str(sidecar)
+    body = render_step_body(template, variables, state, sp, step)
 
     state.current_step = step
     save_state(state, sp)
@@ -674,6 +609,14 @@ def handle_step_n(step: int, state_file: str | None = None) -> None:
     handoff_menu = None
     run_summary = f"Completed evaluate step {step} ({phase_name}) in mode {(state.mode or 'pre')}."
     if not next_cmd:
+        from scripts.shared.structural_probes import resolve_probe_summary_for_state
+
+        probe_brief = resolve_probe_summary_for_state(
+            state.custom,
+            sp.parent,
+            style="brief",
+        )
+        body += f"\n\n---\n\n{probe_brief}"
         run_summary = f"Completed final evaluate step ({phase_name}) in mode {(state.mode or 'pre')} and closed state."
         handoff_menu = build_skill_handoff_menu("evaluate", state, sp)
         append_skill_run_memory(

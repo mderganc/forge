@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import mimetypes
+import os
 import threading
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -92,6 +93,27 @@ def wrap_fragment(body: str, *, title: str = "Forge Studio") -> str:
     return frame + inner
 
 
+def _studio_token_from_env() -> str:
+    return os.environ.get("FORGE_STUDIO_TOKEN", "").strip()
+
+
+def _request_studio_token(headers) -> str:
+    got = (headers.get("X-Forge-Studio-Token") or "").strip()
+    if got:
+        return got
+    auth = headers.get("Authorization") or ""
+    if auth.lower().startswith("bearer "):
+        return auth[7:].strip()
+    return ""
+
+
+def _studio_token_ok(headers) -> bool:
+    expected = _studio_token_from_env()
+    if not expected:
+        return True
+    return _request_studio_token(headers) == expected
+
+
 WAITING_HTML = """<!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><title>Forge Studio</title></head>
 <body><main style="font-family:system-ui,sans-serif;padding:2rem;max-width:40rem;margin:auto">
@@ -152,6 +174,12 @@ def build_handler(
                 return
             if path == "/studio.js":
                 data = studio_assets.asset_bytes("studio.js")
+                token = _studio_token_from_env()
+                if token:
+                    prefix = f"window.__FORGE_STUDIO_TOKEN__ = {json.dumps(token)};\n".encode(
+                        "utf-8"
+                    )
+                    data = prefix + data
                 self.send_response(200)
                 self.send_header("Content-Type", "application/javascript; charset=utf-8")
                 self.send_header("Content-Length", str(len(data)))
@@ -198,6 +226,9 @@ def build_handler(
             self._touch()
             if self.path.split("?", 1)[0] != "/api/event":
                 self.send_error(404)
+                return
+            if not _studio_token_ok(self.headers):
+                self._send_json(401, {"error": "studio token required (FORGE_STUDIO_TOKEN)"})
                 return
             length = int(self.headers.get("Content-Length", 0))
             raw = self.rfile.read(length) if length else b"{}"

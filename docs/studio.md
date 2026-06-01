@@ -6,7 +6,7 @@ Operational guide for agents: [`templates/studio.md`](../templates/studio.md).
 
 ## Summary
 
-- Localhost HTTP server bundled in `forge-next` (Python stdlib).
+- Localhost HTTP server bundled in `forge-next` (Python stdlib). Default: bind to loopback only. Optional auth: set **`FORGE_STUDIO_TOKEN`** before `forge studio start`; the server injects the token into `/studio.js` and requires header **`X-Forge-Studio-Token`** (or `Authorization: Bearer …`) on **`POST /api/event`** when the env var is set.
 - Sessions live under `.codex/forge/studio/<session-id>/`.
 - CLI: `forge studio start|stop|events|status|push|approve|unlock` (omitted from `forge --help`).
 - Each screen: **design notes**, **probing questions**, gate UI, optional freeform feedback.

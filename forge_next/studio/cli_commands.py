@@ -72,11 +72,10 @@ def _wait_server_ready(host: str, port: int, *, timeout_sec: float = 8.0) -> boo
 
 
 def _pick_port(host: str) -> int:
-    import socket
+    del host  # loopback ephemeral bind uses 127.0.0.1
+    from forge_next.studio.server import pick_ephemeral_port
 
-    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-        s.bind((host, 0))
-        return int(s.getsockname()[1])
+    return pick_ephemeral_port()
 
 
 def _spawn_background_server(
@@ -394,7 +393,7 @@ def parse_studio_argv(argv: list[str]) -> argparse.Namespace:
     return build_standalone_studio_parser().parse_args(argv)
 
 
-def register_studio_parser(sub: argparse._SubParsersAction) -> None:
+def register_studio_parser(sub: argparse._SubParsersAction) -> None:  # noqa: ARG001 — optional argparse wiring
     """Legacy hook — studio is dispatched from ``forge_next.cli.main`` before ``--help``."""
     _ = sub
 

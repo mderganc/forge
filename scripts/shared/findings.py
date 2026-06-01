@@ -58,7 +58,7 @@ class FindingsTracker:
         f = self.get(finding_id)
         f.severity = new_severity
 
-    def filter_by_severity(self, severity: str) -> list[Finding]:
+    def filter_by_severity(self, severity: str) -> list[Finding]:  # used by evaluate/report exporters
         return [f for f in self._findings if f.severity == severity]
 
     def open_findings(self) -> list[Finding]:

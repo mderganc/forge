@@ -1,21 +1,28 @@
 """State management for evaluate skill.
 
-Persists evaluation state to a JSON file between steps.
-The state file is ephemeral — deleted when evaluation completes.
+Persists evaluation state via :class:`~scripts.shared.orchestrator.SkillState`
+(``skill_name='evaluate'``). Legacy ``.evaluate-state.json`` files without
+``skill_name`` are upgraded on load.
 """
 
 from __future__ import annotations
 
 import json
-import tempfile
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 from uuid import uuid4
 
 from scripts.shared.findings import FindingsTracker
+from scripts.shared.orchestrator import (
+    EVALUATE_STATE_FILENAME,
+    SkillState,
+    clear_state_file,
+    load_state as load_skill_state,
+    save_state as save_skill_state,
+)
 
-STATE_FILENAME = ".evaluate-state.json"
+STATE_FILENAME = EVALUATE_STATE_FILENAME
 DEFAULT_STATE_PATH = Path(STATE_FILENAME)
 
 
@@ -24,9 +31,89 @@ def state_path_for_plan(plan_path: str) -> Path:
     return Path(plan_path).resolve().parent / STATE_FILENAME
 
 
+def _max_step_for_mode(mode: str | None) -> int:
+    if mode == "review":
+        return 5
+    if mode == "post":
+        return 8
+    return 7
+
+
+def _legacy_dict_to_skill(data: dict) -> SkillState:
+    """Convert pre-SkillState evaluate JSON to SkillState."""
+    mode = data.get("mode")
+    skill = SkillState(skill_name="evaluate", max_step=_max_step_for_mode(mode))
+    skill.current_step = data.get("current_step", 1)
+    skill.last_completed_step = data.get("last_completed_step", 0)
+    skill.findings = list(data.get("findings", []))
+    skill.failure_count = data.get("failure_count", 0)
+    skill.last_touched_at = data.get("last_touched_at")
+    skill.session_id = data.get("session_id") or str(uuid4())
+    skill.custom = dict(data.get("custom") or {})
+    skill.custom["plan_path"] = data["plan_path"]
+    skill.custom["plan_name"] = data["plan_name"]
+    skill.custom["mode"] = mode
+    skill.custom["referenced_files"] = data.get("referenced_files", [])
+    skill.custom["review_round"] = data.get("review_round", 0)
+    skill.custom["review_findings"] = data.get("review_findings", [])
+    return skill
+
+
+def _skill_to_eval_state(skill: SkillState) -> EvalState:
+    custom = skill.custom or {}
+    state = EvalState(
+        plan_path=str(custom.get("plan_path", "")),
+        plan_name=str(custom.get("plan_name", "")),
+    )
+    state.mode = custom.get("mode")
+    state.current_step = skill.current_step
+    state.last_completed_step = skill.last_completed_step
+    state.referenced_files = list(custom.get("referenced_files") or [])
+    state.findings_tracker = FindingsTracker.from_list(skill.findings)
+    state.review_round = int(custom.get("review_round") or 0)
+    state.review_findings = list(custom.get("review_findings") or [])
+    state.custom = {
+        k: v
+        for k, v in custom.items()
+        if k
+        not in (
+            "plan_path",
+            "plan_name",
+            "mode",
+            "referenced_files",
+            "review_round",
+            "review_findings",
+        )
+    }
+    state.failure_count = skill.failure_count
+    state.last_touched_at = skill.last_touched_at
+    state.session_id = skill.session_id
+    return state
+
+
+def _eval_to_skill(state: EvalState) -> SkillState:
+    mode = state.mode
+    skill = SkillState(skill_name="evaluate", max_step=_max_step_for_mode(mode))
+    skill.current_step = state.current_step
+    skill.last_completed_step = state.last_completed_step
+    skill.findings = state.findings_tracker.to_list()
+    skill.failure_count = state.failure_count
+    skill.last_touched_at = state.last_touched_at
+    skill.session_id = state.session_id
+    skill.custom = dict(state.custom)
+    skill.custom["plan_path"] = state.plan_path
+    skill.custom["plan_name"] = state.plan_name
+    skill.custom["mode"] = mode
+    skill.custom["referenced_files"] = state.referenced_files
+    skill.custom["review_round"] = state.review_round
+    skill.custom["review_findings"] = state.review_findings
+    return skill
+
+
 @dataclass
 class EvalState:
-    """Evaluation session state."""
+    """Evaluation session state (facade over SkillState fields in ``custom``)."""
+
     plan_path: str
     plan_name: str
     mode: str | None = None
@@ -42,21 +129,19 @@ class EvalState:
     session_id: str = field(default_factory=lambda: str(uuid4()))
 
     def mark_step_complete(self, step: int) -> None:
-        """Mark a step as completed and reset the retry-failure counter."""
         self.last_completed_step = step
         self.failure_count = 0
 
     @property
     def findings(self) -> list[dict]:
-        """Backward-compatible findings list."""
         return self.findings_tracker.to_list()
 
     def add_finding(self, phase: str, severity: str, title: str, detail: str) -> dict:
-        """Add a finding via the shared tracker."""
         f = self.findings_tracker.add(phase=phase, severity=severity, title=title, detail=detail)
         return f.to_dict()
 
     def to_dict(self) -> dict:
+        """Legacy-shaped dict (tests); persisted files use SkillState.to_dict()."""
         return {
             "plan_path": self.plan_path,
             "plan_name": self.plan_name,
@@ -75,96 +160,28 @@ class EvalState:
 
 
 def save_state(state: EvalState, path: Path = DEFAULT_STATE_PATH) -> None:
-    """Write state to JSON file atomically (write-to-temp-then-rename)."""
-    state.last_touched_at = datetime.now(timezone.utc).isoformat()
-    if not state.session_id:
-        state.session_id = str(uuid4())
-    content = json.dumps(state.to_dict(), indent=2)
-    # Write to temp file in same directory, then rename for atomicity
-    fd, tmp = tempfile.mkstemp(dir=path.parent, suffix=".tmp")
-    try:
-        import os
-        os.close(fd)  # close the fd; we'll write via Path
-        Path(tmp).write_text(content)
-        Path(tmp).replace(path)
-    except BaseException:
-        Path(tmp).unlink(missing_ok=True)
-        raise
-    mode = state.mode or "pre"
-    if mode == "review":
-        max_step = 5
-    elif mode == "post":
-        max_step = 8
-    else:
-        max_step = 7
-
-    # Continuity snapshot (evaluate uses variable max_step by mode).
-    try:
-        from scripts.shared import resume_context
-
-        resume_context.write_evaluate_resume_snapshot(
-            plan_path=state.plan_path,
-            plan_name=state.plan_name,
-            mode=state.mode,
-            current_step=state.current_step,
-            last_completed_step=state.last_completed_step,
-            max_step=max_step,
-            state_path=path,
-            failure_count=int(state.failure_count or 0),
-            search_dir=None,
-        )
-    except Exception:
-        pass
-    try:
-        from scripts.shared import memory_synthesis
-
-        memory_synthesis.write_memory_synthesis_evaluate(
-            plan_name=state.plan_name,
-            mode=state.mode,
-            current_step=state.current_step,
-            last_completed_step=state.last_completed_step,
-            max_step=max_step,
-            state_path=path,
-            search_dir=None,
-        )
-    except Exception:
-        pass
+    """Write SkillState JSON atomically and refresh resume/memory sidecars."""
+    skill = _eval_to_skill(state)
+    save_skill_state(skill, path)
 
 
 def load_state(path: Path = DEFAULT_STATE_PATH) -> EvalState:
-    """Load state from JSON file.
-
-    Raises:
-        FileNotFoundError: If state file doesn't exist.
-        json.JSONDecodeError: If state file is corrupted.
-        KeyError: If required fields are missing.
-    """
+    """Load evaluate state; upgrades legacy JSON without ``skill_name``."""
     if not path.exists():
         raise FileNotFoundError(f"No state file at {path}")
-    data = json.loads(path.read_text())
-    # Validate required fields
-    for key in ("plan_path", "plan_name"):
-        if key not in data:
-            raise KeyError(f"State file missing required field: {key}")
-    state = EvalState(
-        plan_path=data["plan_path"],
-        plan_name=data["plan_name"],
-    )
-    state.mode = data.get("mode")
-    state.current_step = data.get("current_step", 1)
-    state.last_completed_step = data.get("last_completed_step", 0)
-    state.referenced_files = data.get("referenced_files", [])
-    state.findings_tracker = FindingsTracker.from_list(data.get("findings", []))
-    state.review_round = data.get("review_round", 0)
-    state.review_findings = data.get("review_findings", [])
-    state.custom = data.get("custom", {})
-    state.failure_count = data.get("failure_count", 0)
-    state.last_touched_at = data.get("last_touched_at")
-    state.session_id = data.get("session_id", state.session_id)
-    return state
+    raw = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(raw, dict):
+        raise KeyError("State file is not a JSON object")
+    if raw.get("skill_name") == "evaluate":
+        skill = SkillState.from_dict(raw)
+    else:
+        for key in ("plan_path", "plan_name"):
+            if key not in raw:
+                raise KeyError(f"State file missing required field: {key}")
+        skill = _legacy_dict_to_skill(raw)
+    return _skill_to_eval_state(skill)
 
 
 def clear_state(path: Path = DEFAULT_STATE_PATH) -> None:
-    """Remove state file if it exists."""
-    if path.exists():
-        path.unlink()
+    """Remove state file if it exists (orchestrator helper)."""
+    clear_state_file(path)

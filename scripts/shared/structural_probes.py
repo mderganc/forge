@@ -699,10 +699,7 @@ def _skylos_item_to_finding(item: dict[str, Any], *, category: str) -> dict[str,
     }
 
 
-def _parse_skylos_json_findings(raw: str, *, max_findings: int = 8) -> list[dict[str, Any]]:
-    data = _extract_stdout_json(raw)
-    if not data:
-        return []
+def _skylos_json_candidates(data: dict[str, Any]) -> list[tuple[str, dict[str, Any]]]:
     candidates: list[tuple[str, dict[str, Any]]] = []
     for category in (
         "unused_functions",
@@ -728,6 +725,14 @@ def _parse_skylos_json_findings(raw: str, *, max_findings: int = 8) -> list[dict
                 "dead",
             ):
                 candidates.append(("definitions", item))
+    return candidates
+
+
+def _parse_skylos_json_findings(raw: str, *, max_findings: int = 8) -> list[dict[str, Any]]:
+    data = _extract_stdout_json(raw)
+    if not data:
+        return []
+    candidates = _skylos_json_candidates(data)
     findings: list[dict[str, Any]] = []
     for i, (category, item) in enumerate(candidates[:max_findings], start=1):
         row = _skylos_item_to_finding(item, category=category)
@@ -781,36 +786,20 @@ def run_probes(
     step: int | None = None,
 ) -> dict[str, Any]:
     """Run only the probes listed in ``plan`` / ``tools``; write results sidecar."""
-    from forge_next.structural_tools import (
-        resolve_knip_command,
-        resolve_madge_command,
-        resolve_pyscn_command,
-        resolve_skylos_command,
-        skip_structural_tools,
+    from forge_next.structural_tools import skip_structural_tools
+    from scripts.shared.structural_probe_runners import (
+        run_knip_probe,
+        run_madge_probe,
+        run_pyscn_probe,
+        run_skylos_probe,
+        select_probe_tools,
+        skipped_all_payload,
     )
 
     root = repo_root.resolve()
-    stack = detect_stack(root)
-    inventory = build_stack_inventory(root)
-    merged_plan = merge_plan_with_scope(plan, scope_paths=scope_paths)
-    if tools is not None:
-        selected = filter_applicable_probe_tools(
-            normalize_probe_tools(tools),
-            inventory,
-        )
-    elif merged_plan.get("tools"):
-        selected = filter_applicable_probe_tools(
-            normalize_probe_tools(merged_plan["tools"]),
-            inventory,
-        )
-    else:
-        selected = filter_applicable_probe_tools(
-            normalize_probe_tools(
-                suggest_probe_plan(inventory, scope_paths=scope_paths)["tools"]
-            ),
-            inventory,
-        )
-
+    merged_plan, selected = select_probe_tools(
+        root, scope_paths=scope_paths, tools=tools, plan=plan
+    )
     node_root = _resolve_probe_root(
         root, merged_plan.get("node_root"), node_probe_root(root)
     )
@@ -818,147 +807,66 @@ def run_probes(
         root, merged_plan.get("python_root"), python_probe_root(root)
     )
     effective_scope = merged_plan.get("scope_paths") or scope_paths
-    probes: list[dict[str, Any]] = []
 
     if skip_structural_tools() or skip_structural_probes():
-        payload = {
-            "generated_at": datetime.now(timezone.utc).isoformat(),
-            "stack": stack,
-            "plan": merged_plan,
-            "selected_tools": selected,
-            "probes": [
-                {
-                    "tool": "none",
-                    "status": "skip",
-                    "command": [],
-                    "summary": "FORGE_SKIP_STRUCTURAL_TOOLS=1",
-                    "findings": [],
-                }
-            ],
-        }
-        _write_sidecar(state_dir, payload)
-        return payload
+        return skipped_all_payload(
+            root,
+            merged_plan,
+            selected,
+            reason="FORGE_SKIP_STRUCTURAL_TOOLS=1",
+            state_dir=state_dir,
+        )
 
-    want_knip = "knip" in selected
-    want_madge = "madge" in selected
-    want_pyscn = "pyscn" in selected
-    want_skylos = "skylos" in selected
-
-    if want_knip:
-        knip = resolve_knip_command()
-        if knip:
-            code, out = _run_cmd(knip, cwd=node_root, timeout=timeout_per_tool)
-            probes.append(
-                {
-                    "tool": "knip",
-                    "status": "pass" if code == 0 else "fail",
-                    "command": knip,
-                    "summary": (out.splitlines() or [f"exit {code}"])[0][:200],
-                    "findings": _tool_findings("knip", code, out),
-                }
-            )
-        else:
-            probes.append(_skip_probe("knip", "knip not on PATH and npx unavailable"))
+    probes: list[dict[str, Any]] = []
+    if "knip" in selected:
+        probes.append(run_knip_probe(node_root=node_root, timeout=timeout_per_tool))
     else:
         probes.append(_skip_probe("knip", "not selected in probe plan"))
 
-    if want_madge:
-        madge = resolve_madge_command()
-        if madge:
-            entry = _madge_entry(node_root, effective_scope)
-            cmd = [*madge, "--circular", entry]
-            code, out = _run_cmd(cmd, cwd=node_root, timeout=timeout_per_tool)
-            probes.append(
-                {
-                    "tool": "madge",
-                    "status": "pass" if code == 0 else "fail",
-                    "command": cmd,
-                    "summary": (out.splitlines() or [f"exit {code}"])[0][:200],
-                    "findings": _tool_findings("madge", code, out),
-                }
+    if "madge" in selected:
+        probes.append(
+            run_madge_probe(
+                node_root=node_root,
+                effective_scope=effective_scope,
+                timeout=timeout_per_tool,
             )
-        else:
-            probes.append(_skip_probe("madge", "madge not available"))
+        )
     else:
         probes.append(_skip_probe("madge", "not selected in probe plan"))
 
-    if want_pyscn:
-        pyscn = resolve_pyscn_command()
-        if pyscn:
-            if effective_scope:
-                py_target = effective_scope[0]
-            else:
-                py_target = "."
-                if python_root != root:
-                    try:
-                        py_target = str(python_root.relative_to(root))
-                    except ValueError:
-                        py_target = str(python_root)
-            cmd = _pyscn_check_command(pyscn, target=py_target)
-            code, out = _run_cmd(cmd, cwd=root, timeout=timeout_per_tool)
-            probes.append(
-                {
-                    "tool": "pyscn",
-                    "status": "pass" if code == 0 else "fail",
-                    "command": cmd,
-                    "summary": (out.splitlines() or [f"exit {code}"])[0][:200],
-                    "findings": _tool_findings("pyscn", code, out),
-                }
+    if "pyscn" in selected:
+        probes.append(
+            run_pyscn_probe(
+                repo_root=root,
+                python_root=python_root,
+                effective_scope=effective_scope,
+                timeout=timeout_per_tool,
             )
-        else:
-            probes.append(_skip_probe("pyscn", "pyscn not available — run forge structural-tools install"))
+        )
     else:
         probes.append(_skip_probe("pyscn", "not selected in probe plan"))
 
-    if want_skylos:
-        skylos = resolve_skylos_command()
-        if skylos:
-            sky_targets = _skylos_scan_targets(
+    if "skylos" in selected:
+        probes.append(
+            run_skylos_probe(
                 repo_root=root,
                 python_root=python_root,
-                scope_paths=effective_scope,
+                effective_scope=effective_scope,
+                timeout=timeout_per_tool,
+                quick_mode=quick_mode,
+                skill_name=skill_name,
+                step=step,
             )
-            quick_scan = quick_mode or skylos_use_quick_scan(
-                skill_name, step, scope_paths=effective_scope
-            )
-            cmd = _skylos_scan_command(skylos, sky_targets, quick_scan=quick_scan)
-            code, out = _run_cmd(cmd, cwd=root, timeout=timeout_per_tool)
-            parsed = _extract_stdout_json(out)
-            findings = _parse_skylos_json_findings(out) if parsed is not None else []
-            if parsed is None:
-                findings = [
-                    f
-                    for f in _tool_findings("skylos", code, out)
-                    if "Installed " not in (f.get("detail") or "")
-                ]
-            probes.append(
-                {
-                    "tool": "skylos",
-                    "status": "pass" if code == 0 else "fail",
-                    "command": cmd,
-                    "summary": (out.splitlines() or [f"exit {code}"])[0][:200],
-                    "findings": findings,
-                }
-            )
-        else:
-            probes.append(
-                _skip_probe(
-                    "skylos",
-                    "skylos not available — run forge structural-tools install",
-                )
-            )
+        )
     else:
         probes.append(_skip_probe("skylos", "not selected in probe plan"))
 
     payload = {
         "generated_at": datetime.now(timezone.utc).isoformat(),
-        "stack": stack,
+        "stack": detect_stack(root),
         "plan": merged_plan,
         "selected_tools": selected,
-        "probe_roots": {
-            "node": str(node_root),
-            "python": str(python_root),
-        },
+        "probe_roots": {"node": str(node_root), "python": str(python_root)},
         "probes": probes,
     }
     _write_sidecar(state_dir, payload)
@@ -979,6 +887,125 @@ def sidecar_path(state_dir: Path | None) -> Path | None:
         return None
     p = Path(state_dir) / SIDECAR_NAME
     return p if p.is_file() else None
+
+
+def load_probe_payload(path: Path | str | None) -> dict[str, Any] | None:
+    """Load ``.structural-probes.json`` from disk."""
+    if path is None:
+        return None
+    p = Path(path)
+    if not p.is_file():
+        return None
+    try:
+        data = json.loads(p.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        return None
+    return data if isinstance(data, dict) else None
+
+
+def _collect_probe_finding_rows(payload: dict[str, Any]) -> list[dict[str, str]]:
+    rows: list[dict[str, str]] = []
+    for probe in payload.get("probes") or []:
+        if probe.get("status") == "skip":
+            continue
+        tool = str(probe.get("tool") or "?")
+        for finding in probe.get("findings") or []:
+            if not isinstance(finding, dict):
+                continue
+            rows.append(
+                {
+                    "tool": tool,
+                    "id": str(finding.get("id") or ""),
+                    "severity": str(finding.get("severity") or "warning"),
+                    "path": str(finding.get("path") or ""),
+                    "detail": str(finding.get("detail") or ""),
+                }
+            )
+    return rows
+
+
+def format_probe_summary_markdown(
+    sidecar: Path | str | None = None,
+    payload: dict[str, Any] | None = None,
+    *,
+    style: str = "brief",
+) -> str:
+    """Markdown summary of structural probe results for reports and step completion."""
+    if skip_structural_probes():
+        return "_Structural probes suppressed (`FORGE_SKIP_STRUCTURAL_TOOLS=1`)._\n"
+
+    sidecar_path_obj: Path | None = Path(sidecar) if sidecar else None
+    if payload is None and sidecar_path_obj is not None:
+        payload = load_probe_payload(sidecar_path_obj)
+
+    if not payload:
+        return "_Structural probes: not run (no `.structural-probes.json` sidecar)._\n"
+
+    lines = ["## Structural probes (Pass B)", ""]
+    selected = payload.get("selected_tools") or []
+    if selected:
+        lines.append(f"**Tools:** {', '.join(str(t) for t in selected)}")
+    if sidecar_path_obj and sidecar_path_obj.is_file():
+        lines.append(f"**Sidecar:** `{sidecar_path_obj}`")
+    plan = payload.get("plan") or {}
+    if isinstance(plan, dict) and plan.get("reasoning"):
+        lines.append(f"**Plan:** {str(plan['reasoning'])[:240]}")
+    lines.append("")
+    for probe in payload.get("probes") or []:
+        tool = probe.get("tool", "?")
+        status = probe.get("status", "?")
+        n = len(probe.get("findings") or [])
+        summary = str(probe.get("summary") or "")[:120]
+        lines.append(f"- **{tool}**: {status} — {n} finding(s) — {summary}")
+
+    rows = _collect_probe_finding_rows(payload)
+    if not rows:
+        lines.append("")
+        lines.append("_No individual findings recorded._")
+        return "\n".join(lines) + "\n"
+
+    lines.extend(_probe_finding_rows_markdown(rows, style=style))
+    return "\n".join(lines) + "\n"
+
+
+def _probe_finding_rows_markdown(rows: list[dict[str, str]], *, style: str) -> list[str]:
+    if style == "full":
+        out = [
+            "",
+            "| ID | Tool | Severity | Path | Detail |",
+            "|----|------|----------|------|--------|",
+        ]
+        for row in rows:
+            detail = (row["detail"] or "").replace("|", "\\|").replace("\n", " ")[:200]
+            out.append(
+                f"| {row['id'] or '—'} | {row['tool']} | {row['severity']} | "
+                f"{row['path'] or '—'} | {detail} |"
+            )
+        return out
+
+    out = ["", "**Top findings:**"]
+    for row in rows[:5]:
+        fid = row["id"] or "—"
+        path = row["path"] or "(no path)"
+        out.append(f"- `{fid}` ({row['tool']}) {path}")
+    if len(rows) > 5:
+        out.append(f"- _…and {len(rows) - 5} more (see sidecar)._")
+    return out
+
+
+def resolve_probe_summary_for_state(
+    state_custom: dict[str, Any],
+    state_dir: Path | None,
+    *,
+    style: str = "brief",
+) -> str:
+    """Resolve sidecar from skill state and format probe summary markdown."""
+    path_str = (state_custom.get("structural_probes_sidecar") or "").strip()
+    sidecar = Path(path_str) if path_str else None
+    if sidecar is None or not sidecar.is_file():
+        sidecar = sidecar_path(state_dir)
+    payload = load_probe_payload(sidecar) if sidecar else None
+    return format_probe_summary_markdown(sidecar, payload, style=style)
 
 
 def format_probe_results_banner(payload: dict[str, Any], sidecar: Path | None) -> str:

@@ -11,6 +11,12 @@ Write the final test report and hand off to the next skill.
 
 {{TEST_RESULTS}}
 
+## Orchestrator test execution (step 3)
+
+The orchestrator runs pytest at step 3 unless `FORGE_SKIP_TEST_AUTO_RUN=1`. Include this block verbatim in the written report:
+
+{{TEST_EXECUTION_LOG}}
+
 ## Findings
 
 {{FINDINGS}}
@@ -27,6 +33,10 @@ Write the report to `.codex/forge-codex/memory/test-report.md` with this structu
 - **Coverage:** per-file coverage breakdown, files below threshold
 - **Gaps:** recommended new tests with priority
 - **Recommendations:** overall testing improvements
+- **Orchestrator execution:** copy the "Orchestrator test execution" section above (command, exit code, counts, output tail)
+- **Workflow prompts:** copy the appendix below — full verbatim prompts from each test step
+
+{{WORKFLOW_PROMPTS_APPENDIX}}
 
 ### 2. Update Memory
 

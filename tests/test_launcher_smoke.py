@@ -64,6 +64,7 @@ def test_launcher_parser_accepts_plan_mode_flags() -> None:
 
 def test_launcher_forwards_plan_mode_to_orchestrator(monkeypatch: pytest.MonkeyPatch) -> None:
     import forge_next.cli as cli
+    import forge_next.cli_dispatch as dispatch
 
     captured: dict[str, object] = {}
 
@@ -75,8 +76,8 @@ def test_launcher_forwards_plan_mode_to_orchestrator(monkeypatch: pytest.MonkeyP
         captured["argv"] = argv
         return 0
 
-    monkeypatch.setattr(cli, "_repo_root_from_args", fake_repo_root)
-    monkeypatch.setattr(cli, "_run_module_main", fake_run_module)
+    monkeypatch.setattr(dispatch, "repo_root_from_args", fake_repo_root)
+    monkeypatch.setattr(dispatch, "run_module_main", fake_run_module)
 
     with pytest.raises(SystemExit) as exc:
         cli.main(["plan", "--step", "1", "--mode", "lite", "--save-mode-preference"])
@@ -105,6 +106,7 @@ def test_launcher_parser_accepts_multi_token_targets() -> None:
 
 def test_launcher_forwards_target_once_for_multi_token_input(monkeypatch: pytest.MonkeyPatch) -> None:
     import forge_next.cli as cli
+    import forge_next.cli_dispatch as dispatch
 
     captured: dict[str, object] = {}
 
@@ -117,8 +119,8 @@ def test_launcher_forwards_target_once_for_multi_token_input(monkeypatch: pytest
         captured["repo_root"] = repo_root
         return 0
 
-    monkeypatch.setattr(cli, "_repo_root_from_args", fake_repo_root)
-    monkeypatch.setattr(cli, "_run_module_main", fake_run_module)
+    monkeypatch.setattr(dispatch, "repo_root_from_args", fake_repo_root)
+    monkeypatch.setattr(dispatch, "run_module_main", fake_run_module)
 
     with pytest.raises(SystemExit) as exc:
         cli.main(["code-review", "--step", "1", "--target", "scripts/a.py", "scripts/b.py"])

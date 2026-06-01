@@ -143,7 +143,12 @@ def _normalize_target(target_arg: str | list[str] | None) -> tuple[str, list[str
 
 
 
-def _build_variables(state: SkillState) -> dict[str, str]:
+def _build_variables(
+    state: SkillState,
+    state_path: Path | None = None,
+    *,
+    prompts_style: str = "brief",
+) -> dict[str, str]:
     """Build template variable dict from state."""
     mode = state.custom.get("mode", "run")
     target = state.custom.get("target", "")
@@ -239,6 +244,20 @@ def _build_variables(state: SkillState) -> dict[str, str]:
     roles = state.custom.get("roles", [])
     layout_confidence_warning = state.custom.get("layout_confidence_warning", "")
 
+    execution_log = state.custom.get("test_execution_log") or (
+        "(Orchestrator has not run pytest yet — step 3 runs `python -m pytest` unless "
+        "`FORGE_SKIP_TEST_AUTO_RUN=1`.)"
+    )
+
+    workflow_prompts = ""
+    if state_path is not None:
+        from scripts.shared.workflow_prompt_archive import format_workflow_prompts_markdown
+
+        workflow_prompts = format_workflow_prompts_markdown(
+            state_path.parent,
+            style=prompts_style,
+        )
+
     return {
         "TARGET": target or "(auto-detected from handoff or project)",
         "HANDOFF_CONTENT": handoff_section,
@@ -264,6 +283,8 @@ def _build_variables(state: SkillState) -> dict[str, str]:
         "TEST_DB": test_db,
         "ROLES": ", ".join(roles) if roles else "",
         "LAYOUT_CONFIDENCE_WARNING": layout_confidence_warning,
+        "TEST_EXECUTION_LOG": execution_log.strip(),
+        "WORKFLOW_PROMPTS_APPENDIX": workflow_prompts.strip(),
     }
 
 
@@ -587,8 +608,19 @@ def handle_step_1(args) -> None:
     else:
         # Run mode: original flow
         template = load_template("test/context")
-        variables = _build_variables(state)
+        variables = _build_variables(state, state_path=sp)
         body = render_template(template, variables)
+
+        from scripts.shared.workflow_prompt_archive import record_step_prompt
+
+        record_step_prompt(
+            sp.parent,
+            skill=SKILL_NAME,
+            step=1,
+            phase_name=PHASE_NAMES[1],
+            body=body,
+            template_name="test/context",
+        )
 
         state.mark_step_complete(1)
         save_state(state, sp)
@@ -653,11 +685,67 @@ def handle_step_n(step: int, state_file: str | None = None) -> None:
         print(f"ERROR: Invalid step {step}")
         sys.exit(1)
 
+    from scripts.shared.orchestrator import _detect_repo_root
+
+    repo_root = _detect_repo_root(Path.cwd())
+
+    if step == 2 and not state.custom.get("test_suites"):
+        from scripts.test.pytest_runner import discover_pytest_command
+
+        tokens = state.custom.get("target_tokens") or []
+        state.custom["test_suites"] = [discover_pytest_command(repo_root, tokens)]
+
+    if step == 3:
+        from scripts.test.pytest_runner import (
+            apply_results_to_state_custom,
+            discover_pytest_command,
+            run_pytest,
+            should_run_pytest,
+            skip_test_auto_run,
+        )
+
+        if should_run_pytest(state.custom):
+            tokens = state.custom.get("target_tokens") or []
+            suites = state.custom.get("test_suites") or []
+            cmd = suites[0] if suites else discover_pytest_command(repo_root, tokens)
+            print(
+                "forge: test step 3 — running pytest (Pass B execution)...",
+                file=sys.stderr,
+                flush=True,
+            )
+            result = run_pytest(repo_root, cmd)
+            apply_results_to_state_custom(state.custom, result)
+            print(
+                f"forge: pytest finished — exit {result.get('exit_code')} "
+                f"({result.get('passed', 0)} passed, {result.get('failed', 0)} failed)",
+                file=sys.stderr,
+                flush=True,
+            )
+        elif not skip_test_auto_run():
+            print(
+                "forge: test step 3 — skipping pytest (results already in state; "
+                "set FORGE_TEST_FORCE_RERUN=1 to re-run)",
+                file=sys.stderr,
+                flush=True,
+            )
+
     # Load template before mutating state — a missing template must not leave
     # state half-written.
     template = load_template(template_name)
-    variables = _build_variables(state)
+    prompts_style = "full" if step == MAX_STEP else "brief"
+    variables = _build_variables(state, state_path=sp, prompts_style=prompts_style)
     body = render_template(template, variables)
+
+    from scripts.shared.workflow_prompt_archive import record_step_prompt
+
+    record_step_prompt(
+        sp.parent,
+        skill=SKILL_NAME,
+        step=step,
+        phase_name=PHASE_NAMES.get(step, f"Step {step}"),
+        body=body,
+        template_name=template_name,
+    )
 
     state.current_step = step
     save_state(state, sp)

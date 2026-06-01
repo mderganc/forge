@@ -21,7 +21,6 @@ from __future__ import annotations
 
 import json
 import sys
-from dataclasses import dataclass
 from pathlib import Path
 
 # Auto-detect repo root so this works from any working directory
@@ -252,7 +251,9 @@ def _build_variables(
     diagnose_artifact_gate = ""
 
     if state_path is not None:
-        sd = state_path.parent
+        from scripts.diagnose.diagnose_registers import state_dir_from_state_path
+
+        sd = state_dir_from_state_path(state_path)
         reg_file = register_path(sd)
         reg_data = load_register(reg_file)
         hypothesis_summary = summarize_register(reg_data)
@@ -438,172 +439,45 @@ def handle_step_1(args) -> None:
 
 def handle_step_n(step: int, state_file: str | None = None, mode: str | None = None) -> None:
     """Steps 2-7: Load state, render template, output prompt."""
+    from scripts.diagnose.diagnose_step_output import print_diagnose_step
+    from scripts.diagnose.diagnose_steps import (
+        append_complexity_gate_notes,
+        apply_gate_template_variables,
+        resolve_step_gate,
+    )
+
     state, sp = _load_or_fail(state_file)
 
-    # Load template before mutating state — a missing template must not leave
-    # state half-written.
     template_name = PHASE_TEMPLATES.get(step)
     if not template_name:
         print(f"ERROR: No template for step {step}")
         sys.exit(1)
 
     template = load_template(template_name)
-    gate_result: diagnose_gates.DiagnoseGateResult | None = None
-    step2_warning = ""
-    if step == 2:
-        ps_result = diagnose_gates.check_problem_spec_gate(state, sp, step, strict=False)
-        if not ps_result.passed and ps_result.gate_body:
-            step2_warning = (
-                "\n\n---\n\n**Problem spec (advisory — fix before Phase 4):**\n"
-                + ps_result.gate_body
-            )
-    elif step == 4:
-        gate_result = diagnose_gates.check_register_gate(state, sp, step)
-        if gate_result.passed:
-            gate_result = diagnose_gates.check_quartet_gate(state, sp, step)
-    elif step == 5:
-        gate_result = diagnose_gates.check_step5_bundle_gate(state, sp, step)
-    elif step == 7:
-        gate_result = diagnose_gates.check_step7_closure_gate(state, sp, step)
+    gate_result, step2_warning = resolve_step_gate(step, state, sp)
 
     variables = _build_variables(state, state_path=sp, step=step)
-    if gate_result and not gate_result.passed:
-        variables["HYPOTHESIS_GATE"] = gate_result.gate_body
-        variables["DIAGNOSE_ARTIFACT_GATE"] = gate_result.gate_body
-        variables["FIVE_WHYS_GATE"] = gate_result.gate_body
-        variables["TECHNIQUE_COVERAGE_GATE"] = gate_result.gate_body
-        variables["QUARTET_GATE"] = gate_result.gate_body
+    apply_gate_template_variables(variables, gate_result)
     body = render_template(template, variables)
     if step2_warning:
         body += step2_warning
+    body = append_complexity_gate_notes(step, body, state)
 
-    # Update state
-    state.current_step = step
-    if mode:
-        state.custom["autonomy_mode"] = mode
-    save_state(state, sp)
-
-    # Phase 6 special: complexity gate
-    fc = state.custom.get("fix_complexity", "unknown")
-    if step == 6 and fc == "complex":
-        body += (
-            "\n\n---\n\n"
-            "**COMPLEXITY GATE TRIGGERED (complex):** Fix is too broad for quick implementation here.\n"
-            "Write handoff file and direct user to `plan` -> `implement`.\n"
-            "Then skip to Phase 7 (Report).\n"
-        )
-    if step == 6 and fc == "large":
-        body += (
-            "\n\n---\n\n"
-            "**COMPLEXITY GATE TRIGGERED (large / systemic):** Solution space needs design work before planning.\n"
-            "Write handoff file and direct user to **`develop`** (brainstorm / design) → then **`plan`** → `implement`.\n"
-            "Then skip to Phase 7 (Report).\n"
-        )
-
-    # Phase 7: mark complete and write handoff
-    is_last = step >= MAX_STEP
-    cross_skill_next = None
-    handoff_menu = None
-    handoff_path: Path | None = None
-    run_summary = f"Completed step {step} ({PHASE_NAMES.get(step, f'Step {step}')})."
-    if is_last:
-        state.mark_step_complete(step)
-        state.completed_at = now_iso()
-        save_state(state, sp)
-
-        complexity = state.custom.get("fix_complexity", "unknown")
-        if complexity == "large":
-            suggested_next = "develop"
-        elif complexity == "complex":
-            suggested_next = "plan"
-        else:
-            suggested_next = "(end of flow)"
-
-        routing = (
-            "develop → plan"
-            if complexity == "large"
-            else ("plan → implement" if complexity == "complex" else "resolved / choose next skill from menu")
-        )
-
-        handoff_path = write_handoff(
-            skill_name=SKILL_NAME,
-            state=state,
-            context={
-                "Root cause": state.custom.get("root_cause", "see report"),
-                "Fix complexity": complexity,
-                "Routing": routing,
-                "Autonomy mode": state.custom.get("autonomy_mode", "guided"),
-                "Open findings": str(len(state.open_findings())),
-            },
-            suggested_next=suggested_next,
-        )
-        handoff_menu = build_skill_handoff_menu(SKILL_NAME, state, sp)
-        clear_state_file(sp)
-        run_summary = "Completed diagnose workflow, wrote handoff, and closed session state."
-
-    if not is_last:
-        gate_blocked = gate_result is not None and not gate_result.passed
-        if not gate_blocked:
-            state.mark_step_complete(step)
-        save_state(state, sp)
-        if step == 6 and state.custom.get("fix_complexity") == "complex":
-            run_summary = "Complexity gate triggered; diagnose prepared handoff path for planning flow."
-        if step == 6 and state.custom.get("fix_complexity") == "large":
-            run_summary = "Large-complexity gate triggered; diagnose prepared handoff path for develop → plan."
-
-    # Build next command
-    gate_confirm = False
-    if is_last:
-        next_cmd = None
-    else:
-        extra = {}
-        if state.custom.get("autonomy_mode"):
-            extra["mode"] = state.custom["autonomy_mode"]
-        next_step_override = (
-            gate_result.next_step_override
-            if gate_result and not gate_result.passed
-            else None
-        )
-        if next_step_override is not None:
-            next_cmd = build_next_command(
-                SCRIPT_DIR / "orchestrate.py",
-                step,
-                MAX_STEP,
-                next_step=next_step_override,
-                **extra,
-            )
-            gate_confirm = gate_result.require_confirmation
-        else:
-            next_cmd = build_next_command(
-                SCRIPT_DIR / "orchestrate.py", step, MAX_STEP, **extra
-            )
-
-    phase_name = PHASE_NAMES.get(step, f"Step {step}")
-    output = format_step_output(
-        SKILL_NAME, step, MAX_STEP, phase_name, body,
-        next_cmd=next_cmd,
-        phase_todos=PHASE_TODOS.get(step, []),
-        cross_skill_next=cross_skill_next,
-        handoff_menu=handoff_menu,
-        all_phase_names=PHASE_NAMES,
-        all_phase_todos=PHASE_TODOS,
-        require_confirmation=gate_confirm if gate_confirm else None,
-    )
-
-    # Append dashboard on final step
-    if is_last:
-        output += "\n\n" + render_dashboard(state)
-
-    append_skill_run_memory(
-        SKILL_NAME,
-        step,
-        phase_name,
-        run_summary,
+    print_diagnose_step(
+        skill_name=SKILL_NAME,
+        step=step,
+        max_step=MAX_STEP,
+        phase_name=PHASE_NAMES.get(step, f"Step {step}"),
+        body=body,
         state=state,
-        state_path=sp,
-        handoff_path=handoff_path,
+        sp=sp,
+        gate_result=gate_result,
+        mode=mode,
+        is_last=step >= MAX_STEP,
+        script_dir=SCRIPT_DIR,
+        phase_names=PHASE_NAMES,
+        phase_todos=PHASE_TODOS,
     )
-    print(output)
 
 
 # ---------------------------------------------------------------------------

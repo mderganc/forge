@@ -8,6 +8,7 @@ from __future__ import annotations
 import json
 import os
 import platform
+import shlex
 import shutil
 import subprocess
 import sys
@@ -347,6 +348,16 @@ def install_structural_tools(*, prefix: Path | None = None) -> StructuralToolsIn
     return result
 
 
+def _split_override_command(raw: str) -> list[str]:
+    """Parse ``FORGE_*_COMMAND`` env overrides (``shlex`` when whitespace present)."""
+    text = raw.strip()
+    if not text:
+        return []
+    if " " in text or "\t" in text:
+        return shlex.split(text, posix=os.name != "nt")
+    return [text]
+
+
 def load_manifest() -> dict[str, Any] | None:
     for mp in (manifest_path(), *_legacy_manifest_paths()):
         if not mp.is_file():
@@ -361,7 +372,7 @@ def load_manifest() -> dict[str, Any] | None:
 def resolve_knip_command() -> list[str]:
     override = (os.environ.get("FORGE_KNIP_COMMAND") or "").strip()
     if override:
-        return override.split()
+        return _split_override_command(override)
     manifest = load_manifest()
     if manifest and manifest.get("knip"):
         p = Path(str(manifest["knip"]))
@@ -380,7 +391,7 @@ def resolve_knip_command() -> list[str]:
 def resolve_madge_command() -> list[str]:
     override = (os.environ.get("FORGE_MADGE_COMMAND") or "").strip()
     if override:
-        return override.split()
+        return _split_override_command(override)
     manifest = load_manifest()
     if manifest and manifest.get("madge"):
         p = Path(str(manifest["madge"]))
@@ -399,12 +410,12 @@ def resolve_madge_command() -> list[str]:
 def resolve_skylos_command() -> list[str]:
     override = (os.environ.get("FORGE_SKYLOS_COMMAND") or "").strip()
     if override:
-        return override.split()
+        return _split_override_command(override)
     manifest = load_manifest()
     skylos = manifest.get("skylos") if manifest else None
     via = (manifest or {}).get("skylos_via") if manifest else None
     if skylos and via == "uvx":
-        return str(skylos).split()
+        return _split_override_command(str(skylos))
     if skylos:
         p = Path(str(skylos))
         if p.is_file() or shutil.which(str(skylos)):
@@ -421,12 +432,12 @@ def resolve_skylos_command() -> list[str]:
 def resolve_pyscn_command() -> list[str]:
     override = (os.environ.get("FORGE_PYSCN_COMMAND") or "").strip()
     if override:
-        return override.split()
+        return _split_override_command(override)
     manifest = load_manifest()
     pyscn = manifest.get("pyscn") if manifest else None
     via = (manifest or {}).get("pyscn_via") if manifest else None
     if pyscn and via == "uvx":
-        return str(pyscn).split()
+        return _split_override_command(str(pyscn))
     if pyscn:
         p = Path(str(pyscn))
         if p.is_file() or shutil.which(str(pyscn)):

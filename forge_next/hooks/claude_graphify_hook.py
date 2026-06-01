@@ -11,6 +11,7 @@ Reads hook JSON from stdin; prints hookSpecificOutput JSON to stdout when applic
 from __future__ import annotations
 
 import json
+import os
 import re
 import sys
 from pathlib import Path
@@ -20,7 +21,8 @@ from forge_next.hooks.subagent_lifecycle import lifecycle_reminder_message
 _SESSION_MSG = (
     "graphify: This repo has a knowledge graph. Read graphify-out/GRAPH_REPORT.md before "
     "Grep/Glob/Bash search or bulk reads for architecture questions. After code edits run "
-    "graphify update . Every forge --step prints a GRAPHIFY block when an index exists."
+    "graphify update . Refresh the index at ship time (forge ship --step 1); workflow "
+    "forge --step skills do not print per-step GRAPHIFY banners."
 )
 
 _PRE_TOOL_MSG = (
@@ -31,7 +33,7 @@ _PRE_TOOL_MSG = (
 
 _FORGE_PROMPT_MSG = (
     "graphify: Forge workflow starting — if graphify-out/ exists, read GRAPH_REPORT.md before "
-    "codebase search tools; follow GRAPHIFY blocks in each forge step output."
+    "codebase search tools. Graphify refresh runs at ship (forge ship), not on each workflow step."
 )
 
 _BASH_SEARCH = re.compile(
@@ -88,12 +90,13 @@ def handle_session_start(data: dict) -> None:
         return
     if _graph_present(cwd):
         _emit("SessionStart", _SESSION_MSG)
-        try:
-            from forge_next.graphify import spawn_refresh_background
+        if os.environ.get("FORGE_GRAPHIFY_SESSION_REFRESH", "").strip() in ("1", "true", "yes"):
+            try:
+                from forge_next.graphify import spawn_refresh_background
 
-            spawn_refresh_background(cwd)
-        except Exception:
-            pass
+                spawn_refresh_background(cwd)
+            except Exception:
+                pass
 
 
 def _graphify_pre_tool_message(data: dict, cwd: Path) -> str | None:

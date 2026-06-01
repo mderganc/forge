@@ -182,40 +182,18 @@ def merge_graphify_hooks(
 
 def audit_claude_graphify_hooks(settings_path: Path | None = None) -> list[str]:
     """Return warnings about Claude Graphify hook commands in settings.json."""
-    sp = (settings_path or default_claude_settings_path()).expanduser()
-    if not sp.is_file():
-        return ["Claude settings.json not found; run `forge claude-graphify`."]
-    try:
-        data = json.loads(sp.read_text(encoding="utf-8"))
-    except json.JSONDecodeError:
-        return [f"Could not parse {sp} as JSON."]
-    if not isinstance(data, dict):
-        return [f"Expected object in {sp}."]
+    from forge_next.claude_graphify_audit import audit_managed_entries, load_claude_settings
 
-    warnings: list[str] = []
+    sp = (settings_path or default_claude_settings_path()).expanduser()
+    data, load_warnings = load_claude_settings(sp)
+    if data is None:
+        return load_warnings
+
     hooks_root = data.get("hooks")
     if not isinstance(hooks_root, dict):
         return ["No Claude hooks configured; run `forge claude-graphify`."]
 
-    found_managed = False
-    for event, entries in hooks_root.items():
-        if not isinstance(entries, list):
-            continue
-        for entry in entries:
-            if not _entry_is_managed(entry):
-                continue
-            found_managed = True
-            for h in entry.get("hooks") or []:
-                if not isinstance(h, dict):
-                    continue
-                cmd = str(h.get("command", ""))
-                if " -m forge_next.hooks.claude_graphify_hook" in cmd:
-                    warnings.append(
-                        f"Hook {event!r} uses `python -m forge_next...` ({cmd[:80]}...). "
-                        "Re-run `forge claude-graphify` after `pipx upgrade forge-next`."
-                    )
-                elif "claude-graphify-hook" not in cmd:
-                    warnings.append(f"Hook {event!r} does not invoke `claude-graphify-hook`: {cmd[:120]}")
+    found_managed, warnings = audit_managed_entries(hooks_root)
     if not found_managed:
         warnings.append("No Forge Graphify hooks in settings.json; run `forge claude-graphify`.")
     return warnings

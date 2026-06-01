@@ -2,6 +2,12 @@
 
 Run test suites, collect results and metrics.
 
+**Orchestrator (Pass B):** Before this prompt is printed, `forge test --step 3` runs pytest in the repo root and fills `TEST_RESULTS` / `TEST_EXECUTION_LOG` in state. Set `FORGE_SKIP_TEST_AUTO_RUN=1` to skip that run and execute tests only via the agent team below. Re-run pytest on step 3 when results already exist: `FORGE_TEST_FORCE_RERUN=1`.
+
+## Orchestrator run (already executed)
+
+{{TEST_EXECUTION_LOG}}
+
 ## Context
 
 **Target:** {{TARGET}}

@@ -92,8 +92,8 @@ def test_codex_body_leads_with_graphify() -> None:
     assert FORGE_DEVELOPER_INSTRUCTIONS_BODY.startswith(GRAPHIFY_DEVELOPER_INSTRUCTIONS_LEAD[:40])
 
 
-def test_session_start_spawns_background_refresh(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+def test_session_start_does_not_spawn_refresh_by_default(
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     repo = Path(__file__).resolve().parents[1]
     if not (repo / "graphify-out" / "GRAPH_REPORT.md").is_file():
@@ -105,6 +105,32 @@ def test_session_start_spawns_background_refresh(
         spawned.append(cwd)
         return True
 
+    monkeypatch.delenv("FORGE_GRAPHIFY_SESSION_REFRESH", raising=False)
+    monkeypatch.setattr(hook, "_cwd", lambda _data: repo)
+    monkeypatch.setattr("forge_next.graphify.spawn_refresh_background", fake_spawn)
+    import io
+
+    buf = io.StringIO()
+    monkeypatch.setattr("sys.stdin", type("R", (), {"read": lambda self: "{}"})())
+    monkeypatch.setattr("sys.stdout", buf)
+    hook.main(["SessionStart"])
+    assert spawned == []
+
+
+def test_session_start_spawns_background_refresh_when_opted_in(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    repo = Path(__file__).resolve().parents[1]
+    if not (repo / "graphify-out" / "GRAPH_REPORT.md").is_file():
+        pytest.skip("no graphify index in forge checkout")
+
+    spawned: list[Path] = []
+
+    def fake_spawn(cwd: Path) -> bool:
+        spawned.append(cwd)
+        return True
+
+    monkeypatch.setenv("FORGE_GRAPHIFY_SESSION_REFRESH", "1")
     monkeypatch.setattr(hook, "_cwd", lambda _data: repo)
     monkeypatch.setattr("forge_next.graphify.spawn_refresh_background", fake_spawn)
     import io

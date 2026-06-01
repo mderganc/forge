@@ -154,7 +154,9 @@ def _pipeline_successor_skill(completed_skills: set[str]) -> str | None:
     """Given the set of skills with handoff files, return the next skill to run."""
     # Walk the pipeline in order; return the first skill whose predecessor
     # has a handoff but which itself has no handoff.
-    pipeline = ["develop", "plan", "implement", "code-review", "test", "diagnose"]
+    from scripts.shared.orchestrator import PIPELINE_SKILL_ORDER
+
+    pipeline = list(PIPELINE_SKILL_ORDER)
     for i, skill in enumerate(pipeline):
         if i == 0:
             continue
@@ -294,165 +296,46 @@ def render_no_sessions() -> str:
 
 def render_single_session(session: dict) -> str:
     """Output when exactly one active session exists."""
-    skill = session["skill"]
+    from scripts.shared.resume_single_session import (
+        render_active_session,
+        render_complete_session,
+        render_retry_exhausted_session,
+    )
+
     current = session.get("current_step", 1)
     last = session.get("last_completed_step", 0)
     max_step = session.get("max_step", 6)
     ctx_lines, snap, mem_summary = _continuity_context_sections()
 
-    # If workflow is actually complete, don't produce a resume command
     if _session_is_complete(session):
-        lines = [
-            "FORGE-CODEX RESUME",
-            "=" * 60,
-            "",
-            f"**Session `{skill}` is complete** ({current}/{max_step}).",
-            f"**State file:** `{session['path']}`",
-            "",
-        ]
-        lines.extend(ctx_lines)
-        lines.extend([
-            "The final step has been executed. No resume command is needed.",
-            "",
-            "You may:",
-            "  - Delete the state file to start fresh next time",
-            "  - Run `resume` again to advance to the next pipeline skill",
-            "  - Run `status` to see the overall workflow state",
-        ])
-        return "\n".join(lines)
+        return render_complete_session(session, ctx_lines)
 
-    next_step = _resume_step(session)
-
-    # Retry-loop guard: if this resume would re-execute the same step that
-    # already failed too many times, stop offering a resume command and ask
-    # the user to inspect logs / clear state.
     if _is_retry(session):
         new_count = _bump_failure_count(session["path"])
         if new_count >= MAX_RETRY_COUNT:
-            lines = [
-                "FORGE-CODEX RESUME",
-                "=" * 60,
-                "",
-                f"**Active session:** `{skill}` ({current}/{max_step})",
-                f"**State file:** `{session['path']}`",
-                "",
-            ]
-            lines.extend(ctx_lines)
-            lines.extend([
-                f"**Step {current} has failed {new_count} times.**",
-                "",
-                "Inspect logs for the underlying error before retrying. If the failure",
-                "is not recoverable, clear state with:",
-                "",
-                f"    {resume_invocation_hint(cleanup=True, force=True)}",
-                "",
-                "Then start the workflow over from step 1.",
-            ])
-            return "\n".join(lines)
+            return render_retry_exhausted_session(
+                session,
+                ctx_lines,
+                failure_count=new_count,
+                cleanup_hint=resume_invocation_hint(cleanup=True, force=True),
+            )
 
-    cmd = _resume_command(session)
-
-    # Determine if resuming completed step vs retrying current
+    next_step = _resume_step(session)
     if last == current and current < max_step:
         status = f"Step {current} completed, advancing to step {next_step}"
     else:
         status = f"Step {current} in progress, re-executing phase prompt"
 
-    lines = [
-        "FORGE-CODEX RESUME",
-        "=" * 60,
-        "",
-        f"**Active session:** `{skill}` ({current}/{max_step})",
-        f"**Status:** {status}",
-        f"**State file:** `{session['path']}`",
-        "",
-    ]
-    lines.extend(ctx_lines)
-
-    if skill == "diagnose" and current >= 4:
-        state_dir = Path(session["path"]).parent
-        sidecars = [
-            (".diagnose-hypotheses.json", "Phase 3 — hypothesis register"),
-            (".diagnose-mece-tree.json", "Phase 3 — MECE tree"),
-            (".diagnose-first-principles.json", "Phase 1–2 — first-principles"),
-            (".diagnose-five-whys.json", "Phase 3–4 — five-whys chains"),
-            (".diagnose-technique-coverage.json", "coverage matrix (20 techniques)"),
-        ]
-        missing = [
-            f"`{name}` ({hint})"
-            for name, hint in sidecars
-            if not (state_dir / name).exists()
-        ]
-        if missing:
-            lines.extend([
-                "",
-                "**Diagnose note:** Missing sidecar(s) beside state:",
-                "",
-            ])
-            for m in missing:
-                lines.append(f"- {m}")
-            lines.append(
-                "Backfill via the listed phases before analysis (step 4) or solutions (step 5)."
-            )
-
-    conflict = bool(snap and resume_context.snapshot_memory_conflict(session, snap))
-    conf = resume_context.continuation_confidence(session, snap, mem_summary)
-    sugg = resume_context.suggested_continuation_lines(
-        session=session,
+    return render_active_session(
+        session,
+        ctx_lines,
+        status=status,
+        cmd=_resume_command(session),
         snap=snap,
-        memory_summary=mem_summary,
-        successor_skill=None,
+        mem_summary=mem_summary,
+        resume_context=resume_context,
+        conflict=bool(snap and resume_context.snapshot_memory_conflict(session, snap)),
     )
-
-    lines.append(f"**Suggested continuation (confidence: {conf})**")
-    lines.append("")
-    for s in sugg:
-        lines.append(f"- {s}")
-    lines.append("")
-
-    if conflict:
-        snap_cmd = ""
-        if snap and snap.get("skill") and snap.get("state_path"):
-            fake_sess = {
-                "skill": snap.get("skill"),
-                "path": snap.get("state_path"),
-                "current_step": snap.get("current_step"),
-                "last_completed_step": snap.get("last_completed_step"),
-                "max_step": snap.get("max_step", 6),
-                "started_at": snap.get("started_at"),
-            }
-            snap_cmd = _resume_command(fake_sess)
-        lines.extend([
-            "## Source conflict (JSON state vs continuity snapshot)",
-            "",
-            "The active workflow state and `resume-context.json` disagree on skill, step, or state path.",
-            "**Ask the user which source to trust** before running any resume command.",
-            "",
-            "**Option A — State-based resume (recommended default):**",
-            "",
-            f"    {cmd}",
-            "",
-            "**Option B — Snapshot-based continuation (if memory reflects reality):**",
-            "",
-        ])
-        if snap_cmd:
-            lines.append(f"    {snap_cmd}")
-        else:
-            lines.append("    (snapshot incomplete — reconcile or delete `resume-context.json`.)")
-        lines.append("")
-        return "\n".join(lines)
-
-    lines.extend([
-        "━" * 60,
-        "CONTINUATION — IMMEDIATE ACTION REQUIRED",
-        "━" * 60,
-        "Execute this command to resume:",
-        "",
-        f"    {cmd}",
-        "",
-        "DO NOT STOP. Execute the command now to continue the workflow.",
-    ])
-    return "\n".join(lines)
 
 
 def render_multiple_sessions(sessions: list[dict]) -> str:

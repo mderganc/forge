@@ -2,7 +2,7 @@
   "version": 1,
   "cli": {
     "binary": "forge",
-    "package": "forge-codex"
+    "package": "forge-next"
   },
   "commands": [
     {
@@ -116,6 +116,15 @@
         "forge graphify install-hook",
         "forge graphify install-hook --repo \"<path>\"",
         "forge graphify uninstall-hook"
+      ]
+    },
+    {
+      "id": "forge:ship",
+      "cli_subcommand": "ship",
+      "description": "Finalize work: commit, push, PR, merge, and publish release artifacts.",
+      "examples": [
+        "forge ship --step 1",
+        "forge ship"
       ]
     }
   ]

@@ -31,6 +31,16 @@ def spec_commands() -> dict:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
+def test_spec_commands_include_ship(spec_commands: dict):
+    ids = [c["id"] for c in spec_commands["commands"]]
+    assert "forge:ship" in ids
+    assert len(spec_commands["commands"]) == 13
+
+
+def test_spec_cli_package_is_forge_next(spec_commands: dict):
+    assert spec_commands["cli"]["package"] == "forge-next"
+
+
 def test_spec_commands_have_matching_codex_skill_dirs(spec_commands: dict):
     missing: list[str] = []
     for cmd in spec_commands["commands"]:

@@ -67,6 +67,7 @@ from scripts.plan.plan_modes import (
     mode_contract_for_template,
     normalize_mode,
     recommend_mode,
+    resolve_mode_for_step1,
     review_expectations_for_mode,
     save_persisted_preference,
 )
@@ -437,14 +438,12 @@ def handle_step_1(args: argparse.Namespace) -> None:
     persisted = load_persisted_preference()
     recommended, rec_rationale = recommend_mode(handoff_content)
 
-    if cli_mode:
-        plan_mode = normalize_mode(cli_mode)
-        resolution_source = "cli"
-    elif resumed_session and prior_mode:
-        plan_mode = normalize_mode(prior_mode)
-        resolution_source = "session"
-    else:
-        plan_mode = DEFAULT_MODE
+    plan_mode, resolution_source = resolve_mode_for_step1(
+        cli_mode,
+        resumed_session=resumed_session,
+        stored_mode=prior_mode,
+    )
+    if resolution_source == "fallback":
         resolution_source = "prompt"
 
     state.custom["plan_mode"] = plan_mode

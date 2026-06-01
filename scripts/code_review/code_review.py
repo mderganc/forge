@@ -173,7 +173,23 @@ def _normalize_target(target_arg: str | list[str] | None) -> tuple[str, list[str
     return target_arg, [target_arg] if target_arg else []
 
 
-def _build_variables(state: SkillState) -> dict[str, str]:
+def _code_review_state_dir(state_path: Path, repo_root: Path) -> Path:
+    from scripts.shared.repo_paths import equivalent_path_in_repo
+
+    return equivalent_path_in_repo(state_path.parent, repo_root)
+
+
+def _prompt_archive_dir(state_path: Path, repo_root: Path) -> Path:
+    return _code_review_state_dir(state_path, repo_root)
+
+
+def _build_variables(
+    state: SkillState,
+    *,
+    state_path: Path | None = None,
+    repo_root: Path | None = None,
+    prompts_style: str = "brief",
+) -> dict[str, str]:
     """Build template variable dict from state."""
     mode = state.custom.get("mode", "pr")
     target = state.custom.get("target", "(auto-detected)")
@@ -244,6 +260,24 @@ def _build_variables(state: SkillState) -> dict[str, str]:
             "| Doc-writer | Documentation completeness, API docs |\n"
         )
 
+    probe_summary = ""
+    workflow_prompts = ""
+    rr = repo_root or _detect_repo_root(Path.cwd())
+    if state_path is not None:
+        from scripts.shared.structural_probes import resolve_probe_summary_for_state
+        from scripts.shared.workflow_prompt_archive import format_workflow_prompts_markdown
+
+        archive_dir = _prompt_archive_dir(state_path, rr)
+        probe_summary = resolve_probe_summary_for_state(
+            state.custom,
+            archive_dir,
+            style="full",
+        )
+        workflow_prompts = format_workflow_prompts_markdown(
+            archive_dir,
+            style=prompts_style,
+        )
+
     return {
         "MODE": mode,
         "MODE_DISPLAY": mode_display.get(mode, mode),
@@ -256,6 +290,9 @@ def _build_variables(state: SkillState) -> dict[str, str]:
         "PLAN_PATH": plan_path or "(none)",
         "PLAN_LINK_SECTION": plan_link_section,
         "NATIVE_PLAN_HINTS": native_plan_hints,
+        "STRUCTURAL_PROBES_SUMMARY": probe_summary.strip()
+        or "_Structural probes: not run (no sidecar)._",
+        "WORKFLOW_PROMPTS_APPENDIX": workflow_prompts.strip(),
     }
 
 
@@ -336,8 +373,20 @@ def handle_step_1(args) -> None:
     print(f"STATE FILE: {sp}\n", file=sys.stderr)
 
     template = load_template("code-review/target_detection")
-    variables = _build_variables(state)
+    scan_root = _detect_repo_root(Path.cwd())
+    variables = _build_variables(state, state_path=sp, repo_root=scan_root)
     body = render_template(template, variables)
+
+    from scripts.shared.workflow_prompt_archive import record_step_prompt
+
+    record_step_prompt(
+        _prompt_archive_dir(sp, scan_root),
+        skill=SKILL_NAME,
+        step=1,
+        phase_name=PHASE_NAMES[1],
+        body=body,
+        template_name="code-review/target_detection",
+    )
 
     state.mark_step_complete(1)
     save_state(state, sp)
@@ -400,12 +449,17 @@ def handle_step_n(step: int, state_file: str | None = None) -> None:
     # Load template before mutating state — a missing template must not leave
     # state half-written.
     template = load_template(template_name)
-    variables = _build_variables(state)
+    scan_root = _detect_repo_root(Path.cwd())
+    prompts_style = "full" if step == MAX_STEP else "brief"
+    variables = _build_variables(
+        state,
+        state_path=sp,
+        repo_root=scan_root,
+        prompts_style=prompts_style,
+    )
     body = render_template(template, variables)
 
     if step == 3:
-        import sys
-
         print(
             "forge: code-review step 3 — loading template and structural Pass B…",
             file=sys.stderr,
@@ -414,10 +468,10 @@ def handle_step_n(step: int, state_file: str | None = None) -> None:
         from scripts.shared.structural_probes import inject_structural_probes_section
 
         scope = state.custom.get("target_tokens") or []
-        from scripts.shared.repo_paths import equivalent_path_in_repo, resolve_repo_root
+        from scripts.shared.repo_paths import resolve_repo_root
 
         scan_root = resolve_repo_root(Path.cwd())
-        state_dir = equivalent_path_in_repo(sp.parent, scan_root)
+        state_dir = _code_review_state_dir(sp, scan_root)
         body, sidecar, _payload = inject_structural_probes_section(
             body,
             skill_name=SKILL_NAME,
@@ -429,6 +483,17 @@ def handle_step_n(step: int, state_file: str | None = None) -> None:
         )
         if sidecar:
             state.custom["structural_probes_sidecar"] = str(sidecar)
+
+    from scripts.shared.workflow_prompt_archive import record_step_prompt
+
+    record_step_prompt(
+        _prompt_archive_dir(sp, scan_root),
+        skill=SKILL_NAME,
+        step=step,
+        phase_name=PHASE_NAMES.get(step, f"Step {step}"),
+        body=body,
+        template_name=template_name,
+    )
 
     state.current_step = step
     save_state(state, sp)
@@ -459,8 +524,15 @@ def handle_step_n(step: int, state_file: str | None = None) -> None:
             suggested_next="test",
         )
 
+        from scripts.shared.structural_probes import resolve_probe_summary_for_state
+
+        probe_brief = resolve_probe_summary_for_state(
+            state.custom,
+            _code_review_state_dir(sp, scan_root),
+            style="brief",
+        )
         dashboard = render_dashboard(state)
-        body += f"\n\n---\n\n{dashboard}"
+        body += f"\n\n---\n\n{probe_brief}\n\n---\n\n{dashboard}"
         body += f"\n\nHandoff written to: {handoff_path}"
         handoff_menu = build_skill_handoff_menu(SKILL_NAME, state, sp)
         clear_state_file(sp)

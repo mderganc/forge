@@ -15,6 +15,8 @@ import argparse
 from datetime import datetime, timezone
 from pathlib import Path
 
+from scripts.shared.report import write_report
+
 
 TEMPLATE = """---
 title: "Diagnostic Report: {title}"
@@ -195,6 +197,45 @@ _pending_
 """
 
 
+def generate_structured_report(
+    title: str,
+    severity: str = "medium",
+    mode: str = "guided",
+    date: str | None = None,
+    summary: str = "_Pending — populate during diagnose phases._",
+    conclusion: str = "_Pending._",
+) -> str:
+    """Compact report via shared ``write_report`` (used by step-7 / CLI --format structured)."""
+    if date is None:
+        date = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    metadata = {
+        "date_created": date,
+        "severity": severity,
+        "status": "investigating",
+        "root_cause_category": "pending",
+        "autonomy_mode": mode,
+    }
+    sections = [
+        (
+            "Methodology checklist",
+            "Confirm sidecars: first-principles, hypotheses, 5 Whys, MECE, technique coverage.",
+        ),
+        (
+            "Diagnostic scaffold",
+            "For the full phase-by-phase template, run with `--format template` (default).",
+        ),
+    ]
+    return write_report(
+        title=f"Diagnostic Report: {title}",
+        metadata=metadata,
+        summary=summary,
+        sections=sections,
+        findings=[],
+        dismissed=[],
+        conclusion=conclusion,
+    )
+
+
 def generate_report(title: str, severity: str = "medium", mode: str = "guided", date: str | None = None) -> str:
     """Generate the diagnostic report content string.
 
@@ -228,9 +269,22 @@ def main():
         help="Autonomy mode",
     )
     parser.add_argument("--output", help="Output file path")
+    parser.add_argument(
+        "--format",
+        choices=["template", "structured"],
+        default="template",
+        help="template: full phase scaffold; structured: compact write_report output",
+    )
     args = parser.parse_args()
 
-    content = generate_report(title=args.title, severity=args.severity, mode=args.mode)
+    if args.format == "structured":
+        content = generate_structured_report(
+            title=args.title,
+            severity=args.severity,
+            mode=args.mode,
+        )
+    else:
+        content = generate_report(title=args.title, severity=args.severity, mode=args.mode)
 
     if args.output:
         out_path = Path(args.output)

@@ -264,24 +264,11 @@ def _target_satisfied(spec: TargetSpec | None, metric_gate: dict[str, Any] | Non
     if not isinstance(tgt, (int, float)):
         return str(tv) == str(tgt)
     try:
-        cur = float(tv)
-        tgt_f = float(tgt)
-        op = spec.operator
-        if op == "gt":
-            return cur > tgt_f
-        if op == "gte":
-            return cur >= tgt_f
-        if op == "lt":
-            return cur < tgt_f
-        if op == "lte":
-            return cur <= tgt_f
-        if op == "eq":
-            return abs(cur - tgt_f) < 1e-9
-        if op == "neq":
-            return abs(cur - tgt_f) >= 1e-9
+        from scripts.iterate.target_compare import numeric_target_met
+
+        return numeric_target_met(spec.operator, float(tv), float(tgt))
     except (TypeError, ValueError):
         return False
-    return False
 
 
 def _init_state() -> SkillState:
@@ -374,6 +361,13 @@ def _write_iterate_terminal_artifacts(
 
 
 def handle_step_1(args: argparse.Namespace, sp: Path) -> None:
+    from scripts.iterate.iterate_step1 import (
+        apply_natural_language_args,
+        build_step1_body,
+        needs_clarification,
+        populate_step1_state,
+    )
+
     gates_dir().mkdir(parents=True, exist_ok=True)
 
     if sp.exists():
@@ -383,76 +377,44 @@ def handle_step_1(args: argparse.Namespace, sp: Path) -> None:
             state = _init_state()
     else:
         state = _init_state()
+
     goal = (getattr(args, "goal", None) or "").strip()
     target_raw = (getattr(args, "target", None) or "").strip()
     max_loops = getattr(args, "max_loops", None)
+    extra = getattr(args, "text", None) or getattr(args, "natural_text", None) or ""
 
-    extra = (getattr(args, "text", None) or getattr(args, "natural_text", None) or "")
-    nl_conf = "high"
-    if isinstance(extra, str) and extra.strip():
-        ng, nt, nl, nl_conf = parse_natural_iterate(extra)
-        if not goal and ng:
-            goal = ng
-        if not target_raw and nt:
-            target_raw = nt
-        if max_loops is None and nl is not None:
-            max_loops = nl
-
+    goal, target_raw, max_loops, nl_conf = apply_natural_language_args(
+        args, goal=goal, target_raw=target_raw, max_loops=max_loops
+    )
     if max_loops is None or max_loops < 1:
         max_loops = 3
 
-    state.custom["goal"] = goal
-    state.custom["target_raw"] = target_raw
-    state.custom["max_loops"] = int(max_loops)
-    state.custom["nl_parse_confidence"] = nl_conf
-    if getattr(args, "metric_command", None):
-        state.custom["metric_command"] = str(args.metric_command)
-    if getattr(args, "harness", None):
-        state.custom["harness_hint"] = str(args.harness)
-
     spec, conf = parse_target_spec(target_raw)
-    state.custom["target_spec"] = target_spec_to_dict(spec)
+    clarification = needs_clarification(
+        goal=goal,
+        spec_confidence=spec.confidence if spec else None,
+        extra=extra,
+        nl_conf=nl_conf,
+    )
+    populate_step1_state(
+        state,
+        args,
+        goal=goal,
+        target_raw=target_raw,
+        max_loops=int(max_loops),
+        nl_conf=nl_conf,
+        clarification=clarification,
+    )
 
-    clarification = False
-    if spec and spec.confidence == "low":
-        clarification = True
-    if not goal:
-        clarification = True
-    if isinstance(extra, str) and extra.strip() and nl_conf in ("medium", "low"):
-        clarification = True
-
-    body_parts = [
-        "## Iterate — session initialized",
-        "",
-        f"**Goal:** {goal or '(not set — provide goal via flags or natural language)'}",
-        f"**Target:** {target_raw or '(not set)'}",
-        f"**Max outer loops:** {max_loops}",
-        "",
-        "### Gate directory",
-        f"Create JSON gate files under `{GATE_SUBDIR}/` in Forge runtime memory (next to handoffs).",
-        "",
-        "### Next",
-        "Run the **diagnose** workflow through completion. Then write gate file `diagnose.json`:",
-        "```json",
-        '{"status":"pass","open_findings_total":0,"open_findings_critical":0,"evidence_refs":[]}',
-        "```",
-        "",
-        "Continue iterate at **step 2**.",
-    ]
-    if clarification:
-        body_parts.extend([
-            "",
-            "### Clarification needed",
-            "Confirm measurable target (name, threshold) and verification harness.",
-        ])
-        if isinstance(extra, str) and extra.strip() and nl_conf in ("medium", "low"):
-            body_parts.append(
-                f"Natural-language parsing confidence is **{nl_conf}** — confirm goal, target, and max loops explicitly "
-                "or restate using `--goal`, `--target`, and `--max-loops`."
-            )
-        state.custom["clarification_needed"] = True
-    else:
-        state.custom["clarification_needed"] = False
+    body_parts = build_step1_body(
+        goal=goal,
+        target_raw=target_raw,
+        max_loops=int(max_loops),
+        gate_subdir=GATE_SUBDIR,
+        clarification=clarification,
+        nl_conf=nl_conf,
+        extra=extra,
+    )
 
     state.current_step = 1
     state.mark_step_complete(1)

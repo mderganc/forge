@@ -34,6 +34,17 @@ From a Forge source checkout (no global `forge` yet):
 ./scripts/install/structural_tools.ps1
 ```
 
+## Command overrides (trust boundary)
+
+Forge may honor these environment variables when spawning probe or graph commands (values are split with `shlex` where supported):
+
+| Variable | Effect |
+|----------|--------|
+| `FORGE_GRAPHIFY_COMMAND` | Replace default `graphify` CLI invocation |
+| `FORGE_PYSCN_COMMAND` / `FORGE_SKYLOS_COMMAND` / … | Override structural probe binaries |
+
+Use only in trusted CI or local dev. Do not set from untrusted input.
+
 Skip in CI or automation:
 
 ```bash
@@ -85,6 +96,15 @@ skylos . --json
 # or: uvx pyscn@latest analyze --json .
 # or: skylos . -a --json
 ```
+
+## Final report and completion summaries
+
+After probes run (code-review step 3; evaluate post step 4 or review step 1), results live in **`.structural-probes.json`** beside session state.
+
+- **Code-review step 6** and **evaluate final step** append a brief probe summary to orchestrator output.
+- **`code-review-report.md`** and evaluate reports must include the full **Structural probes (Pass B)** section (orchestrator fills `{{STRUCTURAL_PROBES_SUMMARY}}` from the sidecar — do not re-run tools at report time).
+
+Implementation: `scripts/shared/structural_probes.py` → `format_probe_summary_markdown()` / `resolve_probe_summary_for_state()`.
 
 ## Related
 

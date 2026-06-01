@@ -23,9 +23,13 @@
       return Promise.resolve();
     }
     recentEvents[key] = now;
+    var headers = { 'Content-Type': 'application/json' };
+    if (window.__FORGE_STUDIO_TOKEN__) {
+      headers['X-Forge-Studio-Token'] = window.__FORGE_STUDIO_TOKEN__;
+    }
     return fetch('/api/event', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: headers,
       body: JSON.stringify(payload),
     }).then(function (r) {
       return r.json().then(function (body) {

@@ -35,6 +35,12 @@ date: [today's date in YYYY-MM-DD]
 ## Summary
 [2-3 sentence overview: what was evaluated, overall assessment, key concern count]
 
+## Structural probes (Pass B)
+
+When `{{STRUCTURAL_PROBES_SUMMARY}}` is not the "not run" placeholder, include it here verbatim (post/review modes only).
+
+{{STRUCTURAL_PROBES_SUMMARY}}
+
 ## Findings
 
 ### Critical

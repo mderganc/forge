@@ -13,6 +13,9 @@ build/
 .DS_Store
 graphify-out/
 
+# Local PyPI extract trees (not the live forge_next/ package)
+forge_next-0.14.*/
+
 # Local Cursor hooks (forge cursor-subagent-hooks writes; not repo config)
 .cursor/hooks.json
 

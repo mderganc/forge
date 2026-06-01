@@ -93,7 +93,7 @@ Options (defaults are usually fine): `--ref`, `--repo-url`, `--cursor-dir`, `--c
 
 Work in another folder than the editor root only when your integration documents it (some flows pass a repo path through the launcher).
 
-After a new `forge-next` release on PyPI, upgrade with `pipx upgrade forge-next` (or reinstall with `pipx install forge-next --force`).
+After a new `forge-next` release on PyPI, upgrade with `pipx upgrade forge-next` (or reinstall with `pipx install forge-next --force`). Pin a specific version when reproducibility matters, for example `pipx install 'forge-next==0.14.16'` (see `project.version` in `pyproject.toml`).
 
 ---
 

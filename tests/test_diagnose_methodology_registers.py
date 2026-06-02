@@ -174,10 +174,56 @@ class TestQuartetRegisters:
         ok, issues = validate_mece({"nodes": [{"id": "n1", "label": "only"}]})
         assert ok is False
 
-    def test_problem_spec_is_isnot(self):
+    def test_problem_spec_requires_framing(self):
         ok, issues = validate_problem_spec({"cynefin_domain": "Complicated"})
         assert ok is False
+        assert any("framing_entry" in i for i in issues)
+
+    def test_problem_spec_cynefin_framing(self):
+        ok, issues = validate_problem_spec({
+            "problem_statement": "Login fails intermittently after deploy.",
+            "framing_entry": "cynefin",
+            "cynefin_domain": "Complicated",
+            "cynefin_strategy_note": "Expert analysis before deep code changes.",
+            "activated_techniques": ["5 Whys"],
+            "routing_preferred": [],
+        })
+        assert ok is True
+        assert issues == []
+
+    def test_problem_spec_kepner_requires_is_isnot(self):
+        ok, issues = validate_problem_spec({
+            "problem_statement": "API 500 on checkout only.",
+            "framing_entry": "kepner_tregoe",
+            "last_known_good": "2026-05-28 deploy",
+            "change_window": "2026-05-30 14:00 UTC",
+            "activated_techniques": ["5 Whys", "Kepner-Tregoe Problem Analysis"],
+        })
+        assert ok is False
         assert any("is_isnot" in i.lower() for i in issues)
+
+    def test_adaptive_coverage_minimal(self):
+        ok, issues, policy = validate_coverage(
+            {
+                "version": 1,
+                "incident_profile": ["simple"],
+                "activated_techniques": ["5 Whys"],
+                "routing_preferred": ["5 Whys"],
+                "techniques": [
+                    {
+                        "id": 1,
+                        "name": "5 Whys",
+                        "status": "applied",
+                        "evidence_pointer": ".diagnose-five-whys.json",
+                    },
+                ],
+            },
+            adaptive=True,
+            activated={"5 Whys"},
+        )
+        assert ok is True
+        assert issues == []
+        assert policy == []
 
 
 class TestOrchestratorBundleGates:
@@ -244,9 +290,10 @@ class TestOrchestratorBundleGates:
         assert "Five Whys" in result.gate_body
         assert state.custom["step5_bundle_attempts"] == 1
 
-    def test_step7_gate_incomplete_matrix_retries(self, tmp_path):
+    def test_step7_gate_missing_five_whys_sidecar(self, tmp_path):
         from scripts.diagnose import diagnose_gates
         from scripts.diagnose.orchestrate import PHASE_NAMES
+        from scripts.diagnose.problem_spec_register import register_path as ps_path
         from scripts.diagnose.technique_coverage import coverage_path
         from scripts.shared.orchestrator import SkillState
 
@@ -256,20 +303,35 @@ class TestOrchestratorBundleGates:
         state = SkillState(skill_name="diagnose")
         state.custom["step7_closure_attempts"] = 0
 
-        incomplete = {
+        ps_path(state_dir).write_text(
+            json.dumps({
+                "problem_statement": "Unit test failure in CI.",
+                "framing_entry": "evidence_snapshot",
+                "observations": [{"source": "ci.log", "fact": "test_auth fails"}],
+                "activated_techniques": ["5 Whys"],
+                "routing_preferred": ["5 Whys"],
+            }),
+            encoding="utf-8",
+        )
+        cov = {
             "version": 1,
             "incident_profile": ["simple"],
-            "routing_preferred": [],
+            "activated_techniques": ["5 Whys"],
+            "routing_preferred": ["5 Whys"],
             "techniques": [
-                {"id": 1, "name": "5 Whys", "status": "skipped", "rationale": "incomplete"},
+                {
+                    "id": 1,
+                    "name": "5 Whys",
+                    "status": "applied",
+                    "evidence_pointer": ".diagnose-five-whys.json",
+                },
             ],
         }
-        coverage_path(state_dir).write_text(json.dumps(incomplete), encoding="utf-8")
+        coverage_path(state_dir).write_text(json.dumps(cov), encoding="utf-8")
 
         diagnose_gates.PHASE_NAMES = PHASE_NAMES
         result = diagnose_gates.check_step7_closure_gate(state, state_file, 7)
         assert result.passed is False
-        assert result.next_step_override in (4, 5)
         assert "DIAGNOSE ARTIFACT GATE" in result.gate_body
-        assert "Technique coverage" in result.gate_body
+        assert "Five Whys" in result.gate_body
         assert state.custom["step7_closure_attempts"] == 1

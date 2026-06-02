@@ -148,17 +148,18 @@ The scenario-index update at `<scenarios_dir>/README.md` is parser-gated; on par
 
 | File | Phase | Gate steps |
 |------|-------|------------|
-| `.diagnose-problem-spec.json` | 1 | 2 advisory, 4+ |
-| `.diagnose-first-principles.json` | 1–4 | 4 quartet |
-| `.diagnose-hypotheses.json` | 3–5 | 4 register, 5 elimination |
-| `.diagnose-mece-tree.json` | 3 | 4 quartet |
-| `.diagnose-five-whys.json` | 3 draft, 4 finalize | 5, 7 |
-| `.diagnose-technique-coverage.json` | 1 draft → 7 final | 5 routed, 7 all 20 |
+| `.diagnose-problem-spec.json` | 1 | 2 advisory, 4+ — `framing_entry` + `problem_statement` |
+| `.diagnose-first-principles.json` | When activated | 4 if activated |
+| `.diagnose-hypotheses.json` | When activated | 4 register, 5 elimination |
+| `.diagnose-mece-tree.json` | When activated | 4 if activated |
+| `.diagnose-five-whys.json` | 3 draft, 4 finalize | 5, 7 — **always** |
+| `.diagnose-technique-coverage.json` | 1 draft → 7 final | 5/7 activated rows only |
 | `.diagnose-barriers.json` | 2–7 | 7 when high-severity profile |
 
-- **Hypothesis register:** ≥10 falsifiable root-cause hypotheses (`status: open`); ≥4 fishbone categories; Phase 4 eliminates all; ≥1 `confirmed` before step 5.
+- **Adaptive spine:** Phase 1 picks **one** entry framing path; Phase 3–4 always runs **5 Whys**; MECE / hypothesis / first-principles only when listed in `activated_techniques`.
+- **Hypothesis register (when activated):** ≥`hypothesis_min` (default 5) falsifiable hypotheses; ≥4 fishbone categories; Phase 4 eliminates all; ≥1 `confirmed` before step 5 when register is in play.
 - **5 Whys:** Follow `templates/five-why-protocol.md` § Diagnose RCA — causal linkage between layers; stop checklist + `but_for`.
-- **Gates:** Combined **DIAGNOSE ARTIFACT GATE** at steps 5 and 7 (single pause/retry). Step 4: register then quartet (first-principles + MECE). One retry per gate type; `require_confirmation` on failure.
+- **Gates:** Combined **DIAGNOSE ARTIFACT GATE** at steps 5 and 7 (single pause/retry). Step 4: optional register + optional quartet when activated. One retry per gate type; `require_confirmation` on failure.
 - **Overrides:** `hypothesis_override_reason`, `five_whys_override_reason`, `technique_coverage_override_reason`, `quartet_override_reason`, `problem_spec_override_reason`, `barriers_override_reason` — high-severity mandatory techniques cannot be skipped at step 7.
 - **Resume:** `scripts/shared/resume.py` warns on missing sidecars when resuming diagnose at step ≥4.
 

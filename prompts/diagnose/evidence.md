@@ -35,6 +35,6 @@ Maintain two lists:
 - **Observations:** timestamps, logs, metrics, repro artifacts — each with source pointer.
 - **Assumptions:** each tied to a falsification test or missing-data flag.
 
-Update `.diagnose-first-principles.json` — link `violations[]` to observation pointers.
+If **First-principles thinking** is in `activated_techniques`, update `.diagnose-first-principles.json` — link `violations[]` to observation pointers. Otherwise keep observations in problem spec or investigator memory.
 
 {{AUTONOMY_GATE}}

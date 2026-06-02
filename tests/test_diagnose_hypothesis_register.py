@@ -111,6 +111,18 @@ class TestValidateElimination:
         ok, issues = validate_elimination(data)
         assert ok is True
 
+    def test_rejects_confirmed_symptom_statement(self):
+        data = _valid_register()
+        for h in data["hypotheses"]:
+            h["status"] = "ruled_out"
+            h["ruled_out_reason"] = "ruled out"
+        data["hypotheses"][0]["status"] = "confirmed"
+        data["hypotheses"][0]["statement"] = "API returns 500 on login"
+        data["symptom"] = "API returns 500 on login"
+        ok, issues = validate_elimination(data)
+        assert ok is False
+        assert any("symptom" in i.lower() for i in issues)
+
 
 class TestFormatGateBlock:
     def test_includes_retry_and_confirmation(self):

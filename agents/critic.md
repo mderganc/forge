@@ -37,6 +37,7 @@ When dispatched for a stage, apply the relevant lens:
 
 ### Stage 1 — Investigation
 - Did we stop the five-why too early? Inspect `.diagnose-five-whys.json` for symptom-level `because` rows and tangent `why_question` text.
+- **Symptom masquerading as root cause:** Read each `root_cause` and each `confirmed` hypothesis — does it name a *mechanism* (missing update, wrong config, race, untested path) or just restate the failure ("500 error", "test failed", "server crashed")? Symptom-level roots fail the stop checklist; extend the chain.
 - Did we stop the five-why too early? Grep the codebase for similar patterns that suggest a deeper systemic cause.
 - Are `applied` rows in `.diagnose-technique-coverage.json` backed by real `evidence_pointer` targets?
 - What evidence would **disprove** this root cause? Has anyone looked for it?

@@ -7,8 +7,10 @@ from scripts/test/_sidecar.py.
 from __future__ import annotations
 
 import json
-import re
 from pathlib import Path
+
+from scripts.diagnose.five_whys_linkage import is_symptom_level, restates_symptom
+from scripts.diagnose.text_similarity import jaccard, normalize_statement, word_set
 
 REGISTER_FILENAME = ".diagnose-hypotheses.json"
 
@@ -53,28 +55,10 @@ def load_register(path: Path) -> dict | None:
     return data
 
 
-def _normalize_statement(text: str) -> str:
-    return re.sub(r"\s+", " ", str(text).strip().lower())
-
-
-def _word_set(text: str) -> set[str]:
-    return {w for w in re.findall(r"[a-z0-9]+", _normalize_statement(text)) if len(w) > 2}
-
-
-def _jaccard(a: set[str], b: set[str]) -> float:
-    if not a and not b:
-        return 1.0
-    if not a or not b:
-        return 0.0
-    inter = len(a & b)
-    union = len(a | b)
-    return inter / union if union else 0.0
-
-
 def _find_near_duplicates(statements: list[str]) -> list[str]:
     """Return human-readable pairs that exceed duplicate threshold."""
     issues: list[str] = []
-    normalized = [_normalize_statement(s) for s in statements]
+    normalized = [normalize_statement(s) for s in statements]
     for i in range(len(statements)):
         for j in range(i + 1, len(statements)):
             if normalized[i] == normalized[j]:
@@ -82,7 +66,7 @@ def _find_near_duplicates(statements: list[str]) -> list[str]:
                     f"Hypotheses {i + 1} and {j + 1} have identical statements after normalization."
                 )
                 continue
-            ja = _jaccard(_word_set(statements[i]), _word_set(statements[j]))
+            ja = jaccard(word_set(statements[i]), word_set(statements[j]))
             if ja >= _DUPLICATE_JACCARD_THRESHOLD:
                 issues.append(
                     f"Hypotheses {i + 1} and {j + 1} are near-duplicates "
@@ -205,9 +189,27 @@ def validate_elimination(
             "Finish falsification tests in Phase 4 before solution generation."
         )
 
+    symptom = ""
+    if isinstance(data.get("symptom"), str):
+        symptom = data["symptom"].strip()
+
     for h in hypotheses:
         if not isinstance(h, dict):
             continue
+        if str(h.get("status")) == "confirmed":
+            statement = str(h.get("statement", "")).strip()
+            hid = h.get("id", "?")
+            if statement and is_symptom_level(statement):
+                issues.append(
+                    f"Hypothesis {hid} is confirmed but its statement is symptom-level "
+                    f"({statement!r}) — confirm a changeable mechanism, not the failure mode."
+                )
+            elif statement and symptom and restates_symptom(statement, symptom):
+                issues.append(
+                    f"Hypothesis {hid} is confirmed but restates the symptom "
+                    f"({statement!r}) — state the underlying cause."
+                )
+
         if str(h.get("status")) == "ruled_out":
             reason = h.get("ruled_out_reason")
             if not reason or not str(reason).strip():

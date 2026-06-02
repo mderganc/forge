@@ -82,6 +82,7 @@ def validate_chains(
         issues.append("At least one five-whys chain is required in 'chains'.")
         return False, issues
 
+    symptom_text = str(symptom or "").strip()
     has_confirmed_link = False
     for cidx, chain in enumerate(chains):
         if not isinstance(chain, dict):
@@ -93,7 +94,11 @@ def validate_chains(
             has_confirmed_link = True
 
         issues.extend(validate_chain_layers(chain, str(cid)))
-        issues.extend(validate_chain_closure(chain, str(cid), min_layers=min_layers))
+        issues.extend(
+            validate_chain_closure(
+                chain, str(cid), min_layers=min_layers, symptom=symptom_text
+            )
+        )
 
     issues.extend(
         validate_confirmed_hypothesis_link(

@@ -1,17 +1,16 @@
 # RCA Technique Catalog (Forge Diagnose)
 
-Referenced by prompts and tests. Every diagnose run must complete the **mandatory core quartet** before closure:
+Referenced by prompts and tests. **Adaptive diagnose spine:**
 
-1. **First-principles thinking** — baseline invariants, causal decomposition from fundamentals.
-2. **Hypothesis-driven problem solving** — ranked hypotheses tied to evidence.
-3. **5 Whys** — documented chains in `.diagnose-five-whys.json`; early stop only when `templates/five-why-protocol.md` stop checklist + `but_for` are satisfied (orchestrator-gated).
-4. **MECE issue tree** — mutually exclusive, collectively exhaustive decomposition.
+1. **Phase 1:** Pick **one** entry framing path (`framing_entry` in `.diagnose-problem-spec.json`) — KT IS/IS-NOT, Cynefin, first-principles snapshot, evidence snapshot, or MECE sketch.
+2. **Phase 3–4:** **5 Whys** — always; documented in `.diagnose-five-whys.json` (orchestrator-gated).
+3. **As needed:** Activate other catalog techniques via `activated_techniques` / `routing_preferred` when the incident profile warrants them (MECE, hypothesis register, FMEA, etc.).
 
-Then add **use-case-first** techniques from the map below. Prefer matches whose **best-use-case** fits the incident profile before generic breadth.
+Do **not** run every framing method or fill all 20 technique rows on simple incidents. Prefer matches whose **best-use-case** fits the incident profile.
 
 ## Severity / scalability rules
 
-- **Small / simple:** minimal subset beyond the quartet — justify omissions.
+- **Small / simple:** framing + 5 Whys only unless signal demands more — justify additions.
 - **High-severity / recurring / systemic:** broaden technique coverage — justify additions.
 - **Safety / compliance / high-consequence:** mandatory paths — **Kepner-Tregoe-style discrimination**, **barrier analysis**, plus **fault tree** or **FMEA** depth as appropriate (mandatory set overrides preference).
 
@@ -49,7 +48,7 @@ Then add **use-case-first** techniques from the map below. Prefer matches whose 
 
 Before applying or skipping a technique, read **`templates/diagnose-execution-playbooks.md`** for that technique’s phase, minimum artifact, anti-patterns, and done criteria.
 
-Persist coverage in **`.diagnose-technique-coverage.json`** (all 20 rows; exact names in the table below).
+Persist coverage in **`.diagnose-technique-coverage.json`** (one row per **activated** technique; exact catalog names below).
 
 ## Full toolbox (record coverage for each)
 

@@ -6,13 +6,13 @@ Each --step invocation loads state, selects the appropriate prompt template,
 substitutes variables, and prints the prompt for Codex to execute.
 
 7-phase pipeline:
-  1. Define & Classify — incident profile, first-principles baseline, technique routing
+  1. Frame the problem — pick ONE entry technique; record routing for follow-ons
   2. Observe & Gather Evidence — observations vs assumptions
-  3. Decompose (MECE) — MECE tree + 5 Whys on branches (mandatory core quartet)
-  4. Analyze & Rank — full-register elimination; hypothesis register gate
+  3. Deepen with 5 Whys — MECE / hypothesis register only when activated
+  4. Analyze & Rank — elimination only when hypothesis technique is active
   5. Solution Generation
   6. Implement & Validate (complexity-gated)
-  7. Report & Prevention — full 20-technique coverage matrix + quartet verification
+  7. Report & Prevention — coverage for activated techniques + 5 Whys closure
 
 See ``prompts/diagnose/technique_catalog.md`` for toolbox + use-case routing rules.
 """
@@ -98,9 +98,9 @@ PHASE_TEMPLATES = {
 }
 
 PHASE_NAMES = {
-    1: "Define & Classify",
+    1: "Frame the Problem",
     2: "Observe & Gather Evidence",
-    3: "Decompose (MECE)",
+    3: "Deepen (5 Whys)",
     4: "Analyze & Rank",
     5: "Solution Generation",
     6: "Implement & Validate",
@@ -109,12 +109,12 @@ PHASE_NAMES = {
 
 PHASE_TODOS = {
     1: [
-        {"content": "Build Kepner-Tregoe IS/IS-NOT matrix",
-         "activeForm": "Building IS/IS-NOT matrix"},
-        {"content": "Classify problem domain via Cynefin framework",
-         "activeForm": "Classifying domain"},
-        {"content": "First-principles baseline + incident-profile technique routing",
-         "activeForm": "First-principles + routing"},
+        {"content": "Pick ONE entry framing technique (KT, Cynefin, first-principles, evidence, or MECE sketch)",
+         "activeForm": "Choosing entry framing"},
+        {"content": "Write problem_statement + .diagnose-problem-spec.json (framing_entry, routing)",
+         "activeForm": "Writing problem spec"},
+        {"content": "List activated_techniques (always includes 5 Whys; add others only when needed)",
+         "activeForm": "Routing follow-on techniques"},
     ],
     2: [
         {"content": "Gather evidence via log analyzer and git hotspots",
@@ -125,17 +125,17 @@ PHASE_TODOS = {
          "activeForm": "Sorting observations"},
     ],
     3: [
-        {"content": "Build MECE cause tree + .diagnose-mece-tree.json",
-         "activeForm": "Building MECE sidecar"},
-        {"content": "Draft ≥10 falsifiable hypotheses in register sidecar",
-         "activeForm": "Writing hypothesis register"},
-        {"content": "Draft 5 Whys chains + update technique coverage rows",
-         "activeForm": "5 Whys + coverage"},
+        {"content": "Draft 5 Whys chains in .diagnose-five-whys.json (primary deepen step)",
+         "activeForm": "Drafting 5 Whys chains"},
+        {"content": "Activate MECE / hypothesis register only if routing_preferred requires them",
+         "activeForm": "Optional MECE or hypotheses"},
+        {"content": "Update technique coverage rows for activated techniques only",
+         "activeForm": "Updating coverage rows"},
     ],
     4: [
-        {"content": "Eliminate all hypotheses via falsification tests (discriminating order)",
+        {"content": "If hypothesis register active: eliminate all candidates via falsification",
          "activeForm": "Eliminating hypotheses"},
-        {"content": "Finalize 5 Whys on confirmed hypotheses; persist sidecars",
+        {"content": "Finalize 5 Whys to root_cause + but_for; persist sidecars",
          "activeForm": "Finalizing 5 Whys"},
         {"content": "Run FMEA scoring on full candidate list",
          "activeForm": "Running FMEA scoring"},
@@ -157,7 +157,7 @@ PHASE_TODOS = {
          "activeForm": "Validating fix"},
     ],
     7: [
-        {"content": "Finalize Technique Coverage Matrix (all 20 + quartet audit)",
+        {"content": "Finalize coverage matrix for activated techniques (not all 20 by default)",
          "activeForm": "Technique matrix"},
         {"content": "Write diagnostic report with prevention measures",
          "activeForm": "Writing diagnostic report"},
@@ -187,7 +187,7 @@ def _init_state(mode: str, quick: bool) -> SkillState:
     state.started_at = now_iso()
     state.custom["autonomy_mode"] = mode
     state.custom["fix_complexity"] = "unknown"  # set in phase 5/6
-    state.custom.setdefault("hypothesis_min", 10)
+    state.custom.setdefault("hypothesis_min", 5)
     state.custom.setdefault("hypothesis_regen_attempts", 0)
     state.custom.setdefault("hypothesis_validation_attempts", 0)
     state.custom.setdefault("problem_spec_regen_attempts", 0)
@@ -240,7 +240,7 @@ def _build_variables(
     """Build template variable dict from state."""
     mode = state.custom.get("autonomy_mode", "guided")
     complexity = state.custom.get("fix_complexity", "unknown")
-    hypothesis_min = int(state.custom.get("hypothesis_min", 10))
+    hypothesis_min = int(state.custom.get("hypothesis_min", 5))
     hypothesis_gate = ""
     hypothesis_summary = "(Not evaluated yet)"
     five_whys_summary = "(Not evaluated yet)"
@@ -419,7 +419,7 @@ def handle_step_1(args) -> None:
         SKILL_NAME,
         1,
         PHASE_NAMES[1],
-        "Initialized diagnose session and classified incident context.",
+        "Initialized diagnose session and framed the problem (adaptive entry).",
         state=state,
         state_path=sp,
     )

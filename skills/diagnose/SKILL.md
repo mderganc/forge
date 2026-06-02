@@ -90,15 +90,15 @@ Read `templates/diagnose-execution-playbooks.md` per phase before applying techn
 
 | Artifact | When |
 |----------|------|
-| `.diagnose-problem-spec.json` | Phase 1 |
-| `.diagnose-first-principles.json` | Phase 1–4 |
-| `.diagnose-hypotheses.json` | Phase 3–5 (≥10 candidates, full elimination) |
-| `.diagnose-mece-tree.json` | Phase 3 |
-| `.diagnose-five-whys.json` | Phase 3 draft; Phase 4 finalize on **confirmed** IDs (`templates/five-why-protocol.md` § Diagnose RCA) |
-| `.diagnose-technique-coverage.json` | All **20** catalog names — finalize Phase 7 |
+| `.diagnose-problem-spec.json` | Phase 1 — `framing_entry` (one of five), `problem_statement`, `activated_techniques` |
+| `.diagnose-first-principles.json` | When **First-principles thinking** activated |
+| `.diagnose-hypotheses.json` | When hypothesis/Fishbone activated (≥`hypothesis_min`, default 5) |
+| `.diagnose-mece-tree.json` | When **MECE issue tree** activated |
+| `.diagnose-five-whys.json` | Phase 3 draft; Phase 4 finalize — **always** (`templates/five-why-protocol.md` § Diagnose RCA) |
+| `.diagnose-technique-coverage.json` | Rows for **activated** techniques — finalize Phase 7 |
 | `.diagnose-barriers.json` | High-severity / safety profile |
 
-Orchestrator **DIAGNOSE ARTIFACT GATE** at steps 4 (register + quartet), 5 (elimination + five whys + routed coverage), 7 (full closure). Overrides: `hypothesis_override_reason`, `five_whys_override_reason`, `technique_coverage_override_reason`, `quartet_override_reason`, etc. (see AGENTS.md).
+Orchestrator **DIAGNOSE ARTIFACT GATE** at steps 4 (optional register + quartet when activated), 5 (five whys + optional elimination), 7 (activated coverage + five whys closure). Overrides: `hypothesis_override_reason`, `five_whys_override_reason`, `technique_coverage_override_reason`, `quartet_override_reason`, etc. (see AGENTS.md).
 
 The Investigator agent carries supporting methodology detail — see
 `agents/investigator.md` and `prompts/diagnose/technique_catalog.md`.

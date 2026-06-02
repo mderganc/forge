@@ -30,15 +30,26 @@ def build_technique_index(
 def validate_catalog_names(
     by_name: dict[str, dict],
     expected: list[str],
+    *,
+    required_names: list[str] | None = None,
 ) -> list[str]:
-    """Ensure matrix includes exactly the catalog technique names."""
+    """Ensure matrix rows use catalog names; require subset when adaptive."""
     issues: list[str] = []
-    missing = [n for n in expected if n not in by_name]
-    extra = [n for n in by_name if n not in expected]
-    if missing:
-        issues.append(f"Coverage matrix missing techniques: {', '.join(missing)}.")
+    catalog = set(expected)
+    extra = [n for n in by_name if n not in catalog]
     if extra:
         issues.append(f"Unknown technique names (use catalog exactly): {', '.join(extra)}.")
+
+    if required_names is not None:
+        missing = [n for n in required_names if n not in by_name]
+        if missing:
+            issues.append(
+                f"Coverage matrix missing activated techniques: {', '.join(missing)}."
+            )
+    else:
+        missing = [n for n in expected if n not in by_name]
+        if missing:
+            issues.append(f"Coverage matrix missing techniques: {', '.join(missing)}.")
     return issues
 
 
@@ -48,10 +59,12 @@ def validate_row_statuses(
     *,
     routed: set[str],
     routed_only: bool,
+    names_to_check: list[str] | None = None,
 ) -> list[str]:
     """Validate per-technique status, evidence, rationale, and defer triggers."""
     issues: list[str] = []
-    for name in expected:
+    check = names_to_check if names_to_check is not None else expected
+    for name in check:
         row = by_name.get(name)
         if not row:
             continue

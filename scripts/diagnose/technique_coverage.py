@@ -77,13 +77,15 @@ def catalog_technique_names() -> list[str]:
 def summarize_coverage(data: dict | None) -> str:
     if not data or not isinstance(data.get("techniques"), list):
         return "(No technique coverage matrix loaded)"
+    rows = [r for r in data["techniques"] if isinstance(r, dict)]
     counts: dict[str, int] = {}
-    for row in data["techniques"]:
-        if isinstance(row, dict):
-            st = str(row.get("status", "?"))
-            counts[st] = counts.get(st, 0) + 1
+    for row in rows:
+        st = str(row.get("status", "?"))
+        counts[st] = counts.get(st, 0) + 1
     parts = [f"{k}: {v}" for k, v in sorted(counts.items())]
-    return "**20** techniques — " + ", ".join(parts) if parts else "**20** techniques"
+    n = len(rows)
+    label = f"**{n}** documented technique(s)"
+    return label + (" — " + ", ".join(parts) if parts else "")
 
 
 def validate_coverage(
@@ -92,6 +94,8 @@ def validate_coverage(
     path: Path | None = None,
     routed_only: bool = False,
     allow_override_skips: bool = True,
+    adaptive: bool = False,
+    activated: set[str] | None = None,
 ) -> tuple[bool, list[str], list[str]]:
     """
     Validate coverage matrix.
@@ -104,10 +108,12 @@ def validate_coverage(
     expected = catalog_technique_names()
 
     if data is None:
-        issues.append(
-            f"No technique coverage file at {label}. "
-            "Create `.diagnose-technique-coverage.json` with all 20 catalog techniques."
+        hint = (
+            "Create `.diagnose-technique-coverage.json` with rows for activated techniques."
+            if adaptive
+            else "Create `.diagnose-technique-coverage.json` with all 20 catalog techniques."
         )
+        issues.append(f"No technique coverage file at {label}. {hint}")
         return False, issues, non_overridable
 
     techniques = data.get("techniques")
@@ -117,16 +123,30 @@ def validate_coverage(
 
     by_name, row_issues = build_technique_index(techniques)
     issues.extend(row_issues)
-    issues.extend(validate_catalog_names(by_name, expected))
 
     routed = set(data.get("routing_preferred") or [])
+    activated_set = set(activated or []) | routed
+    if adaptive:
+        activated_set |= set(data.get("activated_techniques") or [])
+        required = sorted(activated_set) if activated_set else ["5 Whys"]
+        issues.extend(validate_catalog_names(by_name, expected, required_names=required))
+        check_names = required
+        if routed_only:
+            check_names = sorted(activated_set & routed) or required
+    else:
+        issues.extend(validate_catalog_names(by_name, expected))
+        check_names = expected
+        if routed_only:
+            check_names = [n for n in expected if n in routed]
+
     high_sev = is_high_severity(data)
     issues.extend(
         validate_row_statuses(
             by_name,
             expected,
             routed=routed,
-            routed_only=routed_only,
+            routed_only=routed_only and not adaptive,
+            names_to_check=check_names if adaptive or routed_only else None,
         )
     )
     non_overridable.extend(

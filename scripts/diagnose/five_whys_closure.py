@@ -4,10 +4,16 @@ from __future__ import annotations
 
 import re
 
-from scripts.diagnose.five_whys_linkage import VAGUE_ROOT
+from scripts.diagnose.five_whys_linkage import VAGUE_ROOT, validate_root_cause_quality
 
 
-def validate_chain_closure(chain: dict, cid: str, *, min_layers: int) -> list[str]:
+def validate_chain_closure(
+    chain: dict,
+    cid: str,
+    *,
+    min_layers: int,
+    symptom: str = "",
+) -> list[str]:
     issues: list[str] = []
     layers = chain.get("layers")
     if not isinstance(layers, list):
@@ -33,6 +39,11 @@ def validate_chain_closure(chain: dict, cid: str, *, min_layers: int) -> list[st
         )
     if not but_for:
         issues.append(f"Chain {cid}: missing 'but_for' counterfactual.")
+
+    if root:
+        issues.extend(
+            validate_root_cause_quality(root, symptom=symptom, chain_id=str(cid))
+        )
 
     return issues
 

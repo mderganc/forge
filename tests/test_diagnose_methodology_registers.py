@@ -91,6 +91,21 @@ class TestFiveWhys:
         ok, issues = validate_chains(data)
         assert ok is False
 
+    def test_symptom_level_root_cause_fails(self):
+        data = _valid_five_whys()
+        data["chains"][0]["root_cause"] = "Login endpoint returns 500 error"
+        ok, issues = validate_chains(data)
+        assert ok is False
+        assert any("symptom" in i.lower() for i in issues)
+
+    def test_root_cause_restates_symptom_fails(self):
+        data = _valid_five_whys()
+        data["symptom"] = "API returns 500 on login"
+        data["chains"][0]["root_cause"] = "API returns 500 on login endpoint"
+        ok, issues = validate_chains(data)
+        assert ok is False
+        assert any("restate" in i.lower() for i in issues)
+
 
 class TestTechniqueCoverage:
     def _full_matrix(self, **extra) -> dict:

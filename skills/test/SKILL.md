@@ -5,7 +5,7 @@ description: |
   Supports --mode run and --mode flows for authoring mock flows.
 ---
 
-# forge-codex Test — Execution, Coverage & Failure Analysis
+# Forge Test — Execution, Coverage & Failure Analysis
 
 When this skill activates, invoke the orchestrator via the `forge` launcher.
 
@@ -102,7 +102,7 @@ From the target repo (or with `--repo`), run:
 | `--roles` | No | Comma-separated role list to override discovery (flows mode) |
 | `--re-record` | No | Refresh stale HTTP cassettes; implies `--mode flows --flow-type http-replay` |
 
-After step 1, state is persisted to `.codex/forge-codex/state/test.json` and
+After step 1, state is persisted under the Forge runtime (e.g. `.codex/forge/sessions/<id>/session.json` or legacy `.codex/forge/state/test.json`) and
 subsequent steps auto-detect it.
 
 ## Subsequent steps

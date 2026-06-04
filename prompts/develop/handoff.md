@@ -20,7 +20,7 @@ Dispatch Doc-writer to capture learnings in `.codex/forge-codex/memory/doc-write
 
 ## Suggested Next
 
-`plan` — **only after** any required design spec gate is complete (see `.develop-spec-gate.json` when `spec_required`).
+`plan` — **only after** any required design spec gate is complete (see `.develop-spec-gate.json` when `spec_required`). The design spec path (when required) lives under `docs/forge/specs/` — plan and implement should consume that file, not sketch memory alone.
 
 Orchestrator context:
 

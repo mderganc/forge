@@ -33,6 +33,7 @@ Per-step GRAPHIFY blocks are **disabled**; refresh at ship (`forge ship --step 1
 
 | Situation | Prefer |
 |-----------|--------|
+| Intent fuzzy (problem, constraints, terminology not settled) | **`forge:sketch`** then **`forge:develop`** |
 | Open-ended feature or refactor, unclear problem shape, multiple credible approaches | **`forge:develop`** |
 | Narrow bug with an obvious fix and user wants speed | May go straight to fix or **`forge:diagnose`** if uncertain |
 | Approved direction or handoff from develop; need task breakdown | **`forge:plan`** |
@@ -91,6 +92,7 @@ This file is your lifeline if context compaction occurs. Always update it.
 
 ## Dual-track scope & design spec
 
+- If **`sketch-decisions.md`** exists in memory, read it in step 2+ before scope and investigation.
 - After **step 2**, write **`develop-scope.json`** in the forge runtime memory directory (typically `.codex/forge/memory/`; same folder as `project.md`) with `scope_tier`: `trivial` | `medium` | `large` (see `prompts/develop/scope.md`).
 - **Trivial:** memory artifacts only; no formal spec under `docs/forge/specs/` required before handoff.
 - **Medium / large:** complete the **design spec gate** (step 6 appends `spec_gate` instructions): write the spec, self-review, user approval, then **`.develop-spec-gate.json`** next to the develop state file before **step 7**.

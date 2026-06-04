@@ -6,6 +6,8 @@
 
 Deep investigation runs **alongside** the user, not behind their back. Share emerging hypotheses and surprising findings early. If evidence points to a **bigger opportunity** (simpler fix, better feature shape, adjacent win), say so and invite reaction—especially before investigation artifacts harden.
 
+If `sketch-decisions.md` exists in memory, pass its **Resolved** and **Handoff notes** sections into investigation framing before dispatch.
+
 Dispatch agents for deep investigation.
 
 ## Agent Dispatch

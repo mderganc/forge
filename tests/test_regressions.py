@@ -1508,6 +1508,7 @@ def test_skill_chain_default_for_each_skill():
     from scripts.shared.skill_chain import SKILL_CHAIN
 
     required_skills = {
+        "sketch",
         "develop",
         "plan",
         "evaluate",

@@ -19,13 +19,14 @@ class SkillTransition:
 
 SKILL_CHAIN: dict[str, SkillTransition] = {
     "iterate":     SkillTransition(None,                   ["diagnose", "plan", "evaluate --mode pre", "implement"]),
-    "develop":     SkillTransition("plan",                 ["evaluate --mode pre", "implement", "diagnose"]),
+    "sketch":      SkillTransition("develop",              ["plan", "diagnose"]),
+    "develop":     SkillTransition("plan",                 ["sketch", "evaluate --mode pre", "implement", "diagnose"]),
     "plan":        SkillTransition("evaluate --mode pre",  ["implement", "develop", "code-review"]),
     "evaluate":    SkillTransition("implement",            ["plan", "evaluate --mode review", "test"]),
     "implement":   SkillTransition("code-review",          ["ship", "test", "evaluate --mode post", "diagnose"]),
     "code-review": SkillTransition("test",                 ["ship", "implement", "diagnose", "evaluate --mode review"]),
     "test":        SkillTransition("diagnose",             ["ship", "test --mode flows", "code-review", "implement"]),
-    "diagnose":    SkillTransition(None,                   ["plan", "implement", "develop"]),
+    "diagnose":    SkillTransition(None,                   ["plan", "implement", "develop", "sketch"]),
 }
 
 
@@ -40,7 +41,8 @@ COMMAND_DESCRIPTIONS: dict[str, str] = {
     "code-review":           "deep code review of the changes",
     "test":                  "run tests + coverage",
     "test --mode flows":     "author end-to-end mock flows",
-    "develop":               "investigate, brainstorm, and design before planning (use after diagnose when solution space is still open)",
+    "sketch":                "organize intent and open decisions before develop (not solution brainstorming)",
+    "develop":               "investigate, brainstorm solutions, write design spec (medium/large), then plan",
     "diagnose":              "root-cause analysis on observed issues",
     "ship":                  "commit, push, PR, merge, and/or publish release artifacts",
 }

@@ -61,6 +61,10 @@ WORKFLOW_PROMPT_TEMPLATES: tuple[str, ...] = (
     "develop/approval",
     "develop/handoff",
     "develop/spec_gate",
+    # sketch
+    "sketch/startup",
+    "sketch/session",
+    "sketch/handoff",
     # implement
     "implement/plan_detect",
     "implement/branch_setup",

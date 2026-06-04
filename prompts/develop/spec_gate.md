@@ -17,7 +17,10 @@ Current scope signals (from orchestrator state):
 
 1. Follow [templates/design-spec.md](templates/design-spec.md).
 2. Save the file under **`docs/forge/specs/YYYY-MM-DD-<short-slug>-design.md`** (create `docs/forge/specs/` if needed).
-3. **Commit** the spec to git when the team requires an audit trail (recommended for medium/large).
+3. In **Context**, reference:
+   - `sketch-decisions.md` when present (intent and resolved branches from sketch)
+   - Approved direction from `solutions.md` / user approval on step 6
+4. **Commit** the spec to git when the team requires an audit trail (recommended for medium/large).
 
 **Allowed edits:** spec path is a normal tracked documentation path — you may create/edit under `docs/forge/specs/` for this artifact. Session memory rules still apply elsewhere.
 
@@ -26,7 +29,7 @@ Current scope signals (from orchestrator state):
 Re-read the spec and fix before involving the user:
 
 1. **Placeholder scan:** no `TBD`, empty sections, or vague “should” without criteria.
-2. **Consistency:** architecture matches goals; no contradictions vs `solutions.md` without an explicit “changed decision” note.
+2. **Consistency:** architecture matches goals; no contradictions vs `solutions.md` or `sketch-decisions.md` without an explicit “changed decision” note.
 3. **Scope:** one coherent plan-sized design; flag if it needs splitting.
 4. **Ambiguity:** every requirement has one clear interpretation.
 

@@ -46,6 +46,22 @@ def build_parser() -> argparse.ArgumentParser:
     ev.add_argument("--mode", choices=["pre", "post", "review"])
     ev.add_argument("--team", action="store_true")
 
+    # sketch (pre-develop intent organization)
+    sk = sub.add_parser(
+        "sketch",
+        help="Organize intent and decisions before develop (optional domain docs)",
+    )
+    add_common_repo_flag(sk)
+    add_common_output_flags(sk)
+    add_session_flags(sk)
+    sk.add_argument("--step", type=int, required=True)
+    sk.add_argument("--state", type=str)
+    sk.add_argument(
+        "--with-domain-docs",
+        action="store_true",
+        help="Allow CONTEXT.md glossary and sparse docs/adr/ updates",
+    )
+
     # develop
     dv = sub.add_parser("develop", help="Run the develop orchestrator")
     add_common_repo_flag(dv)

@@ -16,6 +16,16 @@ Treat this step as **discovery**, not a form to fill. Before fixing task type an
 
 Stay in conversation until the user confirms the framing—or explicitly asks to move on.
 
+## Prior sketch session
+
+If `.codex/forge-codex/memory/sketch-decisions.md` exists:
+
+- Read it before fixing scope tier and task type.
+- Carry **Resolved** decisions into `project.md` and investigation framing.
+- Do not re-litigate branches already closed in sketch unless the user asks.
+
+If intent is still unclear and there is no sketch artifact, suggest **`forge sketch`** before continuing deep investigation.
+
 ## Scope tier (required — dual track)
 
 After dialogue, classify **`trivial`**, **`medium`**, or **`large`** using **all** signals below (deterministic).

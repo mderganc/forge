@@ -93,25 +93,30 @@ Options (defaults are usually fine): `--ref`, `--repo-url`, `--cursor-dir`, `--c
 
 Work in another folder than the editor root only when your integration documents it (some flows pass a repo path through the launcher).
 
-After a new `forge-next` release on PyPI, upgrade with `pipx upgrade forge-next` (or reinstall with `pipx install forge-next --force`). Pin a specific version when reproducibility matters, for example `pipx install 'forge-next==0.14.16'` (see `project.version` in `pyproject.toml`).
+After a new `forge-next` release on PyPI, upgrade with `pipx upgrade forge-next` (or reinstall with `pipx install forge-next --force`). Pin a specific version when reproducibility matters, for example `pipx install 'forge-next==0.18.0'` (see `project.version` in `pyproject.toml`).
 
 ---
 
 ## Commands in your apps
 
+All **14** workflows are defined in [`integrations/spec/commands.json`](integrations/spec/commands.json).
+
 | Workflow | Cursor / Claude | Codex |
 |----------|-----------------|-------|
+| **Sketch** — organize intent before develop (optional) | `/forge:sketch` | `$forge:sketch` |
 | **Develop** — discovery, requirements, options; medium/large scope may require a written design spec before handoff | `/forge:develop` | `$forge:develop` |
-| Check install / environment | `/forge:doctor` | `$forge:doctor` |
 | Implementation plan | `/forge:plan` | `$forge:plan` |
 | Plan / implementation review | `/forge:evaluate` | `$forge:evaluate` |
 | Execute plan in waves | `/forge:implement` | `$forge:implement` |
 | Structured code review | `/forge:code-review` | `$forge:code-review` |
 | Tests or mock-flow authoring | `/forge:test` | `$forge:test` |
 | Root-cause / incident analysis | `/forge:diagnose` | `$forge:diagnose` |
+| Meta-workflow (chained loops) | `/forge:iterate` | `$forge:iterate` |
+| **Ship** — finalize: commit, push, PR, publish | `/forge:ship` | `$forge:ship` |
+| Check install / environment | `/forge:doctor` | `$forge:doctor` |
 | Dashboard | `/forge:status` | `$forge:status` |
 | Resume or cleanup | `/forge:resume` | `$forge:resume` |
-| Optional Graphify (codebase map for resume) | `/forge:graphify` | `$forge:graphify` |
+| Optional Graphify (codebase map) | `/forge:graphify` | `$forge:graphify` |
 
 **Terminal:** same subcommands as `forge graphify …` (see [`docs/graphify.md`](docs/graphify.md)).
 
@@ -151,13 +156,17 @@ pipx uninstall forge-next
 
 ## Session + handoff audit lifecycle
 
+**Primary layout** (new runs): under `.codex/forge/sessions/` each workflow gets a directory with `session.json`, optional `handoff.md`, and `sidecars/` for step artifacts. `index.json` lists active sessions; completed or auto-closed sessions move to `sessions/_archive/`. See [`docs/sessions.md`](docs/sessions.md).
+
+**Legacy layout** (still supported): flat JSON under `.codex/forge/state/` (for example `plan.json`, `plan-foo.json`) and global `memory/handoff-{skill}.md`. Resume and cleanup understand both layouts.
+
 - **Run memory files:** Each skill appends a short record on every step run to `memory/<skill>-runs.jsonl` and keeps only the last ~30 records.
 - **Continuity snapshot:** On every skill state save (and evaluate saves), Forge writes **`state/resume-context.json`** with skill, steps, invocation hint, state path, and pointers to the latest handoff / `current-step.md` for `forge resume` and new chat pickup.
-- **Memory synthesis:** The same saves refresh **`memory/forge-memory-synthesis.md`** — an explicit merge of `project.md`, `current-step.md`, and recent `handoff-*.md` excerpts (see `templates/memory-protocol.md`). Resume prefers this file for the memory narrative when present.
+- **Memory synthesis:** The same saves refresh **`memory/forge-memory-synthesis.md`** — an explicit merge of `project.md`, `current-step.md`, and recent handoffs (see `templates/memory-protocol.md`). Resume prefers this file for the memory narrative when present.
 - **Audit linkage:** Run-memory records include `state_path`/`session_ref` and `handoff_path`/`handoff_ref` (when a handoff exists), plus timestamp and summary.
 - **Handoff closure:** Handoffs are consumed on step-1 intake of downstream skills (for example plan consumes develop handoff, code-review consumes implement handoff, test consumes code-review/implement handoffs).
 - **Session completeness:** Active-session detection treats a run as complete when either `completed_at` is set or legacy state reached max step (`current_step >= max_step` and `last_completed_step >= max_step`).
-- **Cleanup behavior:** `forge resume --cleanup` also recognizes legacy max-step state files as cleanup-eligible, even when `completed_at` is missing. It scans parallel state files (`plan-foo.json`, etc.), not only `plan.json`.
+- **Cleanup behavior:** `forge resume --cleanup` removes stale session directories and legacy flat state files (dry-run by default; `--force` to delete). Env: `FORGE_SESSION_MAX_AGE_DAYS` (default `7`), `FORGE_SKIP_SESSION_CLEANUP=1` to disable automatic archive of old sessions.
 - **Auto-close on step 1:** Starting a pipeline skill removes superseded session JSON when a handoff exists, when you move forward in the pipeline, or when a step-1-only session was abandoned (see [AGENTS.md](AGENTS.md) State Lifecycle). `forge status` / `forge doctor` report remaining leaks.
 
 ---
@@ -168,8 +177,11 @@ pipx uninstall forge-next
 
 One nuance from the code: the **handoff menu** and `scripts/shared/skill_chain.py` often recommend using **evaluate** as a quality gate (for example, “evaluate pre” after plan), but the **no-active-sessions** resume helper (`scripts/shared/resume.py`) treats **evaluate as standalone** and does not include it in the hard-coded pipeline order. When in doubt, follow the last handoff menu you saw; use `forge resume`, `/forge:resume`, or `$forge:resume` to pick up an active session.
 
+When intent is still fuzzy, run **sketch** before develop (see [Sketch](#sketch-before-develop)).
+
 | Step | Cursor / Claude | Codex |
 |------|-----------------|-------|
+| 0 (optional) | `/forge:sketch` | `$forge:sketch` |
 | 1 | `/forge:develop` | `$forge:develop` |
 | 2 | `/forge:plan` | `$forge:plan` |
 | 3 or As Needed | `/forge:evaluate` (e.g. --mode pre or --mode post) | `$forge:evaluate` |
@@ -276,7 +288,7 @@ Runs **diagnose → plan → evaluate (pre) → implement → evaluate (post) �
 
 Evidence-led root-cause analysis and reporting. When the workflow classifies the fix as **`large`** (systemic / needs design before planning), the closing handoff menu defaults to **develop** first, then plan; for **`complex`** (broad but plannable), it defaults to **plan**.
 
-**Methodologies:** Execution playbooks (`templates/diagnose-execution-playbooks.md`); Phase 2 **Reproduce & Observe** with `.diagnose-feedback-loop.json` (step-3 gate); JSON sidecars beside state (problem spec, feedback loop, first-principles, hypotheses, MECE tree, five-whys chains, 20-row technique coverage, barriers when high-severity); orchestrator gates at steps 3–5–7 with **DIAGNOSE ARTIFACT GATE** (override `repro_loop_override_reason` when no loop is possible); IS/IS-NOT; Cynefin; change analysis; fishbone via hypothesis register (≥10 candidates, ≥4 categories); FMEA via `fmea_score.py`; but-for / Pareto; git hotspots and logs; solutions only for confirmed causes.
+**Methodologies:** Execution playbooks (`templates/diagnose-execution-playbooks.md`); Phase 2 **Reproduce & Observe** with `.diagnose-feedback-loop.json` (step-3 gate, template [`diagnose-feedback-loop.md`](templates/diagnose-feedback-loop.md)); JSON sidecars beside state (problem spec, feedback loop, first-principles, hypotheses, MECE tree, five-whys chains, 20-row technique coverage, barriers when high-severity); orchestrator gates at steps 3–5–7 with **DIAGNOSE ARTIFACT GATE** (override `repro_loop_override_reason` when no loop is possible); **symptom-level root causes rejected** at closure gates; IS/IS-NOT; Cynefin; change analysis; fishbone via hypothesis register (≥10 candidates, ≥4 categories); FMEA via `fmea_score.py`; but-for / Pareto; git hotspots and logs; solutions only for confirmed causes. Skill detail: [`skills/diagnose/SKILL.md`](skills/diagnose/SKILL.md).
 
 **Graphify / architecture:** Historically only the hypothesis register was wired through `orchestrate.py` (graphify community 93); `technique_catalog.md` (community 153) fed the report phase but not decompose/analyze. Playbooks plus sidecar validators close that gap — see [AGENTS.md — Diagnose methodology sidecars](AGENTS.md#diagnose--methodology-sidecars-and-gates) and [`docs/graphify.md`](docs/graphify.md).
 
@@ -298,6 +310,13 @@ Dashboard of handoffs and active sessions.
 
 **Methodologies:** active-session detection, cross-session conflict warnings from other skills, step inference from state, retry guard after repeated same-step failures, cleanup dry-run vs forced delete; completion checks include both `completed_at` and legacy max-step states.
 
+### Ship (finalize)
+
+- **Cursor / Claude:** `/forge:ship`
+- **Codex:** `$forge:ship`
+
+**Ship** is not a delivery pipeline skill — it finalizes coding work: preflight, commit, push, open or update a PR, merge, and publish (PyPI/npm/etc.). Run **`forge ship --step 1`** (or `/forge:ship`) before commit/PR when `graphify-out/` exists; that step prints the **GRAPHIFY** banner and starts a background graph refresh (see [`docs/graphify.md`](docs/graphify.md)). Cursor also ships a dedicated skill at [`.cursor/skills/ship/SKILL.md`](.cursor/skills/ship/SKILL.md). Handoff menus after implement, code-review, and test often list **ship** as an alternative.
+
 ---
 
 ## OpenAI Codex
@@ -306,7 +325,7 @@ After `forge install --codex`, skills live under `~/.codex/skills/forge/<folder>
 
 Invoke with `$forge:…` (mention / skill picker), `/use` with the skill name, `/skills`, or implicit matching on `description`. When transcript output shows `forge: …` handoff labels, your next step in Codex is the matching `$forge:…`. The `forge` binary is what skills run under the hood; you do not type `forge …` as the Codex-side workflow entrypoint ([Advanced](#advanced-terminal-and-ci) for shells and CI).
 
-**Graphify + delegation:** `forge install --codex` merges **`developer_instructions`** into `~/.codex/config.toml` when empty or matching the prior Forge snippet. The text **leads with mandatory Graphify rules** (read `GRAPH_REPORT.md` before codebase search; follow **GRAPHIFY** blocks in every `forge --step` output), then Forge delegation (sub-agents + session opt-in). Source of truth: **`forge_next/graphify_policy.py`**.
+**Graphify + delegation:** `forge install --codex` merges **`developer_instructions`** into `~/.codex/config.toml` when empty or matching the prior Forge snippet. The text **leads with mandatory Graphify rules** (read `GRAPH_REPORT.md` before codebase search; run **`forge ship --step 1`** for the ship-time GRAPHIFY banner; background refresh may run on workflow `--step` without blocking), then Forge delegation (sub-agents + session opt-in). Source of truth: **`forge_next/graphify_policy.py`**.
 
 **Sub-agents (delegation):** Forge workflows expect Codex to allow `spawn_agent` / `close_agent` without you typing extra “use sub-agents” wording. If you already customized `developer_instructions`, run **`forge codex-agents --force`** after upgrading **forge-next** so Graphify + delegation stay current. Restart Codex after changing config.
 
@@ -324,14 +343,17 @@ After `forge install --claude`, slash commands live under `~/.claude/commands/fo
 - **PreToolUse** — **Grep**, **Glob**, **Read**, and search-like **Bash**  
 - **UserPromptSubmit** — when the prompt mentions `forge:` / `$forge:`  
 
-Re-run `forge claude-graphify` after `pipx upgrade forge-next` (hooks use your pipx Python path, not `/usr/bin/python`). Each workflow command includes a **Hard rule — Graphify** section; orchestrator steps print a **GRAPHIFY** block when an index is present. See [`docs/graphify.md`](docs/graphify.md).
+Re-run `forge claude-graphify` after `pipx upgrade forge-next` (hooks use your pipx Python path, not `/usr/bin/python`). Each workflow command includes a **Hard rule — Graphify** section (read the map before search; ship-time refresh via **`forge ship --step 1`**). Hooks may remind on search tools; workflow `--step` does **not** print per-step GRAPHIFY banners. See [`docs/graphify.md`](docs/graphify.md).
+
+**Cursor sub-agents:** `forge cursor-subagent-hooks` writes `.cursor/hooks.json` for Task lifecycle. Suppress with `FORGE_SKIP_SUBAGENT_LIFECYCLE=1`. See [AGENTS.md](AGENTS.md).
 
 ---
 
 ## This repository vs PyPI
 
 - `forge-next` on PyPI installs terminal `forge` and bundled orchestrators.
-- This repo is the source for `skills/`, `prompts/`, `templates/`, `agents/`, `scripts/`.
+- This repo is the source for `prompts/`, `templates/`, `agents/`, `scripts/`, and **`integrations/`** (installable slash commands and Codex skills — exhaustive per `commands.json`).
+- **`skills/`** holds agent-facing `SKILL.md` files for most workflows (not all 14: **ship** and **iterate** live under `integrations/` and `.cursor/skills/ship/`). Edit repo-root `prompts/` and `templates/` for orchestration content; `forge_next/assets/` mirrors them at release.
 
 PyPI: [pypi.org/project/forge-next](https://pypi.org/project/forge-next/)
 
@@ -343,20 +365,24 @@ Source: [github.com/mderganc/forge](https://github.com/mderganc/forge)
 
 Outside Codex chat, hooks and automation call `forge <subcommand>` with a space (e.g. `forge plan --step 1`). That is the same engine as `/forge:plan` (Cursor/Claude) and `$forge:plan` (Codex skills invoke this binary for you). `forge --help` lists flags.
 
-**Automation / CI:**
+**Automation / CI:** Common flags:
 
 | Variable | Effect |
 |----------|--------|
 | **`FORGE_SKIP_SESSION_OPTIN=1`** | Suppress step-1 **session opt-in** banner |
-| **`FORGE_SKIP_GRAPHIFY=1`** | Suppress per-step **GRAPHIFY** banner (when `graphify-out/` exists) |
+| **`FORGE_SKIP_GRAPHIFY=1`** | Disable ship GRAPHIFY banner and automatic background refresh |
+| **`FORGE_SKIP_GRAPHIFY_REFRESH=1`** | Suppress background refresh only (keep ship banner) |
+| **`FORGE_SKIP_AUTO_CLOSE=1`** | Disable step-1 auto-close of superseded sessions |
 
-**Graphify (optional):** Build the graph with `forge graphify refresh` (or `FORGE_GRAPHIFY_COMMAND`); optional `forge graphify install-hook` for post-commit refresh. During workflow skills, Forge prints a **GRAPHIFY** block every step, merges **Claude hooks** (`forge claude-graphify`), and **Codex policy** (`forge codex-agents`). After `pipx upgrade forge-next`, re-run those two commands. Full guide: [`docs/graphify.md`](docs/graphify.md).
+Full list: [`docs/environment.md`](docs/environment.md).
+
+**Graphify (optional):** Build the graph with `forge graphify refresh` (or `FORGE_GRAPHIFY_COMMAND`); optional `forge graphify install-hook` for post-commit refresh. Workflow `--step` may spawn **debounced background** refresh when `graphify-out/` exists; the orchestrator **GRAPHIFY** banner prints on **`forge ship --step 1`** only. Claude hooks (`forge claude-graphify`) and Codex policy (`forge codex-agents`) enforce reading the map before search. After `pipx upgrade forge-next`, re-run those two commands. Full guide: [`docs/graphify.md`](docs/graphify.md).
 
 ---
 
 ## Contributing
 
-Orchestration lives in `scripts/shared/` (`orchestrator.py`, `skill_chain.py`, `resume.py`). Keep [AGENTS.md](AGENTS.md) and `skills/` aligned with behavior.
+Orchestration lives in `scripts/shared/` (`orchestrator.py`, `skill_chain.py`, `resume.py`, `session_store.py`). Keep [AGENTS.md](AGENTS.md), [`docs/README.md`](docs/README.md), and `skills/` aligned with behavior.
 
 **Versions:** Any change that affects the PyPI package or editor integrations must bump semver in **[`pyproject.toml`](pyproject.toml)** (and the Cursor plugin [`plugin.json`](integrations/cursor-plugin/.cursor-plugin/plugin.json) when that bundle changes). Follow **[Versioning](AGENTS.md#versioning)** in [AGENTS.md](AGENTS.md): use **patch** for narrow fixes, **minor** for additive behavior, **major** for breaking contracts.
 

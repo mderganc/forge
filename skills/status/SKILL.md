@@ -4,25 +4,28 @@ description: |
   what's in progress, open findings, and beads state.
 ---
 
-# forge-codex Status — Flow Dashboard
+# Forge Status — Flow Dashboard
 
-You are reporting the current state of the forge-codex development flow.
+You are reporting the current state of the Forge development flow.
+
+Runtime root: **`.codex/forge/`** by default (legacy **`.codex/forge-codex/`** if not migrated).
 
 ## Instructions
 
-1. Read `.codex/forge-codex/memory/project.md` for the Skill Flow section
-2. Check for handoff files: `.codex/forge-codex/memory/handoff-*.md`
-3. Check for state files under `.codex/forge-codex/state/`
-4. Read all handoff files that exist to get dashboards
+1. Read `.codex/forge/memory/project.md` for the Skill Flow section
+2. Check handoffs: `.codex/forge/memory/handoff-*.md` and per-session `sessions/<id>/handoff.md`
+3. Check active sessions: `.codex/forge/sessions/*/session.json` and legacy `.codex/forge/state/*.json`
+4. Read handoff files that exist to build the dashboard
 
 ## Report Format
 
 Present a composite dashboard:
 
-### forge-codex Flow Status
+### Forge Flow Status
 
 | Skill | Status | Key Output |
 |-------|--------|------------|
+| sketch | COMPLETE / IN_PROGRESS / NOT_STARTED | Intent decisions logged |
 | develop | COMPLETE / IN_PROGRESS / NOT_STARTED | Approved N solutions |
 | plan | ... | N tasks planned |
 | evaluate | ... | N findings (mode) |
@@ -33,14 +36,13 @@ Present a composite dashboard:
 
 ### How to Determine Status
 
-- **COMPLETE**: A `handoff-{skill}.md` file exists in `.codex/forge-codex/memory/`
-- **IN_PROGRESS**: A `.codex/forge-codex/state/{skill}.json` file exists but no handoff
-- **NOT_STARTED**: Neither file exists
+- **COMPLETE**: A `handoff-{skill}.md` exists under `memory/` or the session's `handoff.md`
+- **IN_PROGRESS**: Active `sessions/<id>/session.json` or legacy `state/{skill}.json` without handoff
+- **NOT_STARTED**: Neither applies
 
 ### Open Findings
 
-Collect findings from all state files and handoff files. Present them grouped
-by source skill:
+Collect findings from state sidecars and handoff files. Present grouped by source skill:
 
 | ID | Skill | Severity | Title | Status |
 |----|-------|----------|-------|--------|
@@ -54,13 +56,14 @@ Read beads state from `project.md` or state files:
 
 ### Suggested Next
 
-Based on the flow position, suggest the next skill to run:
+Based on flow position, suggest the next skill:
+- If intent is fuzzy: suggest `sketch` then `develop`
 - If no skills have run: suggest `develop`
 - If develop is complete but plan is not: suggest `plan`
 - If implement is complete but code-review is not: suggest `code-review`
 - If code-review is complete but test is not: suggest `test`
 - If test has failures: suggest `diagnose`
-- If all are complete: report "Flow complete"
+- If all are complete: suggest `ship` or report "Flow complete"
 
 ## Invocation
 

@@ -6,7 +6,7 @@ description: |
   phase at completion. Supports --quick mode for simple implementations.
 ---
 
-# forge-codex Implement — Code Execution
+# Forge Implement — Code Execution
 
 When this skill activates, invoke the orchestrator script.
 
@@ -61,7 +61,7 @@ From the target repo (or with `--repo`), run:
 | `--docs-override-follow-up` | With `--allow-docs-incomplete` | Required tracked follow-up item |
 | `--docs-override-requested-by` | Optional | Who requested the override |
 
-After step 1, `--plan` is not needed — stored in `.codex/forge-codex/state/implement.json`.
+After step 1, `--plan` is not needed — stored in the active session (`sessions/<id>/session.json` or legacy `state/implement.json` under `.codex/forge/`).
 
 **Phases (8 steps):**
 1. Plan detection

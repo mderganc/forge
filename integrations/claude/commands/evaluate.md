@@ -11,7 +11,7 @@ If they explicitly ask “exact command for my terminal,” answer once, briefly
 
 ## Graphify
 
-Runs at **ship** only (orge ship --step 1 / $forge:ship). This workflow does not print GRAPHIFY per step.
+Runs at **ship** only (forge ship --step 1 / $forge:ship). This workflow does not print GRAPHIFY per step.
 
 
 ## What to tell the user first

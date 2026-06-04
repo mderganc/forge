@@ -1,14 +1,16 @@
 ---
 description: |
-  Resume any in-progress forge-codex workflow. Detects active skill state files,
-  determines where work left off, and outputs the exact command to continue.
-  Handles cross-skill transitions (advance to the next skill in the pipeline)
-  and surfaces a menu when multiple sessions exist.
+  Resume any in-progress Forge workflow. Detects active session directories and
+  legacy state files, determines where work left off, and outputs the exact
+  command to continue. Handles cross-skill transitions and surfaces a menu
+  when multiple sessions exist.
 ---
 
-# forge-codex Resume — Meta-Orchestrator
+# Forge Resume — Meta-Orchestrator
 
 When this skill activates, invoke the resume orchestrator via the `forge` launcher.
+
+Runtime root: **`.codex/forge/`** (legacy **`.codex/forge-codex/`** if not migrated). Primary state: **`sessions/<id>/session.json`**.
 
 Read `templates/codex-runtime.md` before executing the workflow if you need a
 tooling reminder.
@@ -35,12 +37,10 @@ script and follow its output.
 
 ## Cleanup mode
 
-`forge resume --cleanup` lists state files eligible for
-cleanup (dry-run by default). Add `--force` to delete; `--all-stale --force`
-clears every state file regardless of age. Cleanup scans canonical and parallel
-state files (`plan-*.json`, custom `--state` paths under the repo). After two
-consecutive same-step failures (`failure_count >= 2`), the resume command emits
-an "inspect logs" hint instead of a third retry.
+`forge resume --cleanup` lists stale session directories and legacy state files
+eligible for cleanup (dry-run by default). Add `--force` to delete; `--all-stale --force`
+clears every state file regardless of age. After two consecutive same-step failures
+(`failure_count >= 2`), the resume command emits an "inspect logs" hint instead of a third retry.
 
 ## Auto-close on skill switch
 

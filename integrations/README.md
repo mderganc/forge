@@ -36,7 +36,7 @@ When a repo has `graphify-out/`, Forge enforces Graphify during workflow skills:
 
 | Environment | Setup |
 |-------------|--------|
-| **All** | Every `forge <skill> --step N` prints a **GRAPHIFY** block; see [`docs/graphify.md`](../docs/graphify.md) |
+| **All** | Debounced background `forge graphify refresh` on workflow `--step` when `graphify-out/` exists; **GRAPHIFY** orchestrator banner on **`forge ship --step 1`** only — see [`docs/graphify.md`](../docs/graphify.md) |
 | **Claude** | `forge install --claude` or `forge claude-graphify` → `~/.claude/settings.json` hooks |
 | **Codex** | `forge install --codex` or `forge codex-agents --force` → `~/.codex/config.toml` |
 | **Cursor** | Command bodies + repo `.cursor/rules/graphify.mdc`; no global hook installer |

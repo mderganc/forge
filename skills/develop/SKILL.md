@@ -6,7 +6,7 @@ description: |
   (--auto1/--auto2/--auto3) and --quick mode.
 ---
 
-# forge-codex Develop — Investigation & Ideation
+# Forge Develop — Investigation & Ideation
 
 When this skill activates, invoke the orchestrator via the `forge` launcher.
 
@@ -54,20 +54,20 @@ other work. As you work:
 
 ## CRITICAL: No repo edits without permission
 
-Do **not** modify tracked project files (application code, `agents/`, packaged prompts, tests, config, etc.) unless the user **explicitly** authorizes that edit. Develop phases may direct writes under **session memory** (e.g. `.codex/forge-codex/memory/`); everything else is read-only until the user says otherwise.
+Do **not** modify tracked project files (application code, `agents/`, packaged prompts, tests, config, etc.) unless the user **explicitly** authorizes that edit. Develop phases may direct writes under **session memory** (e.g. `.codex/forge/memory/`; legacy `.codex/forge-codex/memory/`); everything else is read-only until the user says otherwise.
 
 ## CRITICAL: Continuation Protocol
 
 **This workflow spans many tool calls. You MUST NOT stop between stages.**
 
 After EVERY tool call (especially `exec_command`), immediately check:
-1. Read `.codex/forge-codex/memory/current-step.md` if it exists
+1. Read `.codex/forge/memory/current-step.md` if it exists
 2. Determine your next action based on the current stage
 3. Continue executing — do NOT end your turn
 
-If you are unsure what comes next, re-read this skill and `.codex/forge-codex/memory/current-step.md`.
+If you are unsure what comes next, re-read this skill and `.codex/forge/memory/current-step.md`.
 
-**When transitioning between stages**, write `.codex/forge-codex/memory/current-step.md`:
+**When transitioning between stages**, write `.codex/forge/memory/current-step.md`:
 ```
 Stage: [N]
 Step: [description]

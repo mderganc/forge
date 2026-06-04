@@ -5,7 +5,7 @@ description: |
   analysis. Supports --quick mode.
 ---
 
-# forge-codex Code Review — Multi-Mode Review
+# Forge Code Review — Multi-Mode Review
 
 When this skill activates, invoke the orchestrator via the `forge` launcher.
 
@@ -48,13 +48,13 @@ other work. As you work:
 **This workflow spans many tool calls. You MUST NOT stop between phases.**
 
 After EVERY tool call (especially `exec_command`), immediately check:
-1. Read `.codex/forge-codex/memory/current-step.md` if it exists
+1. Read `.codex/forge/memory/current-step.md` if it exists
 2. Determine your next action based on the current phase
 3. Continue executing — do NOT end your turn
 
-If you are unsure what comes next, re-read this skill and `.codex/forge-codex/memory/current-step.md`.
+If you are unsure what comes next, re-read this skill and `.codex/forge/memory/current-step.md`.
 
-**When transitioning between phases**, write `.codex/forge-codex/memory/current-step.md`:
+**When transitioning between phases**, write `.codex/forge/memory/current-step.md`:
 ```
 Phase: [N]
 Step: [description]

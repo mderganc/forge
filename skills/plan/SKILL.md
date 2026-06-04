@@ -6,7 +6,7 @@ description: |
   Supports --quick mode for simple plans.
 ---
 
-# forge-codex Plan — Implementation Planning
+# Forge Plan — Implementation Planning
 
 When this skill activates, invoke the orchestrator script.
 
@@ -70,7 +70,7 @@ From the target repo (or with `--repo`), run:
 | `--step` | Yes | Current phase (1-7) |
 | `--quick` | No | Quick mode: minimal reviews, lead agents only |
 
-After step 1, state is persisted to `.codex/forge-codex/state/plan.json` and
+After step 1, state is persisted under the Forge runtime (e.g. `.codex/forge/sessions/<id>/session.json` or legacy `.codex/forge/state/plan.json`) and
 subsequent steps auto-detect it.
 
 ## Subsequent steps

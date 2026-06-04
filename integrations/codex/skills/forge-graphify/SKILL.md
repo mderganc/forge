@@ -1,6 +1,6 @@
 ---
 name: forge:graphify
-description: Graphify setup — refresh index for forge resume, post-commit hook, or troubleshooting. When graphify-out/ exists, other forge skills print GRAPHIFY blocks each step; see docs/graphify.md.
+description: Graphify setup — refresh index for forge resume, post-commit hook, or troubleshooting. Ship prints the GRAPHIFY banner; workflow steps use background refresh; see docs/graphify.md.
 ---
 
 <invoke cmd="forge graphify refresh --background" />

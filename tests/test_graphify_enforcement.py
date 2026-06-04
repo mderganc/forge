@@ -82,11 +82,12 @@ def test_forge_graphify_context_block_does_not_spawn_on_implement(
     monkeypatch.setattr("forge_next.graphify.spawn_refresh_background", fake_spawn)
     block = orch.forge_graphify_context_block("implement", 3)
     assert block == ""
-    assert calls == []
+    assert len(calls) == 1
 
+    calls.clear()
     block_ship = orch.forge_graphify_context_block("ship", 1)
     assert "GRAPHIFY" in block_ship
-    assert calls == []
+    assert len(calls) == 1
 
 
 def test_forge_skip_graphify_also_blocks_refresh_spawn(

@@ -26,10 +26,20 @@ def build_parser() -> argparse.ArgumentParser:
         sp.add_argument("--json", action="store_true", dest="json_output", help="Emit a JSON summary on stdout (human output on stderr)")
         sp.add_argument("--ascii", action="store_true", help="Prefer ASCII-only output")
 
+    def add_session_flags(sp: argparse.ArgumentParser) -> None:
+        sp.add_argument("--session", type=str, default=None, help="Session id to continue")
+        sp.add_argument("--label", type=str, default=None, help="Label for a new session (step 1)")
+        sp.add_argument(
+            "--parallel",
+            action="store_true",
+            help="Deprecated: step 1 always creates a new session",
+        )
+
     # evaluate
     ev = sub.add_parser("evaluate", help="Run the evaluate orchestrator")
     add_common_repo_flag(ev)
     add_common_output_flags(ev)
+    add_session_flags(ev)
     ev.add_argument("--step", type=int, required=True)
     ev.add_argument("--plan", type=str)
     ev.add_argument("--state", type=str)
@@ -40,6 +50,7 @@ def build_parser() -> argparse.ArgumentParser:
     dv = sub.add_parser("develop", help="Run the develop orchestrator")
     add_common_repo_flag(dv)
     add_common_output_flags(dv)
+    add_session_flags(dv)
     dv.add_argument("--step", type=int, required=True)
     dv.add_argument("--state", type=str)
     dv.add_argument("--quick", action="store_true")
@@ -51,6 +62,7 @@ def build_parser() -> argparse.ArgumentParser:
     pl = sub.add_parser("plan", help="Run the plan orchestrator")
     add_common_repo_flag(pl)
     add_common_output_flags(pl)
+    add_session_flags(pl)
     pl.add_argument("--step", type=int, required=True)
     pl.add_argument("--state", type=str)
     pl.add_argument("--quick", action="store_true")
@@ -71,6 +83,7 @@ def build_parser() -> argparse.ArgumentParser:
     im = sub.add_parser("implement", help="Run the implement orchestrator")
     add_common_repo_flag(im)
     add_common_output_flags(im)
+    add_session_flags(im)
     im.add_argument("--step", type=int, required=True)
     im.add_argument("--state", type=str)
     im.add_argument("--quick", action="store_true")
@@ -96,6 +109,7 @@ def build_parser() -> argparse.ArgumentParser:
     cr = sub.add_parser("code-review", help="Run the code-review orchestrator")
     add_common_repo_flag(cr)
     add_common_output_flags(cr)
+    add_session_flags(cr)
     cr.add_argument("--step", type=int, required=True)
     cr.add_argument("--state", type=str)
     cr.add_argument("--quick", action="store_true")
@@ -120,6 +134,7 @@ def build_parser() -> argparse.ArgumentParser:
     ts = sub.add_parser("test", help="Run the test orchestrator")
     add_common_repo_flag(ts)
     add_common_output_flags(ts)
+    add_session_flags(ts)
     ts.add_argument("--step", type=int, required=True)
     ts.add_argument("--state", type=str)
     ts.add_argument("--quick", action="store_true")
@@ -135,6 +150,7 @@ def build_parser() -> argparse.ArgumentParser:
     dg = sub.add_parser("diagnose", help="Run the diagnose orchestrator")
     add_common_repo_flag(dg)
     add_common_output_flags(dg)
+    add_session_flags(dg)
     dg.add_argument("--step", type=int, required=True)
     dg.add_argument("--state", type=str)
     dg.add_argument("--quick", action="store_true")
@@ -143,6 +159,7 @@ def build_parser() -> argparse.ArgumentParser:
     it = sub.add_parser("iterate", help="Run the iterate meta-workflow orchestrator")
     add_common_repo_flag(it)
     add_common_output_flags(it)
+    add_session_flags(it)
     it.add_argument("--step", type=int, required=True)
     it.add_argument("--state", type=str)
     it.add_argument("--goal", type=str)
@@ -170,14 +187,32 @@ def build_parser() -> argparse.ArgumentParser:
     rs.add_argument("--force", action="store_true")
     rs.add_argument("--all-stale", action="store_true", dest="all_stale")
 
+    # session — manage parallel workflow sessions
+    sess = sub.add_parser("session", help="Manage workflow sessions")
+    add_common_repo_flag(sess)
+    add_common_output_flags(sess)
+    sess_sub = sess.add_subparsers(dest="session_cmd", required=True)
+    sess_close = sess_sub.add_parser("close", help="Archive a session by id")
+    sess_close.add_argument("session_id", type=str, help="Session id to archive")
+
     # graphify (optional codebase index + post-commit hook)
     gf = sub.add_parser("graphify", help="Optional Graphify index refresh and git post-commit hook")
     gf_sub = gf.add_subparsers(dest="graphify_cmd", required=True)
     gfr = gf_sub.add_parser("refresh", help="Run Graphify if available; write graphify-status.json")
     gfr.add_argument(
+        "--foreground",
+        action="store_true",
+        help="Run refresh in this process and wait for completion (default: background)",
+    )
+    gfr.add_argument(
         "--background",
         action="store_true",
-        help="Spawn a detached refresh and return immediately (also used by hooks)",
+        help="Detached refresh (default; kept for scripts that pass it explicitly)",
+    )
+    gfr.add_argument(
+        "--force",
+        action="store_true",
+        help="Background: spawn even when status looks fresh; foreground: always run update",
     )
     add_common_repo_flag(gfr)
     gfi = gf_sub.add_parser("install-hook", help="Add fail-soft Graphify block to .git/hooks/post-commit")

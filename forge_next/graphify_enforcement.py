@@ -16,7 +16,7 @@ _TRUTHY = frozenset({"1", "true", "yes", "on"})
 
 PREFS_FILENAME = "graphify-prefs.json"
 
-# Graphify orchestrator banners + foreground refresh run only on ship (end of workflow).
+# Graphify orchestrator banners on ship; background refresh on any step when index exists.
 GRAPHIFY_ORCHESTRATOR_SKILL = "ship"
 
 # Legacy pref: defer_implement_waves (no longer affects banners; kept for prefs migration).

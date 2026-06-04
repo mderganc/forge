@@ -704,6 +704,8 @@ def main() -> None:
             SKILL_NAME,
             args.state,
             parallel=getattr(args, "parallel", False),
+            label=getattr(args, "label", None),
+            session_id=getattr(args, "session", None),
         )
     else:
         sp = validate_state_path(args.state, SKILL_NAME) if args.state else None

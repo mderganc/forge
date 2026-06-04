@@ -31,7 +31,7 @@ Orchestrator output for **step 1** of workflow skills includes a **SESSION OPT-I
 
 ## Graphify in skill steps
 
-**Graphify runs at ship time only:** `forge ship --step 1` (or `$forge:ship`) refreshes the index and prints the **GRAPHIFY** block before commit/PR. Workflow skills (`develop`, `plan`, `implement`, `code-review`, `test`, `diagnose`, `evaluate`) **do not** print per-step GRAPHIFY blocks or spawn background refresh. Suppress with **`FORGE_SKIP_GRAPHIFY=1`**. See `templates/graphify-contract.md` and `docs/graphify.md`.
+**Graphify runs in the background:** session hooks, every `forge <skill> --step` (debounced), and `forge ship --step 1` spawn `forge graphify refresh` without blocking — continue work and read `GRAPH_REPORT.md` as-is. Ship prints the **GRAPHIFY** banner only. Suppress with **`FORGE_SKIP_GRAPHIFY=1`**. See `templates/graphify-contract.md` and `docs/graphify.md`.
 
 **Claude Code:** `forge install --claude` or **`forge claude-graphify`** merges hooks into `~/.claude/settings.json` (SessionStart, PreToolUse for all tools — sub-agent lifecycle + Graphify on search/read tools, UserPromptSubmit for `forge:` prompts). Implementation: `forge_next/hooks/claude_graphify_hook.py`.
 

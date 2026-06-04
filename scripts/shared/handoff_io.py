@@ -59,8 +59,10 @@ def write_handoff(
     context: dict[str, str],
     suggested_next: str,
     memory_dir: Path | None = None,
+    *,
+    state_path: Path | None = None,
 ) -> Path:
-    """Write a handoff file to the runtime memory directory."""
+    """Write a handoff file to the runtime memory directory and per-session path."""
     if memory_dir is None:
         memory_dir = runtime_memory_dir()
     memory_dir.mkdir(parents=True, exist_ok=True)
@@ -76,9 +78,14 @@ def write_handoff(
         f"- **Timestamp:** {now}",
         f"- **Status:** complete",
         f"- **Quick mode:** {state.quick_mode}",
+    ]
+    if state.session_id:
+        lines.append(f"- **Session:** {state.session_id}")
+
+    lines.extend([
         "",
         "## Context for Next Skill",
-    ]
+    ])
 
     for key, val in context.items():
         lines.append(f"- **{key}:** {val}")
@@ -94,7 +101,24 @@ def write_handoff(
         "",
     ])
 
-    handoff_path.write_text("\n".join(lines), encoding="utf-8")
+    content = "\n".join(lines)
+    handoff_path.write_text(content, encoding="utf-8")
+
+    from scripts.shared.session_store import (
+        is_session_state_path,
+        session_handoff_path,
+        session_id_from_state_path,
+    )
+
+    sid = state.session_id or (session_id_from_state_path(state_path) if state_path else None)
+    if sid:
+        session_hp = session_handoff_path(sid)
+        session_hp.parent.mkdir(parents=True, exist_ok=True)
+        session_hp.write_text(content, encoding="utf-8")
+    elif state_path and is_session_state_path(state_path):
+        session_hp = state_path.parent / "handoff.md"
+        session_hp.write_text(content, encoding="utf-8")
+
     return handoff_path
 
 

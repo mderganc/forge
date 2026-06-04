@@ -100,7 +100,7 @@ def forge_graphify_banner(
         "",
         "You are on **`forge ship`** — update the knowledge graph **before** commit/PR/publish.",
         "",
-        "1. The orchestrator already ran **`forge graphify refresh`** (foreground) for this step.",
+        "1. The orchestrator already started **`forge graphify refresh`** in the background — do not wait for it.",
         "2. Read **`graphify-out/GRAPH_REPORT.md`** if you need navigation context for the ship summary.",
         "3. If **`graphify-out/wiki/index.md`** exists, use it instead of bulk file reads.",
         "4. For cross-module questions in the PR body or review, prefer **`graphify query`**, "

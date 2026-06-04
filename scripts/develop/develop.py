@@ -313,6 +313,8 @@ def handle_step_1(args: argparse.Namespace) -> None:
         SKILL_NAME,
         args.state,
         parallel=getattr(args, "parallel", False),
+        label=getattr(args, "label", None),
+        session_id=getattr(args, "session", None),
     )
     sp.parent.mkdir(parents=True, exist_ok=True)
 

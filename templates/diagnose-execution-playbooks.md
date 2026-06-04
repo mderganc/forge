@@ -42,11 +42,20 @@ Operational layer for [`prompts/diagnose/technique_catalog.md`](../prompts/diagn
 - **Anti-patterns:** “Something changed” without LKG timestamp/commit.
 - **Done:** At least one change candidate linked to evidence.
 
+### Feedback loop / reproduction
+
+- **When:** Every diagnose run (before 5 Whys).
+- **Phase:** 2 → `.diagnose-feedback-loop.json`; gate at step 3.
+- **Minimum artifact:** `loop_type`, `command_or_path`, `symptom_captured`, `matches_user_report`, `minimal_repro_steps[]`; or `cannot_build_loop` + `blocked_reason` + `user_ask` + state override.
+- **Anti-patterns:** Hypothesis or 5 Whys without a loop; wrong failure mode; “sometimes fails” with no `failure_rate`.
+- **Done:** Step-3 repro-loop gate passes or documented override.
+- **See also:** `templates/diagnose-feedback-loop.md`; Gemba row below for UI artifact pointers.
+
 ### Gemba observation (catalog #13)
 
 - **When:** UI/repro-heavy incidents.
-- **Phase:** 2 evidence checklist.
-- **Minimum artifact:** Minimal repro steps + artifact IDs (log path, screenshot, HAR).
+- **Phase:** 2 evidence checklist (after feedback loop is running).
+- **Minimum artifact:** Minimal repro steps + artifact IDs (log path, screenshot, HAR) — also recorded in `.diagnose-feedback-loop.json`.
 - **Anti-patterns:** “User saw error” without repro.
 - **Done:** Evidence checklist item checked with pointer.
 

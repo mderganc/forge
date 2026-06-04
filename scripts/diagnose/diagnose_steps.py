@@ -27,6 +27,9 @@ def resolve_step_gate(
             return None, warning
         return None, ""
 
+    if step == 3:
+        return diagnose_gates.check_repro_loop_gate(state, state_path, step), ""
+
     if step == 4:
         gate_result = diagnose_gates.check_register_gate(state, state_path, step)
         if gate_result.passed:

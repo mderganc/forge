@@ -37,6 +37,12 @@ from scripts.diagnose.mece_tree_register import validate as validate_mece
 from scripts.diagnose.problem_spec_register import load_register as load_problem_spec
 from scripts.diagnose.problem_spec_register import register_path as problem_spec_path
 from scripts.diagnose.problem_spec_register import validate as validate_problem_spec
+from scripts.diagnose.repro_loop_register import load_register as load_repro_loop
+from scripts.diagnose.repro_loop_register import register_path as repro_loop_path
+from scripts.diagnose.repro_loop_register import (
+    requires_override_to_proceed,
+    validate as validate_repro_loop,
+)
 from scripts.diagnose.technique_coverage import load_sidecar as load_coverage
 from scripts.diagnose.technique_coverage import coverage_path
 from scripts.diagnose.technique_coverage import validate_coverage
@@ -92,6 +98,42 @@ def check_problem_spec_gate(
         state.custom["problem_spec_regen_attempts"] = attempts + 1
 
     sections = [_section("Problem specification", issues, state, "problem_spec_override_reason")]
+    return merge_gate_results(
+        sections,
+        phase=PHASE_NAMES.get(step, f"Step {step}"),
+        retry_step=retry,
+        attempt=attempts,
+        max_attempts=1,
+        state_path=str(sp),
+    )
+
+
+def check_repro_loop_gate(state: SkillState, sp: Path, step: int) -> DiagnoseGateResult:
+    """Step 3: require feedback loop sidecar before 5 Whys."""
+    if has_override(state.custom, "repro_loop_override_reason"):
+        return DiagnoseGateResult(passed=True)
+
+    sd = sp.parent
+    reg_file = repro_loop_path(sd)
+    data = load_repro_loop(reg_file)
+    ok, issues = validate_repro_loop(data, path=reg_file)
+    if ok and requires_override_to_proceed(data):
+        ok = False
+        issues = [
+            "Sidecar documents cannot_build_loop — set state "
+            "'repro_loop_override_reason' after user provides access/artifacts, "
+            "or build a runnable loop and update the sidecar."
+        ]
+
+    if ok:
+        return DiagnoseGateResult(passed=True)
+
+    attempts = int(state.custom.get("repro_loop_regen_attempts", 0))
+    retry = 2 if attempts < 1 else None
+    if attempts < 1:
+        state.custom["repro_loop_regen_attempts"] = attempts + 1
+
+    sections = [_section("Feedback loop / reproduction", issues, state, "repro_loop_override_reason")]
     return merge_gate_results(
         sections,
         phase=PHASE_NAMES.get(step, f"Step {step}"),

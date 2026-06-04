@@ -64,10 +64,11 @@ def render_retry_exhausted_session(
 def _diagnose_sidecar_lines(session: dict) -> list[str]:
     skill = session["skill"]
     current = session.get("current_step", 1)
-    if skill != "diagnose" or current < 4:
+    if skill != "diagnose" or current < 3:
         return []
     state_dir = Path(session["path"]).parent
     sidecars = [
+        (".diagnose-feedback-loop.json", "Phase 2 — feedback loop"),
         (".diagnose-hypotheses.json", "Phase 3 — hypothesis register"),
         (".diagnose-mece-tree.json", "Phase 3 — MECE tree"),
         (".diagnose-first-principles.json", "Phase 1–2 — first-principles"),
@@ -79,7 +80,10 @@ def _diagnose_sidecar_lines(session: dict) -> list[str]:
         return []
     out = ["", "**Diagnose note:** Missing sidecar(s) beside state:", ""]
     out.extend(f"- {m}" for m in missing)
-    out.append("Backfill via the listed phases before analysis (step 4) or solutions (step 5).")
+    out.append(
+        "Backfill via the listed phases before deepen (step 3), analysis (step 4), or solutions (step 5). "
+        "If blocked at step 3, set `repro_loop_override_reason` on diagnose state only after user input."
+    )
     return out
 
 

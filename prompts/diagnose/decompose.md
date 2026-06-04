@@ -1,5 +1,7 @@
 # Phase 3: Deepen with 5 Whys
 
+{{DIAGNOSE_ARTIFACT_GATE}}
+
 Read `templates/diagnose-execution-playbooks.md` § Five Whys; add MECE / Fishbone sections only if those techniques are in `activated_techniques`.
 
 ## Agents to Dispatch

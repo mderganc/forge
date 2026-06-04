@@ -1,13 +1,37 @@
-# Phase 2: Observe & Gather Evidence
+# Phase 2: Reproduce & Observe
 
-Read `templates/diagnose-execution-playbooks.md` § Gemba, Control charts, Barrier analysis (if safety/compliance).
+Read `templates/diagnose-feedback-loop.md` first, then `templates/diagnose-execution-playbooks.md` § Gemba, Control charts, Barrier analysis (if safety/compliance).
+
+**Feedback loop status:** {{REPRO_LOOP_SUMMARY}}
 
 ## Agents to Dispatch
-- **Investigator (lead):** Run the evidence collection checklist
+- **Investigator (lead):** Build and run the feedback loop, then evidence collection
 - **QA Reviewer (support):** Provide test evidence — run tests, check coverage
 - **Security Reviewer (support):** Check for security-related evidence if relevant
 
-## Evidence Checklist
+## Beat A — Build the feedback loop
+
+1. Choose `loop_type` per `templates/diagnose-feedback-loop.md` (ordered constructors).
+2. Write `.diagnose-feedback-loop.json` beside diagnose state with at least:
+   - `version`: 1
+   - `loop_type`, `command_or_path`
+   - `cannot_build_loop`: false (or true with `blocked_reason` + `user_ask` if genuinely blocked)
+
+## Beat B — Run the loop
+
+1. Execute `command_or_path`; observe the failure.
+2. Set `runs_observed` (≥1), `deterministic`, optional `failure_rate`.
+3. Set `symptom_captured` (verbatim).
+4. Set `matches_user_report`: **true** only when the loop reproduces the user's failure mode.
+
+## Beat C — Minimal repro
+
+1. `minimal_repro_steps[]` — smallest human-readable sequence.
+2. `artifacts[]` — paths to logs, HAR, screenshots, test files.
+
+## Beat D — Remaining evidence
+
+### Evidence Checklist
 - [ ] Error messages & stack traces
 - [ ] Reproduction steps (minimal repro) — **Gemba:** link artifact paths
 - [ ] Timeline (correlate with deploys, config changes)

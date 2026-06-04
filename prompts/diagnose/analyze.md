@@ -37,6 +37,12 @@ Extend `.diagnose-five-whys.json` until `templates/five-why-protocol.md` stop ch
 
 If hypothesis register is active, link chains to **`confirmed`** hypothesis IDs when applicable.
 
+## Hypothesis register — user checkpoint (when activated)
+
+Before running falsification tests, present **3–5 ranked hypotheses** from the register to the user (IDs + one-line claim + prediction). They may re-rank or rule out items from prior attempts. Do not block on response in autonomous mode; in guided/interactive mode, pause briefly for input.
+
+When instrumenting, tag debug logs with a unique prefix, e.g. `[DEBUG-a4f2]`, so cleanup is a single grep in Phase 6–7.
+
 ## Full-register elimination (only when hypothesis technique activated)
 
 Skip unless **Hypothesis-driven problem solving** is in `activated_techniques`.

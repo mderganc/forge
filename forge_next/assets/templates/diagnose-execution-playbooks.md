@@ -20,7 +20,7 @@ Operational layer for [`prompts/diagnose/technique_catalog.md`](../prompts/diagn
 
 ### Kepner-Tregoe IS/IS-NOT
 
-- **When:** Every run; sudden deviation / discrimination needed.
+- **When:** Phase 1 `framing_entry: kepner_tregoe` — sudden deviation / discrimination needed (not every run).
 - **Phase:** 1 → `.diagnose-problem-spec.json`
 - **Minimum artifact:** `is_isnot.WHAT|WHERE|WHEN|EXTENT` each with `is`, `is_not`, `distinction`.
 - **Anti-patterns:** Empty cells; distinction repeats IS text.
@@ -28,7 +28,7 @@ Operational layer for [`prompts/diagnose/technique_catalog.md`](../prompts/diagn
 
 ### Cynefin classification
 
-- **When:** Phase 1; drives strategy (chaotic → stabilize first).
+- **When:** Phase 1 `framing_entry: cynefin` — drives strategy (chaotic → stabilize first).
 - **Phase:** 1 → `cynefin_domain` in problem spec.
 - **Minimum artifact:** One of Clear / Complicated / Complex / Chaotic + one-line strategy note.
 - **Anti-patterns:** Label without changing investigation depth.
@@ -42,11 +42,20 @@ Operational layer for [`prompts/diagnose/technique_catalog.md`](../prompts/diagn
 - **Anti-patterns:** “Something changed” without LKG timestamp/commit.
 - **Done:** At least one change candidate linked to evidence.
 
+### Feedback loop / reproduction
+
+- **When:** Every diagnose run (before 5 Whys).
+- **Phase:** 2 → `.diagnose-feedback-loop.json`; gate at step 3.
+- **Minimum artifact:** `loop_type`, `command_or_path`, `symptom_captured`, `matches_user_report`, `minimal_repro_steps[]`; or `cannot_build_loop` + `blocked_reason` + `user_ask` + state override.
+- **Anti-patterns:** Hypothesis or 5 Whys without a loop; wrong failure mode; “sometimes fails” with no `failure_rate`.
+- **Done:** Step-3 repro-loop gate passes or documented override.
+- **See also:** `templates/diagnose-feedback-loop.md`; Gemba row below for UI artifact pointers.
+
 ### Gemba observation (catalog #13)
 
 - **When:** UI/repro-heavy incidents.
-- **Phase:** 2 evidence checklist.
-- **Minimum artifact:** Minimal repro steps + artifact IDs (log path, screenshot, HAR).
+- **Phase:** 2 evidence checklist (after feedback loop is running).
+- **Minimum artifact:** Minimal repro steps + artifact IDs (log path, screenshot, HAR) — also recorded in `.diagnose-feedback-loop.json`.
 - **Anti-patterns:** “User saw error” without repro.
 - **Done:** Evidence checklist item checked with pointer.
 
@@ -68,11 +77,11 @@ Operational layer for [`prompts/diagnose/technique_catalog.md`](../prompts/diagn
 
 ---
 
-## Mandatory core quartet
+## Core spine + optional depth
 
-### 1. Five Whys
+### 1. Five Whys (mandatory)
 
-- **When:** All runs; frontline operational incidents prefer this (catalog routing).
+- **When:** Every run — primary deepen step after framing.
 - **Phase:** 3 draft chains on leading branches; **4 finalize** on **confirmed** hypotheses only.
 - **Minimum artifact:** `.diagnose-five-whys.json` — see [`templates/five-why-protocol.md`](five-why-protocol.md) § Diagnose RCA.
 - **Anti-patterns:** Unrelated why questions; symptom layers; stopping at layer 1.
@@ -80,7 +89,7 @@ Operational layer for [`prompts/diagnose/technique_catalog.md`](../prompts/diagn
 
 ### 2. Fishbone / Ishikawa (#2)
 
-- **When:** Multi-driver brainstorming.
+- **When:** Activated — multi-driver brainstorming.
 - **Phase:** 3 → hypothesis register `category` + MECE nodes.
 - **Minimum artifact:** ≥10 register entries spanning ≥4 of CODE|CONFIG|DATA|INFRASTRUCTURE|DEPENDENCIES|ENVIRONMENT.
 - **Anti-patterns:** Six category headers with one vague bullet each.
@@ -88,7 +97,7 @@ Operational layer for [`prompts/diagnose/technique_catalog.md`](../prompts/diagn
 
 ### 3. First-principles thinking (#3)
 
-- **When:** All runs (quartet).
+- **When:** Activated — `framing_entry: first_principles` or explicit routing.
 - **Phase:** 1–2 baseline; 4 tie-in → `.diagnose-first-principles.json`
 - **Minimum artifact:** `invariants[]`, `violations[]` with `observation_links`.
 - **Anti-patterns:** “System should work” as invariant.
@@ -96,7 +105,7 @@ Operational layer for [`prompts/diagnose/technique_catalog.md`](../prompts/diagn
 
 ### 4. MECE issue tree (#4)
 
-- **When:** All runs (quartet).
+- **When:** Activated — `framing_entry: mece_sketch` or executive decomposition routing.
 - **Phase:** 3 → `.diagnose-mece-tree.json`
 - **Minimum artifact:** ≥3 nodes; `parent_id`, `category`, optional `hypothesis_ids[]`, `mutual_exclusion_note` for sibling overlap.
 - **Anti-patterns:** Duplicate branches; orphan nodes.
@@ -104,7 +113,7 @@ Operational layer for [`prompts/diagnose/technique_catalog.md`](../prompts/diagn
 
 ### 5. Hypothesis-driven problem solving (#5)
 
-- **When:** All runs (quartet).
+- **When:** Activated — competing causes / time-boxed analytics routing.
 - **Phase:** 3–4 → `.diagnose-hypotheses.json`
 - **Minimum artifact:** Predict → falsify → update status for **every** entry before step 5.
 - **Anti-patterns:** Open hypotheses at solution phase.

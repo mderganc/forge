@@ -7,7 +7,7 @@ substitutes variables, and prints the prompt for Codex to execute.
 
 7-phase pipeline:
   1. Frame the problem — pick ONE entry technique; record routing for follow-ons
-  2. Observe & Gather Evidence — observations vs assumptions
+  2. Reproduce & Observe — feedback loop, minimal repro, then evidence
   3. Deepen with 5 Whys — MECE / hypothesis register only when activated
   4. Analyze & Rank — elimination only when hypothesis technique is active
   5. Solution Generation
@@ -73,6 +73,9 @@ from scripts.diagnose.mece_tree_register import summarize as summarize_mece
 from scripts.diagnose.problem_spec_register import load_register as load_problem_spec_register
 from scripts.diagnose.problem_spec_register import register_path as problem_spec_register_path
 from scripts.diagnose.problem_spec_register import summarize as summarize_problem_spec
+from scripts.diagnose.repro_loop_register import load_register as load_repro_loop_register
+from scripts.diagnose.repro_loop_register import register_path as repro_loop_register_path
+from scripts.diagnose.repro_loop_register import summarize as summarize_repro_loop
 from scripts.diagnose.technique_coverage import coverage_path
 from scripts.diagnose.technique_coverage import load_sidecar as load_coverage
 from scripts.diagnose.technique_coverage import summarize_coverage
@@ -99,7 +102,7 @@ PHASE_TEMPLATES = {
 
 PHASE_NAMES = {
     1: "Frame the Problem",
-    2: "Observe & Gather Evidence",
+    2: "Reproduce & Observe",
     3: "Deepen (5 Whys)",
     4: "Analyze & Rank",
     5: "Solution Generation",
@@ -117,12 +120,14 @@ PHASE_TODOS = {
          "activeForm": "Routing follow-on techniques"},
     ],
     2: [
-        {"content": "Gather evidence via log analyzer and git hotspots",
+        {"content": "Build feedback loop — write .diagnose-feedback-loop.json (loop_type, command_or_path)",
+         "activeForm": "Building feedback loop"},
+        {"content": "Run loop; capture symptom; confirm matches_user_report",
+         "activeForm": "Running feedback loop"},
+        {"content": "Document minimal_repro_steps and artifact paths",
+         "activeForm": "Documenting minimal repro"},
+        {"content": "Gather remaining evidence (logs, metrics, git hotspots, tests)",
          "activeForm": "Gathering evidence"},
-        {"content": "Collect metrics and establish baseline",
-         "activeForm": "Collecting metrics"},
-        {"content": "Separate observations vs assumptions with falsification paths",
-         "activeForm": "Sorting observations"},
     ],
     3: [
         {"content": "Draft 5 Whys chains in .diagnose-five-whys.json (primary deepen step)",
@@ -248,6 +253,7 @@ def _build_variables(
     first_principles_summary = "(Not evaluated yet)"
     mece_summary = "(Not evaluated yet)"
     problem_spec_summary = "(Not evaluated yet)"
+    repro_loop_summary = "(Not evaluated yet)"
     diagnose_artifact_gate = ""
 
     if state_path is not None:
@@ -263,6 +269,9 @@ def _build_variables(
         mece_summary = summarize_mece(load_mece_register(mece_register_path(sd)))
         problem_spec_summary = summarize_problem_spec(
             load_problem_spec_register(problem_spec_register_path(sd))
+        )
+        repro_loop_summary = summarize_repro_loop(
+            load_repro_loop_register(repro_loop_register_path(sd))
         )
         active_step = step if step is not None else state.current_step
         if active_step >= 4 and reg_data:
@@ -354,6 +363,7 @@ def _build_variables(
         "FIRST_PRINCIPLES_SUMMARY": first_principles_summary,
         "MECE_SUMMARY": mece_summary,
         "PROBLEM_SPEC_SUMMARY": problem_spec_summary,
+        "REPRO_LOOP_SUMMARY": repro_loop_summary,
         "DIAGNOSE_ARTIFACT_GATE": diagnose_artifact_gate,
         "FIVE_WHYS_GATE": diagnose_artifact_gate,
         "TECHNIQUE_COVERAGE_GATE": diagnose_artifact_gate,
@@ -418,8 +428,9 @@ def handle_step_1(args) -> None:
         body += (
             "\n\n---\n\n"
             "**QUICK MODE:** Investigator-only. Skip full team dispatch.\n"
-            "After this phase, jump to abbreviated evidence collection, "
-            "then analyze, fix, and report.\n"
+            "Phase 2 still requires a feedback loop (`.diagnose-feedback-loop.json`) "
+            "before step 3; the step-3 gate applies in quick mode.\n"
+            "Then abbreviated analyze, fix, and report.\n"
         )
 
     state.mark_step_complete(1)

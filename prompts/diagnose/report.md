@@ -12,7 +12,19 @@
 Confirm:
 
 1. **Problem framing** — `.diagnose-problem-spec.json` — {{PROBLEM_SPEC_SUMMARY}}
-2. **5 Whys** — `.diagnose-five-whys.json` — {{FIVE_WHYS_SUMMARY}}
+2. **Feedback loop** — `.diagnose-feedback-loop.json` — {{REPRO_LOOP_SUMMARY}}
+3. **5 Whys** — `.diagnose-five-whys.json` — {{FIVE_WHYS_SUMMARY}}
+
+## Cleanup (before handoff)
+
+- [ ] Re-run the Phase 2 feedback loop — original failure no longer reproduces (or document residual flake rate).
+- [ ] Remove all `[DEBUG-…]` instrumentation (grep the prefix used in Phase 4).
+- [ ] Delete or relocate throwaway harnesses/scripts used only for debugging.
+- [ ] State which hypothesis or 5-Whys chain was correct in the report / commit message.
+
+## Prevention
+
+Ask: **What would have prevented this bug?** If the answer is architectural (no test seam, hidden coupling), note it for develop/plan — after the fix is in, not before.
 
 ## Optional artifacts (only if activated)
 

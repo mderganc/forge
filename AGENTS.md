@@ -150,6 +150,7 @@ The scenario-index update at `<scenarios_dir>/README.md` is parser-gated; on par
 | File | Phase | Gate steps |
 |------|-------|------------|
 | `.diagnose-problem-spec.json` | 1 | 2 advisory, 4+ — `framing_entry` + `problem_statement` |
+| `.diagnose-feedback-loop.json` | 2 (Reproduce & Observe) | 3 — loop or `cannot_build_loop` + override |
 | `.diagnose-first-principles.json` | When activated | 4 if activated |
 | `.diagnose-hypotheses.json` | When activated | 4 register, 5 elimination |
 | `.diagnose-mece-tree.json` | When activated | 4 if activated |
@@ -160,9 +161,9 @@ The scenario-index update at `<scenarios_dir>/README.md` is parser-gated; on par
 - **Adaptive spine:** Phase 1 picks **one** entry framing path; Phase 3–4 always runs **5 Whys**; MECE / hypothesis / first-principles only when listed in `activated_techniques`.
 - **Hypothesis register (when activated):** ≥`hypothesis_min` (default 5) falsifiable hypotheses; ≥4 fishbone categories; Phase 4 eliminates all; ≥1 `confirmed` before step 5 when register is in play.
 - **5 Whys:** Follow `templates/five-why-protocol.md` § Diagnose RCA — causal linkage between layers; stop checklist + `but_for`.
-- **Gates:** Combined **DIAGNOSE ARTIFACT GATE** at steps 5 and 7 (single pause/retry). Step 4: optional register + optional quartet when activated. One retry per gate type; `require_confirmation` on failure.
-- **Overrides:** `hypothesis_override_reason`, `five_whys_override_reason`, `technique_coverage_override_reason`, `quartet_override_reason`, `problem_spec_override_reason`, `barriers_override_reason` — high-severity mandatory techniques cannot be skipped at step 7.
-- **Resume:** `scripts/shared/resume.py` warns on missing sidecars when resuming diagnose at step ≥4.
+- **Gates:** **DIAGNOSE ARTIFACT GATE** at step 3 (feedback loop), steps 5 and 7 (bundle/closure), step 4 optional register + quartet when activated. One retry per gate type; `require_confirmation` on failure.
+- **Overrides:** `repro_loop_override_reason`, `hypothesis_override_reason`, `five_whys_override_reason`, `technique_coverage_override_reason`, `quartet_override_reason`, `problem_spec_override_reason`, `barriers_override_reason` — high-severity mandatory techniques cannot be skipped at step 7.
+- **Resume:** `forge resume` warns on missing sidecars when resuming diagnose at step ≥3; use `repro_loop_override_reason` only after user provides access/artifacts when no automated loop is possible.
 
 ## graphify
 

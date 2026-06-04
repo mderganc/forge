@@ -91,6 +91,7 @@ Read `templates/diagnose-execution-playbooks.md` per phase before applying techn
 | Artifact | When |
 |----------|------|
 | `.diagnose-problem-spec.json` | Phase 1 — `framing_entry` (one of five), `problem_statement`, `activated_techniques` |
+| `.diagnose-feedback-loop.json` | Phase 2 — Reproduce & Observe — `loop_type`, run results, minimal repro |
 | `.diagnose-first-principles.json` | When **First-principles thinking** activated |
 | `.diagnose-hypotheses.json` | When hypothesis/Fishbone activated (≥`hypothesis_min`, default 5) |
 | `.diagnose-mece-tree.json` | When **MECE issue tree** activated |
@@ -98,7 +99,7 @@ Read `templates/diagnose-execution-playbooks.md` per phase before applying techn
 | `.diagnose-technique-coverage.json` | Rows for **activated** techniques — finalize Phase 7 |
 | `.diagnose-barriers.json` | High-severity / safety profile |
 
-Orchestrator **DIAGNOSE ARTIFACT GATE** at steps 4 (optional register + quartet when activated), 5 (five whys + optional elimination), 7 (activated coverage + five whys closure). Overrides: `hypothesis_override_reason`, `five_whys_override_reason`, `technique_coverage_override_reason`, `quartet_override_reason`, etc. (see AGENTS.md).
+Orchestrator **DIAGNOSE ARTIFACT GATE** at step 3 (feedback loop), steps 4 (optional register + quartet when activated), 5 (five whys + optional elimination), 7 (activated coverage + five whys closure). Overrides: `repro_loop_override_reason`, `hypothesis_override_reason`, `five_whys_override_reason`, `technique_coverage_override_reason`, `quartet_override_reason`, etc. (see AGENTS.md).
 
 The Investigator agent carries supporting methodology detail — see
 `agents/investigator.md` and `prompts/diagnose/technique_catalog.md`.
@@ -110,6 +111,7 @@ The Investigator agent carries supporting methodology detail — see
 - `scripts/diagnose/diagnostic_report.py` — Report template generator
 - `scripts/diagnose/log_analyzer.py` — Structured log analysis (error patterns, frequency, spike detection)
 - `scripts/diagnose/git_hotspots.py` — Git history analytics (churn hotspots, temporal coupling, blame)
+- `scripts/diagnose/repro_loop_register.py` — Feedback-loop sidecar validation
 - `scripts/diagnose/hypothesis_register.py` — Hypothesis register validation
 - `scripts/diagnose/five_whys_register.py` — Five Whys chain validation
 - `scripts/diagnose/technique_coverage.py` — 20-technique coverage matrix validation

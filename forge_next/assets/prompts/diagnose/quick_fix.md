@@ -26,10 +26,14 @@ Write the handoff file with root causes, complexity tier, and recommended routin
 - **QA Reviewer:** Run validation ladder per `templates/verification-protocol.md`
 - **Investigator:** Verify fix addresses the root cause (not just symptom)
 
+## Regression seam (before fixing)
+
+Turn the minimal repro into a failing test **only at a correct seam** — one that exercises the real bug pattern at the call site. If the only available seam is too shallow, document that as a finding in the diagnostic report; do not ship false confidence.
+
 ## Validation Ladder
 1. Unit tests (always)
 2. Regression (full suite)
-3. Reproduction case (no longer triggers)
+3. Reproduction case (re-run the Phase 2 feedback loop; failure no longer triggers)
 4. Static analysis (if available)
 
 {{AUTONOMY_GATE}}

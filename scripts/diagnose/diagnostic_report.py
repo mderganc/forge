@@ -60,6 +60,7 @@ autonomy_mode: "{mode}"
 ### Evidence Collected
 
 - [ ] Error messages & stack traces
+- [ ] Feedback loop (`.diagnose-feedback-loop.json`)
 - [ ] Reproduction steps
 - [ ] Timeline
 - [ ] Metrics (before/after)

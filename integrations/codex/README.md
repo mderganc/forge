@@ -22,6 +22,7 @@ forge doctor
 
 | Skill folder | CLI entry |
 |--------------|-----------|
+| `forge-sketch` | `forge sketch` |
 | `forge-develop` | `forge develop` |
 | `forge-plan` | `forge plan` |
 | `forge-evaluate` | `forge evaluate` |

@@ -476,7 +476,7 @@ def migrate_legacy_state_files(search_dir: Path | None = None) -> list[str]:
     migrated: list[str] = []
     seen: set[Path] = set()
     skills = [
-        "develop", "plan", "implement", "code-review", "test", "diagnose", "iterate",
+        "sketch", "develop", "plan", "implement", "code-review", "test", "diagnose", "iterate",
     ]
 
     root = sessions_root(cwd)

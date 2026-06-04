@@ -22,6 +22,7 @@ _WORKFLOW_MODULES = {
     "diagnose": "scripts.diagnose.orchestrate",
     "iterate": "scripts.iterate.iterate",
     "ship": "scripts.ship.ship",
+    "sketch": "scripts.sketch.sketch",
     "resume": "scripts.shared.resume",
 }
 
@@ -143,6 +144,7 @@ def dispatch_structural_tools(args: Any) -> int:
 def dispatch_structural_probes(args: Any) -> int:
     from scripts.shared.structural_probes import (
         format_probe_results_banner,
+        probe_payload_exit_code,
         run_probes_from_state_dir,
         sidecar_path,
     )
@@ -169,16 +171,15 @@ def dispatch_structural_probes(args: Any) -> int:
             "payload": payload,
             "error": None,
         }
-        failed = [p for p in payload.get("probes") or [] if p.get("status") == "fail"]
-        if failed:
-            out["error"] = "one or more probes failed"
+        exit_code = probe_payload_exit_code(payload)
+        if exit_code != 0:
+            out["error"] = "structural probes failed or did not execute"
         print(json.dumps(out, ensure_ascii=True))
         if banner.strip():
             print(banner, file=sys.stderr)
-    else:
-        print(banner)
-    failed = [p for p in payload.get("probes") or [] if p.get("status") == "fail"]
-    return 1 if failed else 0
+        return exit_code
+    print(banner)
+    return probe_payload_exit_code(payload)
 
 
 _INTEGRATION_HANDLERS: dict[str, Any] = {
@@ -228,6 +229,7 @@ def _passthrough_argv(args: Any) -> list[str]:
     _add_flag(passthrough, "--auto1", getattr(args, "auto1", None))
     _add_flag(passthrough, "--auto2", getattr(args, "auto2", None))
     _add_flag(passthrough, "--auto3", getattr(args, "auto3", None))
+    _add_flag(passthrough, "--with-domain-docs", getattr(args, "with_domain_docs", None))
     _add_flag(passthrough, "--goal", getattr(args, "goal", None))
     _add_flag(passthrough, "--target", getattr(args, "target", None))
     _add_flag(passthrough, "--max-loops", getattr(args, "max_loops", None))

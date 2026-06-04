@@ -49,6 +49,7 @@ When unsure which workflow to drive, prefer **investigation / diagnosis** before
 
 | Signal | Suggested direction |
 |--------|---------------------|
+| Intent fuzzy (problem, constraints, terminology) | **`sketch`** then **`develop`** |
 | Multiple approaches, unclear requirements, greenfield shape | **`develop`** |
 | Root cause unknown, incident, flaky failures | **`diagnose`** |
 | Single approved direction or develop handoff — need tasks and waves | **`plan`** |
@@ -60,7 +61,7 @@ Skill-specific tables also live in `skills/develop/SKILL.md`, `skills/diagnose/S
 
 Invoking a Forge workflow skill is itself permission to dispatch the Forge agent team required by that workflow.
 
-- `forge:develop`, `forge:plan`, `forge:implement`, `forge:code-review`, `forge:test`, `forge:diagnose`, and `forge:iterate` imply automatic delegation to the relevant Forge agents.
+- `forge:sketch` is a lightweight 1:1 dialogue skill (no agent-team requirement); `forge:develop`, `forge:plan`, `forge:implement`, `forge:code-review`, `forge:test`, `forge:diagnose`, and `forge:iterate` imply automatic delegation to the relevant Forge agents.
 - `forge:evaluate` implies automatic delegation when team/review mode is active.
 - The user should not have to separately say "use sub-agents", "delegate", or "parallelize" after invoking a Forge skill.
 - If the active Codex session policy still blocks `spawn_agent`, surface that as an environment-policy limitation rather than silently falling back to single-agent execution.

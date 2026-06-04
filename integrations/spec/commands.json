@@ -16,9 +16,18 @@
       ]
     },
     {
+      "id": "forge:sketch",
+      "cli_subcommand": "sketch",
+      "description": "Organize intent and open decisions before develop (optional CONTEXT.md/ADRs).",
+      "examples": [
+        "forge sketch --step 1",
+        "forge sketch --step 1 --with-domain-docs"
+      ]
+    },
+    {
       "id": "forge:develop",
       "cli_subcommand": "develop",
-      "description": "Investigate and propose solution options.",
+      "description": "Investigate, brainstorm solutions, and write design spec (medium/large).",
       "examples": [
         "forge develop --step 1",
         "forge develop --step 1 --quick"

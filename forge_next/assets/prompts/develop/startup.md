@@ -4,7 +4,9 @@
 
 ## What develop is for
 
-**Develop is a collaborative skill.** Work **with** the human in a back-and-forth rhythm: surface **opportunities** (not only problems), **brainstorm requirements** before locking scope, and **invent** multiple solution directions before anyone commits to code or docs. The scripted steps exist to **structure** that dialogue—not to replace it. Prefer short rounds of questions, options, and reactions over dumping long monologues.
+**Before develop:** If intent is still fuzzy (problem shape, constraints, terminology, open decisions), run **`forge sketch`** first. Sketch writes `sketch-decisions.md`; develop does **not** replace that step.
+
+**Develop is a collaborative skill.** Work **with** the human in a back-and-forth rhythm: surface **opportunities** (not only problems), **brainstorm requirements** before locking scope, and **invent** multiple solution directions before anyone commits to code or docs. For **medium/large** scope, develop ends with a **design spec** at `docs/forge/specs/YYYY-MM-DD-<slug>-design.md` (see spec gate on step 6). The scripted steps exist to **structure** that dialogue—not to replace it. Prefer short rounds of questions, options, and reactions over dumping long monologues.
 
 At each continuation gate, welcome refinements: “Does this match what you’re trying to achieve?” “What are we missing?” “What would make this exciting vs merely adequate?”
 

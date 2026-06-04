@@ -187,6 +187,15 @@ Evaluate and diagnose also run standalone. **Iterate** chains the linear workflo
 
 **Resume:** `/forge:resume` / `$forge:resume`.
 
+### Sketch (before develop)
+
+- **Cursor / Claude:** `/forge:sketch`
+- **Codex:** `$forge:sketch`
+
+**Sketch organizes intent** when the problem, constraints, or terminology are still fuzzy: one question at a time with a recommended answer, logged in **`memory/sketch-decisions.md`**. It is **not** solution brainstorming (that is develop) and **not** the design spec file. Optional **`--with-domain-docs`** updates `CONTEXT.md` (glossary) and sparse `docs/adr/` per `templates/CONTEXT-FORMAT.md` and `templates/ADR-FORMAT.md`.
+
+Default handoff: **develop**. Protocol: `templates/sketch-protocol.md`.
+
 ### Develop
 
 - **Cursor / Claude:** `/forge:develop`
@@ -194,7 +203,9 @@ Evaluate and diagnose also run standalone. **Iterate** chains the linear workflo
 
 **Develop is a back-and-forth with you:** surface opportunities (not only bugs), brainstorm and refine requirements, and generate multiple solution directions before anything is “locked.” The step sequence structures that conversation—short rounds of questions, options, and gates—not a one-shot report.
 
-Then investigate the problem or feature, explore and score options, and converge before plan. Handoff often points to plan (`/forge:plan` or `$forge:plan`) or evaluate (`/forge:evaluate` or `$forge:evaluate`).
+If intent is still messy, run **sketch** first. Then investigate the problem or feature, explore and score options, and converge before plan. Handoff often points to plan (`/forge:plan` or `$forge:plan`) or evaluate (`/forge:evaluate` or `$forge:evaluate`).
+
+**Design spec (develop owns this):** For **medium** and **large** scope, develop produces **`docs/forge/specs/YYYY-MM-DD-<slug>-design.md`** before handoff to plan — not sketch.
 
 **Scope tiers and design spec:** Scope assessment can set **trivial / medium / large** (persisted as **`memory/develop-scope.json`** under the Forge runtime root, e.g. `.codex/forge/`). For **medium** and **large**, step 7 enforces a **design-spec gate**: `.develop-spec-gate.json` beside the develop state file must record a real spec path, completion booleans, and user approval. Strict bypass is opt-in via `forge develop --step 7 --allow-spec-incomplete` with **`--spec-override-reason`** and **`--spec-override-follow-up`** (optional **`--spec-override-requested-by`**). Template: `templates/design-spec.md`.
 

@@ -5,12 +5,10 @@ from __future__ import annotations
 # Shown first in Codex developer_instructions — agents often skim the opening.
 GRAPHIFY_DEVELOPER_INSTRUCTIONS_LEAD = (
     "GRAPHIFY (when graphify-out/ or GRAPH_REPORT.md exists): "
-    "Refresh the index at ship time — run `forge ship --step 1` or `$forge:ship` before commit/PR; "
-    "that step runs `forge graphify refresh` and prints the GRAPHIFY block. "
-    "Workflow skills (develop, plan, implement, code-review, test, diagnose, evaluate) do NOT "
-    "print per-step GRAPHIFY banners or spawn background refresh. "
-    "During investigation you may still read graphify-out/GRAPH_REPORT.md or use graphify query/path/explain "
-    "instead of blind grep when helpful. "
+    "Forge runs `forge graphify refresh` in the background (session, workflow steps, ship) — "
+    "continue without waiting. Read graphify-out/GRAPH_REPORT.md before blind grep; use "
+    "graphify query/path/explain for cross-module questions. After edits you may run "
+    "`graphify update .` (AST-only). Ship (`forge ship --step 1`) prints the GRAPHIFY banner. "
     "Disable: FORGE_SKIP_GRAPHIFY=1 or forge graphify off."
 )
 
@@ -35,7 +33,7 @@ FORGE_DEVELOPER_INSTRUCTIONS_BODY = (
 CLAUDE_COMMAND_GRAPHIFY_BLOCK = """\
 ## Graphify (ship time only for orchestrator refresh)
 
-If `graphify-out/` exists: run **`forge ship --step 1`** or **`$forge:ship`** before commit/PR so the index matches shipped code. Workflow `forge … --step` skills do not print GRAPHIFY blocks. You may still use `graphify query` / `path` / `explain` during investigation when helpful.
+If `graphify-out/` exists: background refresh may be running — do not block on it. Run **`forge ship --step 1`** before commit/PR for the ship GRAPHIFY banner. Use `graphify query` / `path` / `explain` during investigation when helpful.
 """
 
 # Codex skill body line (short) — omit from workflow skills; ship skill carries graphify.

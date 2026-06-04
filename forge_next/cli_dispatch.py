@@ -87,7 +87,11 @@ def dispatch_graphify(args: Any) -> int:
     rr = repo_root_from_args(getattr(args, "repo", None))
     subc = getattr(args, "graphify_cmd", None)
     handlers = {
-        "refresh": lambda: forge_graphify.refresh(rr, background=bool(getattr(args, "background", False))),
+        "refresh": lambda: forge_graphify.refresh(
+            rr,
+            background=not bool(getattr(args, "foreground", False)),
+            force=bool(getattr(args, "force", False)),
+        ),
         "install-hook": lambda: _graphify_msg(forge_graphify.install_post_commit_hook(rr)),
         "uninstall-hook": lambda: _graphify_msg(forge_graphify.uninstall_post_commit_hook(rr)),
         "off": lambda: _graphify_msg(forge_graphify.graphify_set_disabled(rr, disabled=True)),
@@ -211,6 +215,9 @@ def _passthrough_argv(args: Any) -> list[str]:
     _add_flag(passthrough, "--plan", getattr(args, "plan", None))
     _add_flag(passthrough, "--branch-prefix", getattr(args, "branch_prefix", None))
     _add_flag(passthrough, "--state", getattr(args, "state", None))
+    _add_flag(passthrough, "--session", getattr(args, "session", None))
+    _add_flag(passthrough, "--label", getattr(args, "label", None))
+    _add_flag(passthrough, "--parallel", getattr(args, "parallel", None))
     _add_flag(passthrough, "--mode", getattr(args, "mode", None))
     _add_flag(passthrough, "--save-mode-preference", getattr(args, "save_mode_preference", None))
     _add_flag(passthrough, "--team", getattr(args, "team", None))
@@ -228,6 +235,26 @@ def _passthrough_argv(args: Any) -> list[str]:
     _add_flag(passthrough, "--harness", getattr(args, "harness", None))
     _add_flag(passthrough, "--text", getattr(args, "text", None))
     return passthrough
+
+
+def dispatch_session(args: Any) -> int:
+    from scripts.shared.session_store import archive_session_dir
+
+    repo_root = repo_root_from_args(getattr(args, "repo", None))
+    subc = getattr(args, "session_cmd", None)
+    if subc == "close":
+        sid = getattr(args, "session_id", None)
+        if not sid:
+            print("ERROR: session id required", file=sys.stderr)
+            return 1
+        dest = archive_session_dir(sid, repo_root)
+        if dest is None:
+            print(f"ERROR: session not found: {sid}", file=sys.stderr)
+            return 1
+        print(f"Archived session {sid} -> {dest}")
+        return 0
+    print(f"Unknown session subcommand: {subc!r}", file=sys.stderr)
+    return 1
 
 
 def dispatch_workflow(cmd: str, args: Any) -> int:
@@ -287,6 +314,8 @@ def dispatch_command(cmd: str, args: Any) -> int:
     if cmd == "status":
         run_status(repo_root, json_output=getattr(args, "json_output", False))
         return 0
+    if cmd == "session":
+        return dispatch_session(args)
     if cmd in _WORKFLOW_MODULES:
         return dispatch_workflow(cmd, args)
     print(f"Unknown command: {cmd!r}", file=sys.stderr)

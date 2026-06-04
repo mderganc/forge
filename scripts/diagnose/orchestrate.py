@@ -374,6 +374,8 @@ def handle_step_1(args) -> None:
         SKILL_NAME,
         args.state,
         parallel=getattr(args, "parallel", False),
+        label=getattr(args, "label", None),
+        session_id=getattr(args, "session", None),
     )
     # Same-skill abort: refuse to silently overwrite an in-progress session.
     check_same_skill_clobber(
@@ -396,8 +398,15 @@ def handle_step_1(args) -> None:
     else:
         state = _init_state(mode, quick)
 
+    from scripts.shared.session_store import session_id_from_state_path
+
+    sid = session_id_from_state_path(sp)
+    if sid:
+        state.session_id = sid
+
     ensure_runtime_dirs()
-    save_state(state, sp)
+    session_label = getattr(args, "label", None)
+    save_state(state, sp, label=session_label)
 
     print(f"STATE FILE: {sp}\n", file=sys.stderr)
 
@@ -414,7 +423,7 @@ def handle_step_1(args) -> None:
         )
 
     state.mark_step_complete(1)
-    save_state(state, sp)
+    save_state(state, sp, label=session_label)
     append_skill_run_memory(
         SKILL_NAME,
         1,

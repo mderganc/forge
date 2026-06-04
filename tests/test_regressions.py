@@ -196,7 +196,8 @@ def test_find_unfilled_sections_after_partial_fill(tmp_path: Path):
 # Fix 3.2 — Same-skill clobber prevention (V7, V8)
 # ---------------------------------------------------------------------------
 
-def test_check_same_skill_clobber_aborts_on_in_progress_state(fresh_state_dir, monkeypatch):
+def test_check_same_skill_clobber_is_noop_with_in_progress_state(fresh_state_dir, monkeypatch):
+    """Parallel-first: clobber check never aborts (step 1 always creates new session dir)."""
     from scripts.shared.orchestrator import (
         SkillState,
         check_same_skill_clobber,
@@ -204,7 +205,6 @@ def test_check_same_skill_clobber_aborts_on_in_progress_state(fresh_state_dir, m
         save_state,
     )
 
-    # Plant an in-progress state file
     sp = runtime_state_path("plan", fresh_state_dir)
     sp.parent.mkdir(parents=True, exist_ok=True)
     state = SkillState(skill_name="plan")
@@ -212,9 +212,7 @@ def test_check_same_skill_clobber_aborts_on_in_progress_state(fresh_state_dir, m
     state.started_at = "2026-05-07T00:00:00+00:00"
     save_state(state, sp)
 
-    with pytest.raises(SystemExit) as exc:
-        check_same_skill_clobber("plan")
-    assert "already in progress" in str(exc.value)
+    check_same_skill_clobber("plan")
 
 
 def test_check_same_skill_clobber_passes_on_completed_state(fresh_state_dir):
@@ -318,16 +316,25 @@ def test_find_state_file_ignores_stale_active_by_default(fresh_state_dir, monkey
     assert find_state_file("plan", fresh_state_dir, include_stale=True) == stale_path
 
 
-def test_resolve_step1_state_path_auto_parallel_on_fresh_conflict(fresh_state_dir, monkeypatch):
+def _test_state_path(search_dir) -> Path:
+    """Return the active test skill state file (session dir or legacy)."""
+    from scripts.shared.orchestrator import find_state_file
+
+    sp = find_state_file("test", search_dir)
+    assert sp is not None, "expected test state after step 1"
+    return sp
+
+
+def test_resolve_step1_state_path_always_creates_new_session(fresh_state_dir, monkeypatch):
     from scripts.shared.orchestrator import (
         SkillState,
         resolve_step1_state_path,
         runtime_state_path,
         save_state,
     )
+    from scripts.shared.session_store import is_session_state_path, sessions_root
 
     monkeypatch.chdir(fresh_state_dir)
-    monkeypatch.setenv("FORGE_AUTO_PARALLEL_ON_CONFLICT", "1")
     canonical = runtime_state_path("plan", fresh_state_dir)
     canonical.parent.mkdir(parents=True, exist_ok=True)
     active = SkillState(skill_name="plan", max_step=7)
@@ -335,21 +342,21 @@ def test_resolve_step1_state_path_auto_parallel_on_fresh_conflict(fresh_state_di
     save_state(active, canonical)
 
     resolved = resolve_step1_state_path("plan", None, parallel=False, search_dir=fresh_state_dir)
-    assert resolved.name.startswith("plan-")
-    assert resolved.name.endswith(".json")
+    assert is_session_state_path(resolved)
+    assert resolved.parent.parent == sessions_root(fresh_state_dir)
     assert resolved != canonical
 
 
-def test_resolve_step1_state_path_ignores_stale_conflict(fresh_state_dir, monkeypatch):
+def test_resolve_step1_state_path_new_session_even_with_stale_canonical(fresh_state_dir, monkeypatch):
     from scripts.shared.orchestrator import (
         SkillState,
         resolve_step1_state_path,
         runtime_state_path,
         save_state,
     )
+    from scripts.shared.session_store import is_session_state_path
 
     monkeypatch.chdir(fresh_state_dir)
-    monkeypatch.setenv("FORGE_AUTO_PARALLEL_ON_CONFLICT", "1")
     monkeypatch.setenv("FORGE_STALE_SESSION_HOURS", "0.00001")
     canonical = runtime_state_path("plan", fresh_state_dir)
     canonical.parent.mkdir(parents=True, exist_ok=True)
@@ -361,23 +368,22 @@ def test_resolve_step1_state_path_ignores_stale_conflict(fresh_state_dir, monkey
     canonical.write_text(json.dumps(raw), encoding="utf-8")
 
     resolved = resolve_step1_state_path("plan", None, parallel=False, search_dir=fresh_state_dir)
-    assert resolved == canonical
+    assert is_session_state_path(resolved)
+    assert resolved != canonical
 
 
-def test_develop_step1_auto_parallel_not_overridden_by_existing_lookup(fresh_state_dir):
-    """Develop step 1 should keep resolver's parallel path decision."""
+def test_develop_step1_always_creates_new_session_dir(fresh_state_dir):
+    """Develop step 1 always allocates a new session directory."""
     import os
     import re
 
-    state_dir = fresh_state_dir / ".codex" / "forge" / "state"
-    state_dir.mkdir(parents=True, exist_ok=True)
-    canonical = state_dir / "develop.json"
+    from scripts.shared.session_store import sessions_root
+
     env = os.environ.copy()
     env["FORGE_SKIP_SESSION_OPTIN"] = "1"
 
-    # Seed a fresh active canonical session.
     r1 = subprocess.run(
-        [sys.executable, str(SCRIPTS / "develop" / "develop.py"), "--step", "1", "--state", str(canonical)],
+        [sys.executable, str(SCRIPTS / "develop" / "develop.py"), "--step", "1", "--label", "first"],
         cwd=str(fresh_state_dir),
         capture_output=True,
         text=True,
@@ -385,10 +391,12 @@ def test_develop_step1_auto_parallel_not_overridden_by_existing_lookup(fresh_sta
         env=env,
     )
     assert r1.returncode == 0, r1.stderr
+    m1 = re.search(r"STATE FILE:\s*(.+)", (r1.stderr or "") + r1.stdout)
+    assert m1
+    first = Path(m1.group(1).strip())
 
-    # Next implicit step-1 run should auto-fan-out to a suffixed parallel file.
     r2 = subprocess.run(
-        [sys.executable, str(SCRIPTS / "develop" / "develop.py"), "--step", "1"],
+        [sys.executable, str(SCRIPTS / "develop" / "develop.py"), "--step", "1", "--label", "second"],
         cwd=str(fresh_state_dir),
         capture_output=True,
         text=True,
@@ -396,12 +404,12 @@ def test_develop_step1_auto_parallel_not_overridden_by_existing_lookup(fresh_sta
         env=env,
     )
     assert r2.returncode == 0, r2.stderr
-    combined = (r2.stderr or "") + "\n" + (r2.stdout or "")
-    m = re.search(r"STATE FILE:\s*(.+)", combined)
-    assert m, combined
-    selected = Path(m.group(1).strip())
-    assert selected.name.startswith("develop-")
-    assert selected.name != "develop.json"
+    m2 = re.search(r"STATE FILE:\s*(.+)", (r2.stderr or "") + r2.stdout)
+    assert m2
+    second = Path(m2.group(1).strip())
+    assert first.name == second.name == "session.json"
+    assert first.parent != second.parent
+    assert first.parent.parent == sessions_root(fresh_state_dir)
 
 
 def test_validate_state_path_accepts_suffixed_skill_state(fresh_state_dir):
@@ -1086,9 +1094,9 @@ def test_test_skill_default_mode_is_run(fresh_state_dir, monkeypatch):
     assert result.returncode == 0, f"Unexpected error: {result.stderr}"
 
     # Load state to check mode
-    from scripts.shared.orchestrator import runtime_state_path, load_state
+    from scripts.shared.orchestrator import load_state
 
-    sp = runtime_state_path("test")
+    sp = _test_state_path(fresh_state_dir)
     assert sp.exists()
     state = load_state(sp)
     assert state.custom.get("mode", "run") == "run"
@@ -1108,9 +1116,9 @@ def test_test_skill_flows_mode_sets_max_step_7(fresh_state_dir):
     )
     assert result.returncode == 0, f"Unexpected error: {result.stderr}"
 
-    from scripts.shared.orchestrator import runtime_state_path, load_state
+    from scripts.shared.orchestrator import load_state
 
-    sp = runtime_state_path("test")
+    sp = _test_state_path(fresh_state_dir)
     state = load_state(sp)
     assert state.custom.get("mode") == "flows"
     assert state.max_step == 7
@@ -1221,9 +1229,9 @@ def test_test_skill_role_override_via_cli(fresh_state_dir, monkeypatch):
     )
     assert result.returncode == 0
 
-    from scripts.shared.orchestrator import runtime_state_path, load_state
+    from scripts.shared.orchestrator import load_state
 
-    sp = runtime_state_path("test")
+    sp = _test_state_path(fresh_state_dir)
     state = load_state(sp)
     assert state.custom.get("roles") == ["admin", "member", "viewer"]
 
@@ -1242,9 +1250,9 @@ def test_test_skill_no_db_override(fresh_state_dir, monkeypatch):
     )
     assert result.returncode == 0
 
-    from scripts.shared.orchestrator import runtime_state_path, load_state
+    from scripts.shared.orchestrator import load_state
 
-    sp = runtime_state_path("test")
+    sp = _test_state_path(fresh_state_dir)
     state = load_state(sp)
     assert state.custom.get("test_db") == "none"
 
@@ -1797,10 +1805,10 @@ def test_flow_type_override_writes_sidecar_pre_prompt(fresh_state_dir):
     )
     assert result.returncode == 0, f"step 1 failed: {result.stderr}"
 
-    from scripts.shared.orchestrator import runtime_state_path, load_state
+    from scripts.shared.orchestrator import load_state
     from scripts.test._sidecar import recommendation_sidecar_path
 
-    sp = runtime_state_path("test")
+    sp = _test_state_path(fresh_state_dir)
     state = load_state(sp)
 
     # Check sidecar was written in the state directory (sp.parent)
@@ -2140,6 +2148,27 @@ def test_graphify_refresh_background_skips_when_fresh(monkeypatch, tmp_path: Pat
     assert graphify.spawn_refresh_background(repo) is False
 
 
+def test_graphify_refresh_background_force_when_fresh(monkeypatch, tmp_path: Path) -> None:
+    from forge_next import graphify
+
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    monkeypatch.setattr(graphify, "refresh_needed", lambda _r: False)
+    monkeypatch.setattr(graphify.shutil, "which", lambda exe: "forge" if exe == "forge" else None)
+    popens: list[list[str]] = []
+
+    class _FakeProc:
+        pid = 1
+
+    monkeypatch.setattr(
+        graphify.subprocess,
+        "Popen",
+        lambda cmd, **kwargs: popens.append(list(cmd)) or _FakeProc(),
+    )
+    assert graphify.spawn_refresh_background(repo, force=True) is True
+    assert popens
+
+
 def test_graphify_refresh_default_command_runs_update_dot(monkeypatch):
     monkeypatch.chdir(REPO_ROOT)
     from forge_next import graphify
@@ -2158,7 +2187,7 @@ def test_graphify_refresh_default_command_runs_update_dot(monkeypatch):
     monkeypatch.setattr(graphify.shutil, "which", lambda exe: "graphify" if exe == "graphify" else None)
     monkeypatch.setattr(graphify.subprocess, "run", fake_run)
 
-    assert graphify.refresh(REPO_ROOT) == 0
+    assert graphify.refresh(REPO_ROOT, background=False) == 0
     assert calls, "Expected graphify subprocess.run to be called"
     assert ["graphify", "update", "."] in calls
 

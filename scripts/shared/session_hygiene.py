@@ -105,10 +105,31 @@ def _scan_evaluate_sessions(cwd: Path) -> list[dict]:
 
 
 def detect_active_sessions(search_dir: Path | None = None) -> list[dict]:
-    """Scan for all active skill state files."""
+    """Scan for all active skill state files (session dirs + legacy json)."""
     cwd = search_dir or detect_repo_root()
     sessions: list[dict] = []
     seen_paths: set[Path] = set()
+
+    from scripts.shared.session_store import list_active_sessions as list_session_store
+
+    for info in list_session_store(cwd):
+        resolved = info.path.resolve()
+        if resolved in seen_paths:
+            continue
+        seen_paths.add(resolved)
+        sessions.append({
+            "skill": info.skill,
+            "path": info.path,
+            "session_id": info.session_id,
+            "label": info.label,
+            "current_step": info.current_step,
+            "last_completed_step": info.last_completed_step,
+            "max_step": info.max_step,
+            "started_at": info.started_at,
+            "completed_at": None,
+            "is_complete": False,
+        })
+
     for skill in KNOWN_SKILLS:
         if skill == "evaluate":
             continue
@@ -130,9 +151,13 @@ def detect_active_sessions(search_dir: Path | None = None) -> list[dict]:
             if is_state_stale(state, candidate):
                 continue
 
+            from scripts.shared.session_store import session_id_from_state_path
+
             sessions.append({
                 "skill": state.skill_name,
                 "path": candidate,
+                "session_id": state.session_id or session_id_from_state_path(candidate),
+                "label": None,
                 "current_step": state.current_step,
                 "last_completed_step": state.last_completed_step,
                 "max_step": state.max_step,
@@ -188,7 +213,17 @@ def _auto_close_reason(
     path: Path,
     search_dir: Path | None,
 ) -> str | None:
-    if has_matching_handoff(session_skill, search_dir):
+    from scripts.shared.session_store import (
+        is_session_state_path,
+        session_handoff_path,
+        session_id_from_state_path,
+    )
+
+    if is_session_state_path(path):
+        sid = state.session_id or session_id_from_state_path(path)
+        if sid and session_handoff_path(sid, search_dir).is_file():
+            return f"sessions/{sid}/handoff.md exists"
+    elif has_matching_handoff(session_skill, search_dir):
         return f"handoff-{session_skill}.md exists"
 
     start_idx = PIPELINE_SKILL_INDEX.get(starting_skill)
@@ -210,6 +245,13 @@ def _iter_skill_state_paths(search_dir: Path | None = None) -> list[Path]:
     cwd = search_dir or detect_repo_root()
     paths: list[Path] = []
     seen: set[Path] = set()
+    from scripts.shared.session_store import iter_session_json_paths
+
+    for candidate in iter_session_json_paths(cwd, include_archive=False):
+        resolved = candidate.resolve()
+        if resolved not in seen:
+            seen.add(resolved)
+            paths.append(candidate)
     for skill in KNOWN_SKILLS:
         if skill in ("evaluate", "iterate"):
             continue
@@ -307,6 +349,9 @@ def run_step1_session_hygiene(
     *,
     search_dir: Path | None = None,
 ) -> list[tuple[Path, str]]:
+    from scripts.shared.session_store import run_session_cleanup
+
+    run_session_cleanup(search_dir=search_dir)
     preserve: set[Path] = set()
     if target_state_path is not None:
         preserve.add(target_state_path.resolve())
@@ -328,7 +373,16 @@ def collect_session_leak_hints(search_dir: Path | None = None) -> list[str]:
     for session in detect_active_sessions(cwd):
         skill = session["skill"]
         path = Path(session["path"])
-        if has_matching_handoff(skill, cwd):
+        from scripts.shared.session_store import is_session_state_path, session_id_from_state_path, session_handoff_path
+
+        if is_session_state_path(path):
+            sid = session.get("session_id") or session_id_from_state_path(path)
+            if sid and session_handoff_path(sid, cwd).is_file():
+                hints.append(
+                    f"{skill}: active session with handoff present — {path} "
+                    f"(run `forge session close {sid}` or `forge resume --cleanup --force`)"
+                )
+        elif has_matching_handoff(skill, cwd):
             hints.append(
                 f"{skill}: active state with handoff present — {path} "
                 f"(run `forge resume --cleanup --force`)"
@@ -346,10 +400,11 @@ def collect_session_leak_hints(search_dir: Path | None = None) -> list[str]:
             continue
         if is_step1_abandoned(state, path):
             hints.append(f"{skill}: step-1-only session idle >1h — {path}")
-        try:
-            path.resolve().relative_to(state_dir)
-        except ValueError:
-            hints.append(f"{skill}: state file outside runtime state dir — {path}")
+        if not is_session_state_path(path):
+            try:
+                path.resolve().relative_to(state_dir)
+            except ValueError:
+                hints.append(f"{skill}: state file outside runtime state dir — {path}")
 
     return hints
 
@@ -395,8 +450,15 @@ def format_active_session_warning(sessions: list[dict], starting_skill: str) -> 
         "",
     ]
     for s in sessions:
+        label = s.get("label")
+        sid = s.get("session_id")
+        extra = ""
+        if label:
+            extra = f' "{label}"'
+        elif sid:
+            extra = f" [{sid}]"
         lines.append(
-            f"  • {s['skill']} — step {s['current_step']}/{s['max_step']} "
+            f"  • {s['skill']}{extra} — step {s['current_step']}/{s['max_step']} "
             f"(last completed: {s['last_completed_step']}) — {s['path']}"
         )
     lines.extend([

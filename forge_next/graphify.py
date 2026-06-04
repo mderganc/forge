@@ -135,12 +135,14 @@ def _resolve_forge_spawn_argv(repo_root: Path) -> list[str] | None:
     return None
 
 
-def spawn_refresh_background(repo_root: Path) -> bool:
+def spawn_refresh_background(repo_root: Path, *, force: bool = False) -> bool:
     """Start a detached ``forge graphify refresh`` when metadata is out of date.
+
+    When ``force`` is True, spawn even if status looks fresh (e.g. ship preflight).
 
     Returns True if a child process was started. Never raises.
     """
-    if not refresh_needed(repo_root):
+    if not force and not refresh_needed(repo_root):
         return False
     try:
         lock = _refresh_lock_path(repo_root)
@@ -187,15 +189,17 @@ def spawn_refresh_background(repo_root: Path) -> bool:
         return False
 
 
-def refresh(repo_root: Path, *, background: bool = False) -> int:
+def refresh(repo_root: Path, *, background: bool = True, force: bool = False) -> int:
     """Attempt to run Graphify (or FORGE_GRAPHIFY_COMMAND), then write status.
 
-    When ``background`` is True, spawns a detached refresh and returns immediately.
+    When ``background`` is True (default), spawns a detached refresh and returns
+    immediately. Pass ``background=False`` to run synchronously in this process.
+    Use ``force=True`` with background to spawn even when status looks fresh.
 
     Returns 0 always (fail-soft for CI/hooks); failures are recorded in JSON.
     """
     if background:
-        spawn_refresh_background(repo_root)
+        spawn_refresh_background(repo_root, force=force)
         return 0
     head = _git_head(repo_root)
     custom = (os.environ.get("FORGE_GRAPHIFY_COMMAND") or "").strip()

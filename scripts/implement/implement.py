@@ -505,6 +505,8 @@ def handle_step_1(args) -> None:
         SKILL_NAME,
         args.state,
         parallel=getattr(args, "parallel", False),
+        label=getattr(args, "label", None),
+        session_id=getattr(args, "session", None),
     )
     check_same_skill_clobber(
         SKILL_NAME,

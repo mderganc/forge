@@ -89,12 +89,19 @@ def run_status(repo_root: Path, json_output: bool = False) -> None:
         runtime_memory_dir,
         runtime_state_dir,
     )
+    from scripts.shared.session_store import (
+        format_sessions_table,
+        run_session_cleanup,
+        sessions_root,
+    )
 
     old = Path.cwd()
     try:
         os.chdir(repo_root)
+        run_session_cleanup(search_dir=repo_root)
         mem_dir = runtime_memory_dir(repo_root)
         state_dir = runtime_state_dir(repo_root)
+        sess_dir = sessions_root(repo_root)
         sessions = detect_active_sessions(repo_root)
         leak_hints = collect_session_leak_hints(repo_root)
         state_issues = collect_unreadable_state_files(repo_root)
@@ -106,6 +113,7 @@ def run_status(repo_root: Path, json_output: bool = False) -> None:
                 "repo_root": str(repo_root),
                 "memory_dir": str(mem_dir),
                 "state_dir": str(state_dir),
+                "sessions_dir": str(sess_dir),
                 "handoffs": [
                     p.name for p in sorted(mem_dir.glob("handoff-*.md"))
                 ]
@@ -114,6 +122,8 @@ def run_status(repo_root: Path, json_output: bool = False) -> None:
                 "active_sessions": [
                     {
                         "skill": s.get("skill"),
+                        "session_id": s.get("session_id"),
+                        "label": s.get("label"),
                         "current_step": s.get("current_step"),
                         "max_step": s.get("max_step"),
                         "path": str(s.get("path")),
@@ -134,6 +144,7 @@ def run_status(repo_root: Path, json_output: bool = False) -> None:
         print(f"Repo: {repo_root}")
         print(f"Memory: {mem_dir}")
         print(f"State:  {state_dir}")
+        print(f"Sessions: {sess_dir}")
         print("")
 
         handoffs = sorted(mem_dir.glob("handoff-*.md")) if mem_dir.is_dir() else []
@@ -147,12 +158,19 @@ def run_status(repo_root: Path, json_output: bool = False) -> None:
         print(f"Active sessions ({len(sessions)}):")
         if not sessions:
             print("- (none)")
-        for s in sessions:
-            skill = s.get("skill")
-            cur = s.get("current_step")
-            mx = s.get("max_step")
-            path = s.get("path")
-            print(f"- {skill}: step {cur}/{mx} — {path}")
+        else:
+            from scripts.shared.session_store import list_active_sessions
+
+            infos = list_active_sessions(repo_root)
+            if infos:
+                print(format_sessions_table(infos))
+            else:
+                for s in sessions:
+                    skill = s.get("skill")
+                    cur = s.get("current_step")
+                    mx = s.get("max_step")
+                    path = s.get("path")
+                    print(f"- {skill}: step {cur}/{mx} — {path}")
         if warnings:
             print("")
             print("Warnings:")
@@ -163,6 +181,9 @@ def run_status(repo_root: Path, json_output: bool = False) -> None:
 
 
 def run_doctor(repo_root: Path, json_output: bool = False) -> None:
+    from scripts.shared.session_store import run_session_cleanup
+
+    run_session_cleanup(search_dir=repo_root)
     from forge_next.cli_doctor_checks import (
         check_claude_graphify,
         check_codex_anchor,

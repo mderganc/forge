@@ -21,8 +21,8 @@ from forge_next.hooks.subagent_lifecycle import lifecycle_reminder_message
 _SESSION_MSG = (
     "graphify: This repo has a knowledge graph. Read graphify-out/GRAPH_REPORT.md before "
     "Grep/Glob/Bash search or bulk reads for architecture questions. After code edits run "
-    "graphify update . Refresh the index at ship time (forge ship --step 1); workflow "
-    "forge --step skills do not print per-step GRAPHIFY banners."
+    "graphify update . Forge spawns graphify refresh in the background (session start, "
+    "workflow steps, ship) — do not block on it finishing."
 )
 
 _PRE_TOOL_MSG = (
@@ -33,7 +33,7 @@ _PRE_TOOL_MSG = (
 
 _FORGE_PROMPT_MSG = (
     "graphify: Forge workflow starting — if graphify-out/ exists, read GRAPH_REPORT.md before "
-    "codebase search tools. Graphify refresh runs at ship (forge ship), not on each workflow step."
+    "codebase search tools. Background graphify refresh may already be running; continue without waiting."
 )
 
 _BASH_SEARCH = re.compile(
@@ -90,7 +90,12 @@ def handle_session_start(data: dict) -> None:
         return
     if _graph_present(cwd):
         _emit("SessionStart", _SESSION_MSG)
-        if os.environ.get("FORGE_GRAPHIFY_SESSION_REFRESH", "").strip() in ("1", "true", "yes"):
+        if os.environ.get("FORGE_SKIP_GRAPHIFY_SESSION_REFRESH", "").strip().lower() not in (
+            "1",
+            "true",
+            "yes",
+            "on",
+        ):
             try:
                 from forge_next.graphify import spawn_refresh_background
 

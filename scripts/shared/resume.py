@@ -115,9 +115,16 @@ def _resume_command(session: dict) -> str:
     script = _script_for(skill)
     step = _resume_step(session)
     state_path = session["path"]
+    session_id = session.get("session_id")
     if os.environ.get("FORGE_USE_LAUNCHER") == "1":
-        return f"forge {skill} --step {step} --state '{state_path}'"
-    return f"python3 {script} --step {step} --state '{state_path}'"
+        cmd = f"forge {skill} --step {step} --state '{state_path}'"
+        if session_id:
+            cmd = f"forge {skill} --step {step} --session {session_id}"
+        return cmd
+    base = f"python3 {script} --step {step}"
+    if session_id:
+        return f"{base} --session {session_id}"
+    return f"{base} --state '{state_path}'"
 
 
 def _is_retry(session: dict) -> bool:
@@ -347,10 +354,16 @@ def render_multiple_sessions(sessions: list[dict]) -> str:
         current = s.get("current_step", 1)
         max_step = s.get("max_step", 6)
         started = s.get("started_at", "unknown")
-        comma = "," if i < len(sessions) - 1 or True else ""  # always comma, "None" follows
+        sid = s.get("session_id") or ""
+        label = s.get("label") or ""
+        desc = f"Started {started}, resume from step {_resume_step(s)}"
+        if label:
+            desc = f"{label} — {desc}"
+        if sid:
+            desc = f"[{sid}] {desc}"
         options_lines.append(
             f'      {{"label": "{skill} ({current}/{max_step})", '
-            f'"description": "Started {started}, resume from step {_resume_step(s)}"}}'
+            f'"description": "{desc}"}}'
         )
 
     lines = [
@@ -529,6 +542,10 @@ def main() -> None:
     if args.cleanup:
         run_cleanup(force=args.force, all_stale=args.all_stale)
         return
+
+    from scripts.shared.session_store import run_session_cleanup
+
+    run_session_cleanup()
 
     sessions = detect_active_sessions()
 

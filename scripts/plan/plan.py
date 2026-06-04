@@ -387,8 +387,9 @@ def handle_step_1(args: argparse.Namespace) -> None:
         SKILL_NAME,
         args.state,
         parallel=getattr(args, "parallel", False),
+        label=getattr(args, "label", None),
+        session_id=getattr(args, "session", None),
     )
-    # Same-skill abort: refuse to silently overwrite an in-progress session.
     check_same_skill_clobber(
         SKILL_NAME,
         allow_parallel=bool(getattr(args, "parallel", False) or args.state),
@@ -400,34 +401,23 @@ def handle_step_1(args: argparse.Namespace) -> None:
     run_step1_session_hygiene(SKILL_NAME, sp)
     print_remaining_session_warning(SKILL_NAME)
 
-    # If a prior fresh start left a state file with a plan_file path, reuse it
-    # so we don't orphan the prior skeleton at a new timestamp. The
-    # check_same_skill_clobber call above already aborted on in-progress
-    # state; if we got here the prior state was either absent or completed.
     plan_file = None
-    resumed_session = False
     prior_mode: str | None = None
-    if sp.exists():
-        try:
-            prior = load_state(sp)
-            if prior.completed_at is None:
-                plan_file = prior.custom.get("plan_file")
-                resumed_session = True
-                prior_mode = prior.custom.get("plan_mode")
-        except Exception:
-            plan_file = None
-
-    if not plan_file:
-        plan_filename = generate_plan_filename(handoff_content)
-        plans_dir = runtime_memory_dir() / "plans"
-        plans_dir.mkdir(parents=True, exist_ok=True)
-        plan_file = str(plans_dir / plan_filename)
+    plan_filename = generate_plan_filename(handoff_content)
+    plans_dir = runtime_memory_dir() / "plans"
+    plans_dir.mkdir(parents=True, exist_ok=True)
+    plan_file = str(plans_dir / plan_filename)
 
     # Materialize the skeleton file so Architect/Planner replace markers
     # rather than invent structure.
     write_plan_skeleton(Path(plan_file), force=getattr(args, "force", False))
 
+    from scripts.shared.session_store import session_id_from_state_path
+
     state = SkillState(skill_name=SKILL_NAME, max_step=MAX_STEP)
+    sid = session_id_from_state_path(sp)
+    if sid:
+        state.session_id = sid
     state.current_step = 1
     state.quick_mode = args.quick
     state.started_at = now_iso()
@@ -440,7 +430,7 @@ def handle_step_1(args: argparse.Namespace) -> None:
 
     plan_mode, resolution_source = resolve_mode_for_step1(
         cli_mode,
-        resumed_session=resumed_session,
+        resumed_session=False,
         stored_mode=prior_mode,
     )
     if resolution_source == "fallback":
@@ -454,7 +444,7 @@ def handle_step_1(args: argparse.Namespace) -> None:
         save_persisted_preference(plan_mode)
         state.custom["plan_mode_preference_saved"] = plan_mode
 
-    save_state(state, sp)
+    save_state(state, sp, label=getattr(args, "label", None))
 
     # Print state path so Codex knows where it is
     print(f"STATE FILE: {sp}\n", file=sys.stderr)
@@ -472,7 +462,7 @@ def handle_step_1(args: argparse.Namespace) -> None:
 
     # Mark step 1 complete
     state.mark_step_complete(1)
-    save_state(state, sp)
+    save_state(state, sp, label=getattr(args, "label", None))
     append_skill_run_memory(
         SKILL_NAME,
         1,
@@ -493,12 +483,29 @@ def handle_step_1(args: argparse.Namespace) -> None:
     ))
 
 
-def handle_step_n(step: int, state_file: str | None = None) -> None:
+def handle_step_n(step: int, state_file: str | None = None, session_id: str | None = None) -> None:
     """Steps 2-6: Load state, render template, output prompt."""
-    # Find state file
+    from scripts.shared.session_store import (
+        format_sessions_table,
+        list_active_sessions,
+        session_json_path,
+    )
+
     sp = validate_state_path(state_file, SKILL_NAME) if state_file else None
+    if sp is None and session_id:
+        sp = session_json_path(session_id)
     if sp is None:
-        sp = find_state_file(SKILL_NAME)
+        active = [s for s in list_active_sessions() if s.skill == SKILL_NAME]
+        if len(active) == 1:
+            sp = active[0].path
+        elif len(active) > 1:
+            print(format_sessions_table(active), file=sys.stderr)
+            sys.exit(
+                f"ERROR: {len(active)} active plan sessions — use --session <id> "
+                "(see table above)"
+            )
+        else:
+            sp = find_state_file(SKILL_NAME)
         if sp is None:
             sp = _state_path()
 
@@ -663,7 +670,7 @@ def main():
     if args.step == 1:
         handle_step_1(args)
     else:
-        handle_step_n(args.step, state_file=args.state)
+        handle_step_n(args.step, state_file=args.state, session_id=getattr(args, "session", None))
 
 
 if __name__ == "__main__":

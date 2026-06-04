@@ -86,6 +86,9 @@ def ensure_runtime_dirs(search_dir: Path | None = None) -> None:
     runtime_state_dir(search_dir).mkdir(parents=True, exist_ok=True)
     runtime_memory_dir(search_dir).mkdir(parents=True, exist_ok=True)
     runtime_adr_dir(search_dir).mkdir(parents=True, exist_ok=True)
+    from scripts.shared.session_store import sessions_root
+
+    sessions_root(search_dir).mkdir(parents=True, exist_ok=True)
 
 
 def state_filename(skill_name: str) -> str:
@@ -140,6 +143,19 @@ def state_path_candidates(skill_name: str, search_dir: Path | None = None) -> li
                 candidates.append(path)
                 seen.add(path)
 
+    from scripts.shared.session_store import iter_session_json_paths, sessions_root
+
+    root = sessions_root(cwd)
+    if root.is_dir():
+        for path in iter_session_json_paths(cwd, include_archive=False):
+            try:
+                state = json.loads(path.read_text(encoding="utf-8"))
+            except Exception:
+                continue
+            if state.get("skill_name") == skill_name and path not in seen:
+                candidates.append(path)
+                seen.add(path)
+
     return candidates
 
 
@@ -148,13 +164,23 @@ _state_path_candidates = state_path_candidates
 _is_skill_state_filename = is_skill_state_filename
 
 
-def save_state(state: SkillState, path: Path) -> None:
+def save_state(state: SkillState, path: Path, *, label: str | None = None) -> None:
     """Write state to JSON file atomically."""
     state.last_touched_at = now_iso()
     if not state.session_id:
-        state.session_id = str(uuid4())
+        from scripts.shared.session_store import session_id_from_state_path
+
+        sid = session_id_from_state_path(path)
+        state.session_id = sid if sid else str(uuid4())
     path.parent.mkdir(parents=True, exist_ok=True)
-    content = json.dumps(state.to_dict(), indent=2)
+    from scripts.shared.session_store import (
+        enrich_state_dict_for_save,
+        is_session_state_path,
+        update_index_for_session,
+    )
+
+    payload = enrich_state_dict_for_save(state, path, label=label)
+    content = json.dumps(payload, indent=2)
     fd, tmp = tempfile.mkstemp(dir=path.parent, suffix=".tmp")
     try:
         os.close(fd)
@@ -163,6 +189,10 @@ def save_state(state: SkillState, path: Path) -> None:
     except BaseException:
         Path(tmp).unlink(missing_ok=True)
         raise
+    if is_session_state_path(path):
+        update_index_for_session(
+            state, path, label=label, search_dir=_repo_root_for_path(path)
+        )
     try:
         from scripts.shared import resume_context
 
@@ -188,8 +218,28 @@ def load_state(path: Path) -> SkillState:
 
 
 def clear_state_file(path: Path) -> None:
-    """Remove a state file if it exists."""
+    """Remove a state file; archive session directory when applicable."""
+    from scripts.shared.session_store import (
+        archive_session_dir,
+        is_session_state_path,
+        session_id_from_state_path,
+    )
+
+    if is_session_state_path(path):
+        sid = session_id_from_state_path(path)
+        if sid:
+            archive_session_dir(sid, search_dir=_repo_root_for_path(path))
+            return
     path.unlink(missing_ok=True)
+
+
+def _repo_root_for_path(path: Path) -> Path | None:
+    """Best-effort repo root from a state path (``.../repo/.codex/forge/...``)."""
+    parts = path.resolve().parts
+    for i, part in enumerate(parts):
+        if part == ".codex" and i > 0:
+            return Path(*parts[:i])
+    return None
 
 
 def find_state_file(
@@ -200,6 +250,16 @@ def find_state_file(
     include_stale: bool = False,
 ) -> Path | None:
     """Find the best state file for a skill."""
+    from scripts.shared.session_store import list_active_sessions
+
+    session_matches = [
+        s.path
+        for s in list_active_sessions(search_dir)
+        if s.skill == skill_name
+    ]
+    if session_matches:
+        return session_matches[0]
+
     active_fresh: list[Path] = []
     active_stale: list[Path] = []
     complete: list[Path] = []

@@ -117,11 +117,25 @@ def skip_forge_session_opt_in() -> bool:
     return v in ("1", "true", "yes", "on")
 
 
+def _spawn_graphify_refresh_if_needed(repo_root: Path) -> None:
+    """Kick off a debounced background refresh when a graph index exists (never blocks)."""
+    try:
+        from forge_next.graphify import spawn_refresh_background
+        from scripts.shared.graphify_contract import graph_index_present
+
+        if graph_index_present(repo_root):
+            spawn_refresh_background(repo_root)
+    except Exception:
+        pass
+
+
 def forge_graphify_context_block(skill_name: str, step: int) -> str:
-    """Graphify banner (ship skill only). Background refresh is not spawned here."""
+    """Graphify banner (ship skill only). Also spawns background refresh when index exists."""
+    repo_root = _detect_repo_root()
+    _spawn_graphify_refresh_if_needed(repo_root)
     from scripts.shared.graphify_contract import forge_graphify_banner
 
-    return forge_graphify_banner(skill_name, step, _detect_repo_root())
+    return forge_graphify_banner(skill_name, step, repo_root)
 
 
 def forge_session_opt_in_banner(skill_name: str, step: int) -> str:
@@ -176,8 +190,12 @@ def validate_state_path(state_file: str, skill_name: str) -> Path | None:
             return None
         sp = equivalent_path_in_repo(sp, repo_root)
 
-    # Reject paths that don't look like state files for this skill.
-    looks_like_state = _is_skill_state_filename(sp.name, skill_name)
+    # Accept legacy skill json names and session.json under sessions/{id}/
+    from scripts.shared.session_store import is_session_state_path
+
+    looks_like_state = _is_skill_state_filename(sp.name, skill_name) or (
+        is_session_state_path(sp) and sp.is_file()
+    )
     if not looks_like_state:
         print(f"WARNING: --state path doesn't look like a state file, ignoring: {state_file}",
               file=sys.stderr)
@@ -195,15 +213,31 @@ def resolve_step1_state_path(
     *,
     parallel: bool = False,
     search_dir: Path | None = None,
+    label: str | None = None,
+    session_id: str | None = None,
 ) -> Path:
     """Resolve where a step-1 invocation should write state.
 
-    - ``--state <path>``: use that path if it is inside the repo and filename
-      matches the skill.
-    - ``--parallel``: auto-allocate a suffixed file in runtime state dir.
-    - default: canonical ``<skill>.json`` in runtime state dir.
+    Step 1 **always creates a new session directory** unless ``--state`` or
+    ``--session`` points at an existing file (legacy resume paths only).
     """
+    from scripts.shared.session_store import (
+        create_session,
+        migrate_legacy_state_files,
+        run_session_cleanup,
+        session_json_path,
+    )
+
     repo_root = _detect_repo_root(search_dir).resolve()
+
+    run_session_cleanup(search_dir=repo_root)
+    migrate_legacy_state_files(repo_root)
+
+    if session_id:
+        path = session_json_path(session_id, repo_root)
+        if not path.is_file():
+            sys.exit(f"ERROR: session not found: {session_id}")
+        return path
 
     if state_file:
         from scripts.shared.repo_paths import equivalent_path_in_repo, same_git_repo
@@ -215,24 +249,51 @@ def resolve_step1_state_path(
             if not same_git_repo(sp, repo_root):
                 sys.exit(f"ERROR: --state path is outside the repository: {state_file}")
             sp = equivalent_path_in_repo(sp, repo_root)
-        if not _is_skill_state_filename(sp.name, skill_name):
+        from scripts.shared.session_store import is_session_state_path
+
+        if not _is_skill_state_filename(sp.name, skill_name) and not is_session_state_path(sp):
             sys.exit(
-                f"ERROR: --state must look like `{skill_name}.json` or "
-                f"`{skill_name}-<id>.json` (got `{sp.name}`)"
+                f"ERROR: --state must be session.json or `{skill_name}.json` "
+                f"(got `{sp.name}`)"
             )
-        return sp
+        if sp.is_file():
+            return sp
+        # Explicit legacy path: create/write at the given location (parallel tests).
+        if _is_skill_state_filename(sp.name, skill_name):
+            sp.parent.mkdir(parents=True, exist_ok=True)
+            return sp
+        sys.exit(f"ERROR: state file not found: {state_file}")
 
-    if parallel:
-        return _next_parallel_state_path(skill_name, repo_root)
+    # Always allocate a new parallel session (--parallel is a no-op alias).
+    _ = parallel
+    sid, path = create_session(skill_name, label=label, search_dir=repo_root)
+    return path
 
-    # Fresh active same-skill session exists: auto-fan-out to parallel unless disabled.
-    if find_state_file(skill_name, repo_root) is not None and auto_parallel_on_conflict_enabled():
-        return _next_parallel_state_path(skill_name, repo_root)
 
-    return runtime_state_path(skill_name, repo_root)
+def resolve_state_path(
+    skill_name: str,
+    step: int,
+    state_file: str | None = None,
+    *,
+    session_id: str | None = None,
+    search_dir: Path | None = None,
+) -> Path:
+    """Resolve state path for any step (step 1 uses ``resolve_step1_state_path``)."""
+    from scripts.shared.session_store import resolve_session_for_step
+
+    if step == 1:
+        return resolve_step1_state_path(skill_name, state_file, search_dir=search_dir)
+    return resolve_session_for_step(
+        skill_name,
+        step,
+        session_id=session_id,
+        state_file=state_file,
+        search_dir=search_dir,
+    )
 
 
 def _next_parallel_state_path(skill_name: str, repo_root: Path) -> Path:
+    """Legacy parallel path helper (deprecated — use session directories)."""
     state_dir = runtime_state_dir(repo_root)
     state_dir.mkdir(parents=True, exist_ok=True)
     stamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
@@ -248,6 +309,37 @@ def auto_parallel_on_conflict_enabled() -> bool:
     """Whether step-1 should auto-allocate parallel state on same-skill conflicts."""
     v = os.environ.get("FORGE_AUTO_PARALLEL_ON_CONFLICT", "1").strip().lower()
     return v not in ("0", "false", "no", "off")
+
+
+def resolve_skill_state_path(
+    skill_name: str,
+    step: int,
+    args: Any,
+) -> Path:
+    """Resolve state path from CLI args (session-first, legacy fallback)."""
+    state_file = getattr(args, "state", None)
+    session_id = getattr(args, "session", None)
+    label = getattr(args, "label", None)
+    parallel = getattr(args, "parallel", False)
+    if step == 1:
+        return resolve_step1_state_path(
+            skill_name,
+            state_file,
+            parallel=parallel,
+            label=label,
+            session_id=session_id,
+        )
+    sp = validate_state_path(state_file, skill_name) if state_file else None
+    if sp is not None:
+        return sp
+    from scripts.shared.session_store import resolve_session_for_step
+
+    return resolve_session_for_step(
+        skill_name,
+        step,
+        session_id=session_id,
+        state_file=None,
+    )
 
 
 def read_memory_file(name: str) -> str:
@@ -585,14 +677,19 @@ def build_base_parser(skill_name: str, max_step: int) -> argparse.ArgumentParser
     )
     parser.add_argument(
         "--state", type=str, default=None,
-        help="Path to state file (auto-detected if omitted; step 1 supports custom paths)"
+        help="Path to session.json or legacy state file (resume)"
+    )
+    parser.add_argument(
+        "--session", type=str, default=None,
+        help="Session id to continue (from forge status / forge resume)",
+    )
+    parser.add_argument(
+        "--label", type=str, default=None,
+        help="Human-readable label for a new session (step 1 only)",
     )
     parser.add_argument(
         "--parallel", action="store_true",
-        help=(
-            "Start a parallel same-skill session by creating a suffixed state file "
-            f"(`{skill_name}-<timestamp>.json`)."
-        ),
+        help="Deprecated: step 1 always creates a new session (same as default)",
     )
     parser.add_argument(
         "--quick", action="store_true",
@@ -613,54 +710,9 @@ def check_same_skill_clobber(
     allow_parallel: bool = False,
     target_state_path: Path | None = None,
 ) -> None:
-    """Abort if a same-skill state file exists with in-progress work.
-
-    Call from a skill's `handle_step_1` (fresh-start path only). Subsequent
-    steps explicitly pass `--state <path>` and must not be blocked by this
-    check — they're the resume signal.
-
-    Checks every plausible location: the canonical write target
-    (`runtime_state_path` with default REPO_ROOT) AND any state file
-    discoverable from the current cwd. The dual check matters because
-    skills write to REPO_ROOT but a user could be invoking from elsewhere;
-    the clobber needs to fire either way.
-
-    Cross-skill conflicts remain warning-only via the existing
-    `format_active_session_warning` flow; this function only handles the
-    *same-skill* case where the user would otherwise silently overwrite
-    in-progress state.
-    """
-    # Default behavior (single-session mode): block when any in-progress same-skill
-    # session exists.
-    candidates = [
-        p
-        for p in _state_path_candidates(skill_name, _detect_repo_root())
-        if p.exists()
-    ]
-    if allow_parallel and target_state_path is not None:
-        # Parallel mode still protects against overwriting the chosen file.
-        candidates = [target_state_path] if target_state_path.exists() else []
-
-    for path in candidates:
-        if not path.exists():
-            continue
-        try:
-            state = load_state(path)
-        except Exception:
-            # Corrupt state — leave it for the regular load path to surface.
-            continue
-        if is_state_stale(state, path):
-            continue
-        if not is_state_effectively_complete(state) and state.current_step > 0:
-            sys.exit(
-                f"ERROR: A `{skill_name}` session is already in progress "
-                f"(step {state.current_step}/{state.max_step}, started "
-                f"{state.started_at}, session_id {state.session_id}).\n"
-                f"State file: {path}\n"
-                f"Run `{resume_invocation_hint()}` to continue it, "
-                f"or use `--parallel` / `--state {skill_name}-<id>.json` "
-                f"to start another session."
-            )
+    """No-op: step 1 always creates a new session directory (parallel-first)."""
+    _ = (skill_name, allow_parallel, target_state_path)
+    return
 
 
 def validate_step_or_complete(step: int, max_step: int, skill_name: str) -> bool:

@@ -31,19 +31,22 @@ Or set a full command line:
 From the repository root (or `forge graphify refresh --repo <path>`):
 
 ```bash
-forge graphify refresh
-forge graphify refresh --background   # detached; returns immediately
+forge graphify refresh              # background (default)
+forge graphify refresh --foreground # wait in this process
+forge graphify refresh --force      # spawn even when status looks fresh
 ```
 
 Forge writes **`.codex/forge/state/graphify-status.json`** (fail-soft on errors). `forge resume` reads this file and any `GRAPH_REPORT.md` it finds.
 
-**Automatic background refresh** (when Graphify is on PATH and status is missing, stale, or behind `git HEAD`):
+**Automatic background refresh** (when Graphify is on PATH and status is missing, stale, or behind `git HEAD`; ship also uses `--force` when an index exists):
 
 | Trigger | Environment |
 |---------|-------------|
-| **Claude SessionStart** hook | After `forge claude-graphify` |
-| **`forge ship --step 1`** | Foreground refresh + GRAPHIFY banner before commit/PR |
-| **`$forge:graphify`** skill | Manual refresh / hook setup (not per workflow step) |
+| **Claude SessionStart** hook | After `forge claude-graphify` (when graph present) |
+| **Any `forge <skill> --step`** | Debounced spawn when `graphify-out/` exists |
+| **`forge ship --step 1`** | Background refresh + GRAPHIFY banner (do not wait) |
+| **Post-commit hook** | `forge graphify install-hook` |
+| **`$forge:graphify`** skill | Manual refresh / hook setup |
 
 Suppress auto-spawn with **`FORGE_SKIP_GRAPHIFY_REFRESH=1`** (CI). Debounced ~2 minutes per repo via `graphify-refresh.lock` under the Forge state dir.
 
@@ -77,9 +80,9 @@ Project-level reminders:
 
 ## 3. Ship-time enforcement (orchestrator)
 
-**`forge ship --step 1`** prints a **GRAPHIFY** banner and runs **`forge graphify refresh`** (foreground) when an index is present.
+**`forge ship --step 1`** prints a **GRAPHIFY** banner and starts **`forge graphify refresh`** in the background when an index is present — continue commit/PR without waiting.
 
-Workflow skills (`develop`, `plan`, `implement`, `code-review`, `test`, `diagnose`, `evaluate`, `iterate`) **do not** print GRAPHIFY blocks or spawn background refresh on each `--step`.
+Workflow skills spawn **debounced** background refresh on each `--step` when `graphify-out/` exists; they **do not** print per-step GRAPHIFY banners (ship only).
 
 **Disable:**
 
@@ -98,7 +101,7 @@ export FORGE_SKIP_GRAPHIFY=1
 
 Also suppresses automatic background refresh (same as setting both skip flags). Accepts `true`, `yes`, `on`.
 
-**Claude Code SessionStart:** background `graphify refresh` on session start is **off** by default (ship-only policy). Opt in with `FORGE_GRAPHIFY_SESSION_REFRESH=1`.
+**Claude Code SessionStart:** spawns background refresh when `graphify-out/` exists. Opt out with `FORGE_SKIP_GRAPHIFY_SESSION_REFRESH=1`.
 
 **Refresh only** (keep banners, skip auto-spawn):
 

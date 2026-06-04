@@ -62,7 +62,7 @@ Repo: `{repo_root}`
 def handle_step_1() -> None:
     repo_root = _detect_repo_root(Path.cwd())
     print(
-        "forge: ship step 1 — refreshing graphify index (foreground)…",
+        "forge: ship step 1 — starting graphify refresh in the background…",
         file=sys.stderr,
         flush=True,
     )
@@ -72,10 +72,16 @@ def handle_step_1() -> None:
     ).graphify_fully_disabled(repo_root):
         try:
             from forge_next.graphify import refresh
+            from scripts.shared.graphify_contract import graph_index_present
 
-            refresh(repo_root, background=False)
+            refresh(
+                repo_root,
+                background=True,
+                force=graph_index_present(repo_root),
+            )
             refresh_note = (
-                "Ran **`forge graphify refresh`** (foreground). "
+                "Started **`forge graphify refresh`** in the background (ship does not wait). "
+                "Continue commit/PR; the index catches up asynchronously. "
                 "If the CLI was missing, set `FORGE_GRAPHIFY_COMMAND` or install `graphify`."
             )
         except Exception as exc:

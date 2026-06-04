@@ -507,6 +507,8 @@ def handle_step_1(args) -> None:
         SKILL_NAME,
         args.state,
         parallel=getattr(args, "parallel", False),
+        label=getattr(args, "label", None),
+        session_id=getattr(args, "session", None),
     )
     # Same-skill abort: refuse to silently overwrite an in-progress session.
     check_same_skill_clobber(

@@ -1,6 +1,6 @@
 # Workflow session directories
 
-Forge stores workflow state under the **runtime root** (default `.codex/forge/` in the target repo; legacy `.codex/forge-codex/` if the canonical tree does not exist yet; `.forge/` when `.codex` cannot be a directory).
+Forge stores workflow state under the **runtime root** (default `.codex/forge/` in the target repo; legacy `.codex/forge-codex/` if the canonical tree does not exist yet; `.forge/` when `.codex` is a file, read-only — common in Codex sandboxes — or its runtime subtree is not writable).
 
 Implementation: [`scripts/shared/session_store.py`](../scripts/shared/session_store.py).
 

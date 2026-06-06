@@ -34,20 +34,35 @@ REPO_ROOT = detect_repo_root()
 
 
 def blocked_runtime_anchor(base_dir: Path) -> bool:
-    """True when the canonical `.codex` anchor exists but is not a directory."""
+    """True when Forge must not write under ``.codex/`` (file anchor or read-only)."""
+    from scripts.shared.repo_paths import is_writable_dir
+
     anchor = base_dir / CANONICAL_RUNTIME_PARTS[0]
-    return anchor.exists() and not anchor.is_dir()
+    if anchor.exists() and not anchor.is_dir():
+        return True
+    if anchor.is_dir() and not is_writable_dir(anchor):
+        return True
+    return False
 
 
 def runtime_root(search_dir: Path | None = None) -> Path:
     """Return the runtime root for Forge artifacts under the target repo."""
+    from scripts.shared.repo_paths import is_writable_dir
+
     base_dir = search_dir or detect_repo_root()
+    legacy_root = base_dir / LEGACY_RUNTIME_DIRNAME
     if blocked_runtime_anchor(base_dir):
-        return base_dir / LEGACY_RUNTIME_DIRNAME
+        return legacy_root
     canonical = base_dir.joinpath(*CANONICAL_RUNTIME_PARTS)
     legacy_fc = base_dir.joinpath(*LEGACY_FORGE_CODEX_RUNTIME_PARTS)
-    if legacy_fc.is_dir() and not canonical.exists():
-        return legacy_fc
+    if canonical.is_dir():
+        if is_writable_dir(canonical):
+            return canonical
+        return legacy_root
+    if legacy_fc.is_dir():
+        if is_writable_dir(legacy_fc):
+            return legacy_fc
+        return legacy_root
     return canonical
 
 
@@ -237,7 +252,7 @@ def _repo_root_for_path(path: Path) -> Path | None:
     """Best-effort repo root from a state path (``.../repo/.codex/forge/...``)."""
     parts = path.resolve().parts
     for i, part in enumerate(parts):
-        if part == ".codex" and i > 0:
+        if part in (".codex", LEGACY_RUNTIME_DIRNAME) and i > 0:
             return Path(*parts[:i])
     return None
 

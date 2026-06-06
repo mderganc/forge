@@ -2,6 +2,7 @@ import json
 from pathlib import Path
 
 from scripts.shared import orchestrator
+from scripts.shared import repo_paths as rp
 
 
 def test_runtime_root_uses_canonical_layout_when_dot_codex_is_directory(tmp_path: Path):
@@ -29,6 +30,49 @@ def test_runtime_root_falls_back_to_legacy_when_dot_codex_is_not_directory(tmp_p
     expected = tmp_path / ".forge"
     assert orchestrator.runtime_root(tmp_path) == expected
     assert orchestrator.runtime_state_path("develop", tmp_path) == expected / "state" / "develop.json"
+
+
+def test_runtime_root_falls_back_when_dot_codex_is_read_only(tmp_path: Path, monkeypatch):
+    (tmp_path / ".codex").mkdir()
+    expected = tmp_path / ".forge"
+    codex = (tmp_path / ".codex").resolve()
+
+    real_is_writable = rp.is_writable_dir
+
+    def selective_writable(path: Path) -> bool:
+        if path.resolve() == codex:
+            return False
+        return real_is_writable(path)
+
+    monkeypatch.setattr("scripts.shared.repo_paths.is_writable_dir", selective_writable)
+    assert orchestrator.runtime_root(tmp_path) == expected
+
+
+def test_runtime_root_keeps_writable_existing_canonical_tree(tmp_path: Path):
+    canonical = tmp_path / ".codex" / "forge"
+    canonical.mkdir(parents=True)
+    (canonical / "sessions").mkdir()
+
+    assert orchestrator.runtime_root(tmp_path) == canonical
+
+
+def test_runtime_root_falls_back_when_existing_canonical_tree_is_read_only(
+    tmp_path: Path, monkeypatch
+):
+    canonical = tmp_path / ".codex" / "forge"
+    canonical.mkdir(parents=True)
+    expected = tmp_path / ".forge"
+    canonical_resolved = canonical.resolve()
+
+    real_is_writable = rp.is_writable_dir
+
+    def selective_writable(path: Path) -> bool:
+        if path.resolve() == canonical_resolved:
+            return False
+        return real_is_writable(path)
+
+    monkeypatch.setattr("scripts.shared.repo_paths.is_writable_dir", selective_writable)
+    assert orchestrator.runtime_root(tmp_path) == expected
 
 
 def test_scan_evaluate_sessions_uses_correct_mode_max_steps(tmp_path: Path):

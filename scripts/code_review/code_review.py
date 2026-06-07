@@ -412,13 +412,59 @@ def handle_step_1(args) -> None:
     ))
 
 
-def handle_step_n(step: int, state_file: str | None = None) -> None:
-    """Steps 2-6: Load state, render template, output prompt."""
+def _resolve_code_review_state_path(
+    state_file: str | None = None,
+    session_id: str | None = None,
+) -> Path:
+    """Resolve session.json for steps 2–6 (matches plan.py session semantics)."""
+    from scripts.shared.session_store import (
+        format_sessions_table,
+        list_active_sessions,
+        session_json_path,
+    )
+
     sp = validate_state_path(state_file, SKILL_NAME) if state_file else None
+    if sp is None and session_id:
+        sp = session_json_path(session_id)
     if sp is None:
-        sp = find_state_file(SKILL_NAME)
+        active = [s for s in list_active_sessions() if s.skill == SKILL_NAME]
+        if len(active) == 1:
+            sp = active[0].path
+        elif len(active) > 1:
+            print(format_sessions_table(active), file=sys.stderr)
+            sys.exit(
+                f"ERROR: {len(active)} active code-review sessions — use --session <id> "
+                "(see table above)"
+            )
+        else:
+            sp = find_state_file(SKILL_NAME)
         if sp is None:
             sp = _state_path()
+    return sp
+
+
+def _probe_status_one_liner(probe_markdown: str) -> str:
+    """Single-line probe status for run_summary / memory."""
+    for line in probe_markdown.splitlines():
+        stripped = line.strip()
+        if not stripped or stripped.startswith("#"):
+            continue
+        if stripped.startswith("_") and stripped.endswith("_"):
+            return stripped.strip("_")
+        if stripped.startswith("- **") and "finding" in stripped.lower():
+            return stripped.lstrip("- ")
+        if "not run" in stripped.lower() or "suppressed" in stripped.lower():
+            return stripped.strip("_")
+    return "see step output for structural probe details"
+
+
+def handle_step_n(
+    step: int,
+    state_file: str | None = None,
+    session_id: str | None = None,
+) -> None:
+    """Steps 2-6: Load state, render template, output prompt."""
+    sp = _resolve_code_review_state_path(state_file, session_id)
 
     if not sp.exists():
         print("ERROR: No code-review session in progress. Run step 1 first.")
@@ -538,7 +584,11 @@ def handle_step_n(step: int, state_file: str | None = None) -> None:
         body += f"\n\nHandoff written to: {handoff_path}"
         handoff_menu = build_skill_handoff_menu(SKILL_NAME, state, sp)
         clear_state_file(sp)
-        run_summary = "Completed code-review workflow, wrote handoff, and closed session state."
+        probe_status = _probe_status_one_liner(probe_brief)
+        run_summary = (
+            "Completed code-review workflow, wrote handoff, and closed session state. "
+            f"Structural probes: {probe_status}"
+        )
 
     if step != MAX_STEP:
         state.mark_step_complete(step)
@@ -595,7 +645,11 @@ def main():
     if args.step == 1:
         handle_step_1(args)
     else:
-        handle_step_n(args.step, state_file=args.state)
+        handle_step_n(
+            args.step,
+            state_file=args.state,
+            session_id=getattr(args, "session", None),
+        )
 
 
 if __name__ == "__main__":

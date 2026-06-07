@@ -31,6 +31,28 @@ def capture_human_output(
     return human, rc
 
 
+def _parse_step_from_title(human_output: str) -> tuple[int | None, int | None]:
+    """Parse ``(step, max_step)`` from orchestrator title lines."""
+    import re
+
+    match = re.search(r"\(Step\s+(\d+)\s+of\s+(\d+)\)", human_output)
+    if not match:
+        return None, None
+    return int(match.group(1)), int(match.group(2))
+
+
+def _extract_structural_probes_summary(human_output: str) -> str | None:
+    """Return structural probe markdown block when present in step output."""
+    marker = "## Structural probes"
+    start = human_output.find(marker)
+    if start < 0:
+        return None
+    tail = human_output[start:]
+    end = tail.find("\n---\n")
+    block = tail[:end].strip() if end >= 0 else tail.strip()
+    return block or None
+
+
 def summarize_orchestrator_output(
     repo_root: Path, command: str, human_output: str
 ) -> dict:
@@ -67,15 +89,19 @@ def summarize_orchestrator_output(
         except Exception:
             warnings.append("Failed to parse phase_todos JSON block.")
 
+    step, max_step = _parse_step_from_title(human_output)
+    structural_probes_summary = _extract_structural_probes_summary(human_output)
+
     return {
         "command": command,
         "repo_root": str(repo_root),
         "mode": None,
-        "step": None,
-        "max_step": None,
+        "step": step,
+        "max_step": max_step,
         "state_path": state_path,
         "next_cmd": next_cmd,
         "phase_todos": phase_todos,
+        "structural_probes_summary": structural_probes_summary,
         "warnings": warnings,
         "error": error,
     }

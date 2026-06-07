@@ -1211,6 +1211,12 @@ def run_probes_from_state_dir(
     )
 
 
+def probe_payload_exit_code(payload: dict[str, Any]) -> int:
+    """Return 1 when any probe reported ``status: fail``."""
+    failed = [p for p in payload.get("probes") or [] if p.get("status") == "fail"]
+    return 1 if failed else 0
+
+
 def cli_run(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Run agent-selected structural probes")
     parser.add_argument(
@@ -1252,8 +1258,7 @@ def cli_run(argv: list[str] | None = None) -> int:
     payload = run_probes_from_state_dir(repo_root, state_dir, tools=tools)
     sc = sidecar_path(state_dir)
     print(format_probe_results_banner(payload, sc))
-    failed = [p for p in payload.get("probes") or [] if p.get("status") == "fail"]
-    return 1 if failed else 0
+    return probe_payload_exit_code(payload)
 
 
 if __name__ == "__main__":

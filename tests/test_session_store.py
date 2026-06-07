@@ -112,6 +112,87 @@ def test_migrate_legacy_plan_json(session_repo):
     assert active[0].skill == "plan"
 
 
+def test_session_id_matches_directory_name(session_repo):
+    """Session JSON must use the short directory id, not a random UUID."""
+    sp = resolve_step1_state_path("plan", search_dir=session_repo, label="sync-test")
+    sp.parent.mkdir(parents=True, exist_ok=True)
+    state = SkillState(skill_name="plan", max_step=7)
+    save_state(state, sp, label="sync-test")
+    raw = json.loads(sp.read_text(encoding="utf-8"))
+    assert raw["session_id"] == sp.parent.name
+
+
+def test_find_session_after_runtime_root_fallback(session_repo, monkeypatch):
+    """Sessions under read-only .codex/forge remain discoverable for step N."""
+    from scripts.shared import repo_paths as rp
+    from scripts.shared.runtime_layout import find_state_file, runtime_root
+
+    canonical = session_repo / ".codex" / "forge"
+    canonical.mkdir(parents=True)
+    sid = "abc123"
+    path = session_repo / ".codex" / "forge" / "sessions" / sid / SESSION_JSON
+    path.parent.mkdir(parents=True)
+    state = SkillState(skill_name="develop", max_step=7, session_id=sid)
+    state.current_step = 1
+    state.last_completed_step = 1
+    save_state(state, path, label="develop-test")
+
+    canonical_resolved = canonical.resolve()
+    real_is_writable = rp.is_writable_dir
+
+    def selective_writable(p: Path) -> bool:
+        if p.resolve() == canonical_resolved:
+            return False
+        return real_is_writable(p)
+
+    monkeypatch.setattr("scripts.shared.repo_paths.is_writable_dir", selective_writable)
+    assert runtime_root(session_repo).name == ".forge"
+
+    found = find_state_file("develop", session_repo)
+    assert found is not None
+    assert found.parent.name == sid
+
+
+def test_save_state_relocates_read_only_session(session_repo, monkeypatch):
+    """Step N saves migrate session state to the writable runtime root."""
+    from scripts.shared import repo_paths as rp
+    from scripts.shared.runtime_layout import runtime_root
+
+    canonical = session_repo / ".codex" / "forge"
+    canonical.mkdir(parents=True)
+    sid = "def456"
+    read_only_path = (
+        session_repo / ".codex" / "forge" / "sessions" / sid / SESSION_JSON
+    )
+    read_only_path.parent.mkdir(parents=True)
+    state = SkillState(skill_name="plan", max_step=7, session_id=sid)
+    state.current_step = 2
+    read_only_path.write_text(json.dumps(state.to_dict(), indent=2), encoding="utf-8")
+
+    canonical_resolved = canonical.resolve()
+    real_is_writable = rp.is_writable_dir
+
+    def selective_writable(p: Path) -> bool:
+        if p.resolve() == canonical_resolved:
+            return False
+        return real_is_writable(p)
+
+    monkeypatch.setattr("scripts.shared.repo_paths.is_writable_dir", selective_writable)
+    assert runtime_root(session_repo).name == ".forge"
+
+    state.current_step = 3
+    save_state(state, read_only_path, label="plan-test")
+
+    writable_path = runtime_root(session_repo) / "sessions" / sid / SESSION_JSON
+    assert writable_path.is_file()
+    saved = json.loads(writable_path.read_text(encoding="utf-8"))
+    assert saved["current_step"] == 3
+    assert saved["session_id"] == sid
+    active = list_active_sessions(session_repo)
+    assert len(active) == 1
+    assert active[0].path.resolve() == writable_path.resolve()
+
+
 def test_archive_session_moves_directory(session_repo):
     _write_session(session_repo, "diagnose", session_id="ccc333", label="x")
     dest = archive_session_dir("ccc333", session_repo)

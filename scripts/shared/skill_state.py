@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from dataclasses import asdict, dataclass, field
 from typing import Any
-from uuid import uuid4
 
 
 @dataclass
@@ -79,7 +78,7 @@ class SkillState:
     started_at: str | None = None
     completed_at: str | None = None
     last_touched_at: str | None = None
-    session_id: str = field(default_factory=lambda: str(uuid4()))
+    session_id: str = ""
     failure_count: int = 0
     custom: dict[str, Any] = field(default_factory=dict)
 

@@ -101,6 +101,58 @@ def session_id_from_state_path(path: Path) -> str | None:
     return path.parent.name
 
 
+def ensure_writable_state_path(path: Path, search_dir: Path | None = None) -> Path:
+    """Return ``path`` or relocate a session file to the active writable runtime root."""
+    import shutil
+
+    from scripts.shared.repo_paths import is_writable_dir
+    from scripts.shared.runtime_layout import runtime_root
+
+    repo = search_dir or _repo_root_for_state_path(path) or detect_repo_root()
+
+    if is_session_state_path(path):
+        sid = session_id_from_state_path(path)
+        if sid:
+            active = session_json_path(sid, repo)
+            current_root = _runtime_root_for_state_path(path)
+            target_root = runtime_root(repo)
+            needs_relocate = (
+                current_root is not None
+                and current_root.resolve() != target_root.resolve()
+            ) or (path.is_file() and not is_writable_dir(path.parent))
+            if needs_relocate:
+                active.parent.mkdir(parents=True, exist_ok=True)
+                if path.is_file() and not active.is_file():
+                    shutil.copy2(path, active)
+                return active
+
+    parent = path.parent
+    if not path.is_file():
+        parent.mkdir(parents=True, exist_ok=True)
+        if is_writable_dir(parent):
+            return path
+    elif is_writable_dir(parent):
+        return path
+    return path
+
+
+def _runtime_root_for_state_path(path: Path) -> Path | None:
+    """Return ``.../.codex/forge`` (or ``.forge``) for a ``session.json`` path."""
+    parts = path.resolve().parts
+    for i, part in enumerate(parts):
+        if part == SESSIONS_DIRNAME and i >= 1:
+            return Path(*parts[:i])
+    return None
+
+
+def _repo_root_for_state_path(path: Path) -> Path | None:
+    parts = path.resolve().parts
+    for i, part in enumerate(parts):
+        if part in (".codex", ".forge") and i > 0:
+            return Path(*parts[:i])
+    return None
+
+
 def _new_session_id(search_dir: Path | None = None) -> str:
     root = sessions_root(search_dir)
     for _ in range(32):
@@ -280,29 +332,59 @@ def session_info_from_path(path: Path) -> SessionInfo | None:
 
 
 def iter_session_json_paths(search_dir: Path | None = None, *, include_archive: bool = False) -> list[Path]:
-    root = sessions_root(search_dir)
     paths: list[Path] = []
-    if not root.is_dir():
-        return paths
-    for child in sorted(root.iterdir()):
-        if not child.is_dir() or child.name in RESERVED_SESSION_DIRS:
+    seen: set[str] = set()
+    for root in all_sessions_roots(search_dir):
+        if not root.is_dir():
             continue
-        candidate = child / SESSION_JSON
-        if candidate.is_file():
-            paths.append(candidate)
-    if include_archive:
-        archive = sessions_archive_root(search_dir)
-        if archive.is_dir():
-            for child in sorted(archive.iterdir()):
-                if child.is_dir():
-                    candidate = child / SESSION_JSON
-                    if candidate.is_file():
-                        paths.append(candidate)
+        for child in sorted(root.iterdir()):
+            if not child.is_dir() or child.name in RESERVED_SESSION_DIRS:
+                continue
+            candidate = child / SESSION_JSON
+            if candidate.is_file():
+                key = str(candidate.resolve())
+                if key not in seen:
+                    seen.add(key)
+                    paths.append(candidate)
+        if include_archive:
+            archive = root / ARCHIVE_DIRNAME
+            if archive.is_dir():
+                for child in sorted(archive.iterdir()):
+                    if child.is_dir():
+                        candidate = child / SESSION_JSON
+                        if candidate.is_file():
+                            key = str(candidate.resolve())
+                            if key not in seen:
+                                seen.add(key)
+                                paths.append(candidate)
     return paths
+
+
+def all_sessions_roots(search_dir: Path | None = None) -> list[Path]:
+    """Return every ``sessions/`` directory that may hold workflow state."""
+    from scripts.shared.runtime_layout import runtime_root_candidates
+
+    roots: list[Path] = []
+    seen: set[str] = set()
+    for runtime in runtime_root_candidates(search_dir):
+        candidate = runtime / SESSIONS_DIRNAME
+        try:
+            key = str(candidate.resolve())
+        except OSError:
+            key = str(candidate)
+        if key in seen:
+            continue
+        seen.add(key)
+        roots.append(candidate)
+    return roots
 
 
 def list_active_sessions(search_dir: Path | None = None) -> list[SessionInfo]:
     """Active, non-stale sessions under ``sessions/`` (not ``_archive/``)."""
+    from scripts.shared.runtime_layout import runtime_root
+
+    repo = search_dir or detect_repo_root()
+    active_root = runtime_root(repo)
     sessions: list[SessionInfo] = []
     for path in iter_session_json_paths(search_dir, include_archive=False):
         info = session_info_from_path(path)
@@ -315,6 +397,22 @@ def list_active_sessions(search_dir: Path | None = None) -> list[SessionInfo]:
         if is_state_stale(state, path):
             continue
         sessions.append(info)
+
+    by_key: dict[tuple[str, str], SessionInfo] = {}
+    for info in sessions:
+        key = (info.skill, info.path.parent.name)
+        existing = by_key.get(key)
+        if existing is None:
+            by_key[key] = info
+            continue
+        try:
+            under_active = info.path.resolve().is_relative_to(active_root.resolve())
+        except (ValueError, OSError):
+            under_active = str(active_root) in str(info.path)
+        if under_active:
+            by_key[key] = info
+
+    sessions = list(by_key.values())
     sessions.sort(key=lambda s: s.last_touched_at or s.started_at or "", reverse=True)
     return sessions
 

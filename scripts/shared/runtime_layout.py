@@ -47,23 +47,49 @@ def blocked_runtime_anchor(base_dir: Path) -> bool:
 
 def runtime_root(search_dir: Path | None = None) -> Path:
     """Return the runtime root for Forge artifacts under the target repo."""
+    return runtime_root_candidates(search_dir)[0]
+
+
+def runtime_root_candidates(search_dir: Path | None = None) -> list[Path]:
+    """Return runtime roots with the writable primary first, then other trees."""
     from scripts.shared.repo_paths import is_writable_dir
 
     base_dir = search_dir or detect_repo_root()
     legacy_root = base_dir / LEGACY_RUNTIME_DIRNAME
     if blocked_runtime_anchor(base_dir):
-        return legacy_root
+        return _dedupe_runtime_roots([legacy_root])
+
     canonical = base_dir.joinpath(*CANONICAL_RUNTIME_PARTS)
     legacy_fc = base_dir.joinpath(*LEGACY_FORGE_CODEX_RUNTIME_PARTS)
     if canonical.is_dir():
-        if is_writable_dir(canonical):
-            return canonical
-        return legacy_root
-    if legacy_fc.is_dir():
-        if is_writable_dir(legacy_fc):
-            return legacy_fc
-        return legacy_root
-    return canonical
+        primary = canonical if is_writable_dir(canonical) else legacy_root
+    elif legacy_fc.is_dir():
+        primary = legacy_fc if is_writable_dir(legacy_fc) else legacy_root
+    else:
+        primary = canonical
+
+    extras = [canonical, legacy_fc, legacy_root]
+    return _dedupe_runtime_roots([primary, *extras])
+
+
+def _dedupe_runtime_roots(roots: list[Path]) -> list[Path]:
+    """Keep first occurrence of each existing runtime root."""
+    out: list[Path] = []
+    seen: set[str] = set()
+    for root in roots:
+        if not root.is_dir() and root != roots[0]:
+            continue
+        try:
+            key = str(root.resolve())
+        except OSError:
+            key = str(root)
+        if key in seen:
+            continue
+        seen.add(key)
+        out.append(root)
+    if not out:
+        return [roots[0]]
+    return out
 
 
 def legacy_runtime_root(search_dir: Path | None = None) -> Path:
@@ -181,19 +207,23 @@ _is_skill_state_filename = is_skill_state_filename
 
 def save_state(state: SkillState, path: Path, *, label: str | None = None) -> None:
     """Write state to JSON file atomically."""
-    state.last_touched_at = now_iso()
-    if not state.session_id:
-        from scripts.shared.session_store import session_id_from_state_path
-
-        sid = session_id_from_state_path(path)
-        state.session_id = sid if sid else str(uuid4())
-    path.parent.mkdir(parents=True, exist_ok=True)
     from scripts.shared.session_store import (
         enrich_state_dict_for_save,
+        ensure_writable_state_path,
         is_session_state_path,
+        session_id_from_state_path,
         update_index_for_session,
     )
 
+    path = ensure_writable_state_path(path)
+    state.last_touched_at = now_iso()
+    sid_from_path = session_id_from_state_path(path)
+    if sid_from_path:
+        state.session_id = sid_from_path
+    elif not state.session_id:
+        state.session_id = str(uuid4())
+
+    path.parent.mkdir(parents=True, exist_ok=True)
     payload = enrich_state_dict_for_save(state, path, label=label)
     content = json.dumps(payload, indent=2)
     fd, tmp = tempfile.mkstemp(dir=path.parent, suffix=".tmp")

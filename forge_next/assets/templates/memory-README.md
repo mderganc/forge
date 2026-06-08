@@ -33,7 +33,7 @@ Skills write handoff files to `.codex/forge-codex/memory/` to pass context to th
 
 | File | Written By | Read By | Purpose |
 |------|-----------|---------|---------|
-| `handoff-develop.md` | develop | plan | Approved solutions, team composition, scope |
+| `handoff-design.md` | design | plan | Approved solutions, team composition, scope (legacy `handoff-develop.md` still read) |
 | `handoff-plan.md` | plan | implement, evaluate (pre) | Plan reference, task list, dependencies |
 | `handoff-evaluate.md` | evaluate | implement, plan | Evaluation findings, mode used |
 | `handoff-implement.md` | implement | code-review | Branch, files changed, tests written |

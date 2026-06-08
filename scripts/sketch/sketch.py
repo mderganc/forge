@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""Sketch skill orchestrator — organize intent before develop.
+"""Sketch skill orchestrator — organize intent before design.
 
 Three steps: startup, sketch session (one question at a time), handoff.
 Optional --with-domain-docs allows CONTEXT.md glossary and sparse ADRs.
-Develop (not sketch) authors docs/forge/specs/*-design.md.
+Design (not sketch) authors docs/forge/specs/*-design.md.
 """
 
 from __future__ import annotations
@@ -66,9 +66,9 @@ PHASE_TODOS = {
          "activeForm": "Recording sketch decisions"},
     ],
     3: [
-        {"content": "Write handoff-sketch.md for develop",
+        {"content": "Write handoff-sketch.md for design",
          "activeForm": "Writing sketch handoff"},
-        {"content": "Present handoff menu (default develop)",
+        {"content": "Present handoff menu (default design)",
          "activeForm": "Completing sketch handoff"},
     ],
 }
@@ -106,7 +106,7 @@ def _no_edit_policy(with_domain_docs: bool) -> str:
         "**Default:** Read-only on the codebase unless exploring answers a question.\n\n"
         "**Session memory (always allowed):** `.codex/forge-codex/memory/` — "
         "especially `sketch-decisions.md` and `project.md`.\n\n"
-        "**Do not write** `docs/forge/specs/*-design.md` — that is **develop's** design spec.\n"
+        "**Do not write** `docs/forge/specs/*-design.md` — that is **design's** named spec.\n"
     )
     if with_domain_docs:
         base += (
@@ -336,11 +336,11 @@ def handle_step_n(
                 ),
                 "Decisions artifact": decisions_note,
                 "Next": (
-                    "Run forge develop — develop investigates, scores solutions, "
+                    "Run forge design — design investigates, scores solutions, "
                     "and writes docs/forge/specs/...-design.md when scope is medium/large."
                 ),
             },
-            suggested_next="develop",
+            suggested_next="design",
         )
         body += f"\n\nHandoff written to: {handoff_path}"
         handoff_menu = build_skill_handoff_menu(SKILL_NAME, state, sp)

@@ -2,7 +2,7 @@
 description: |
   Create detailed implementation plans with task breakdown, parallelization,
   TDD steps, and risk analysis. Works with the full agent team. Can receive
-  approved solutions from `develop` or accept a standalone plan request.
+  approved solutions from `design` or accept a standalone plan request.
   Supports --quick mode for simple plans.
 ---
 
@@ -34,7 +34,7 @@ to point at a different repository root.
 
 ## Process-first routing
 
-- **`forge:plan`** is for turning an **approved direction** into tasks. If the user has not converged on one approach, prefer **`forge:develop`** (or finish **`forge:diagnose`**) first.
+- **`forge:plan`** is for turning an **approved direction** into tasks. If the user has not converged on one approach, prefer **`forge:design`** (or finish **`forge:diagnose`**) first.
 - Do not skip straight to a heavy plan when investigation or design is still open — see [AGENTS.md](../../AGENTS.md) (process-first).
 
 ## CRITICAL: Progress Tracking
@@ -86,7 +86,7 @@ Do NOT analyze or explore first. Run the script and follow its output.
 At the final step (7 — handoff), the orchestrator emits a numbered menu of
 next-skill options instead of a single hardcoded suggestion. Reply with `yes`,
 `1`, `default`, or the literal command to take the default (`evaluate --mode pre`).
-Other numbered options route to `implement`, `develop`, `code-review`, or
+Other numbered options route to `implement`, `design`, `code-review`, or
 `(stop)`. The menu is rendered by `build_skill_handoff_menu` in
 `scripts/shared/orchestrator.py` from the canonical mapping in
 `scripts/shared/skill_chain.py`.

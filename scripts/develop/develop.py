@@ -86,7 +86,7 @@ PHASE_TODOS = {
     1: [
         {"content": "Detect autonomy level and check for resumable session",
          "activeForm": "Detecting autonomy and session state"},
-        {"content": "Initialize develop state and memory directory",
+        {"content": "Initialize design state and memory directory",
          "activeForm": "Initializing state"},
     ],
     2: [
@@ -232,12 +232,12 @@ def _build_variables(state: SkillState) -> dict[str, str]:
 
     no_edit_policy = (
         "## Permission to modify files\n\n"
-        "**Hard rule — applies to every develop phase:** Do **not** modify the repository "
+        "**Hard rule — applies to every design phase:** Do **not** modify the repository "
         "(including source code, `agents/`, `prompts/`, integrations, tests, or any tracked "
         "project files) unless the user gives **explicit permission** for that specific change "
         '(e.g. “you may edit `agents/foo.md` now” or “apply the drafted updates”). '
         "Exploration must be **read-only** on the codebase.\n\n"
-        "**Allowed without asking:** Append or update files **only** under develop session "
+        "**Allowed without asking:** Append or update files **only** under design session "
         "memory when this workflow explicitly tells you to (typically `.codex/forge-codex/memory/` "
         "— e.g. `project.md`, investigation notes). If unsure whether a path counts as "
         "session memory, **ask first**.\n\n"

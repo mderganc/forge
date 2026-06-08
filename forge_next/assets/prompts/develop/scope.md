@@ -53,11 +53,11 @@ Count **high-risk** and **medium-risk** indicators:
 ### What each tier means
 
 - **`trivial`:** Session memory artifacts only; **no** formal `docs/forge/specs/...` design spec required before `plan`.
-- **`medium` | `large`:** Formal design spec + self-review + user approval **before** `forge develop --step 7` (see `develop/spec_gate` appended at step 6).
+- **`medium` | `large`:** Formal design spec + self-review + user approval **before** `forge design --step 7` (see design spec gate appended at step 6).
 
 ## Record scope for the orchestrator
 
-Write **`develop-scope.json`** in the **Forge runtime memory directory** (same tree as `project.md`; typically `.codex/forge/memory/`, or legacy `.codex/forge-codex/memory/`):
+Write **`design-scope.json`** in the **Forge runtime memory directory** (legacy `develop-scope.json` still read) (same tree as `project.md`; typically `.codex/forge/memory/`, or legacy `.codex/forge-codex/memory/`):
 
 ```json
 {

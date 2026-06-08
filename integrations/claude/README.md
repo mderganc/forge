@@ -55,7 +55,7 @@ Definitions live in `integrations/claude/commands/` as `<subcommand>.md` (for ex
 
 | Slash command (frontmatter `name`) | Runs |
 | --- | --- |
-| `forge:develop` | `forge develop …` |
+| `forge:design` | `forge design …` |
 | `forge:evaluate` | `forge evaluate …` |
 | `forge:plan` | `forge plan …` |
 | `forge:implement` | `forge implement …` |

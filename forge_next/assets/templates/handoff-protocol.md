@@ -13,7 +13,7 @@ Skills in the forge-codex pipeline run sequentially: develop → plan → implem
 ```
 
 Examples:
-- `.codex/forge-codex/memory/handoff-develop.md` — written by develop, read by plan
+- `.codex/forge-codex/memory/handoff-design.md` — written by design, read by plan (legacy `handoff-develop.md` still read)
 - `.codex/forge-codex/memory/handoff-plan.md` — written by plan, read by implement
 - `.codex/forge-codex/memory/handoff-implement.md` — written by implement, read by test
 - `.codex/forge-codex/memory/handoff-diagnose.md` — written by diagnose, read by develop

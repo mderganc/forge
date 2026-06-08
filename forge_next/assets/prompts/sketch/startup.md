@@ -4,12 +4,12 @@
 
 ## What sketch is for
 
-**Sketch organizes your thoughts before develop.** Use it when intent is fuzzy: problem framing, constraints, terminology, and open decisions — **not** when you need investigation, solution options, or a design spec file.
+**Sketch organizes your thoughts before design.** Use it when intent is fuzzy: problem framing, constraints, terminology, and open decisions — **not** when you need investigation, solution options, or a design spec file.
 
 - **Sketch** → intent and decision log (`sketch-decisions.md`)
-- **Develop** → evidence, solution brainstorming, **`docs/forge/specs/...-design.md`** (medium/large scope)
+- **Design** → evidence, solution brainstorming, **`docs/forge/specs/...-design.md`** (medium/large scope)
 
-If the user has not run sketch and the idea is still messy, recommend **`forge sketch`** before **`forge develop`**.
+If the user has not run sketch and the idea is still messy, recommend **`forge sketch`** before **`forge design`**.
 
 ## Setup
 

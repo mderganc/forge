@@ -1,13 +1,13 @@
 # Design spec gate (medium / large scope)
 
-When `SPEC_REQUIRED` is **yes** (scope tier `medium` or `large` from `develop-scope.json`), you **must** complete this gate **before** running `forge develop --step 7`.
+When `SPEC_REQUIRED` is **yes** (scope tier `medium` or `large` from `design-scope.json`; legacy `develop-scope.json` still read), you **must** complete this gate **before** running `forge design --step 7`.
 
 Current scope signals (from orchestrator state):
 
 - **Scope tier:** {{SCOPE_TIER}}
 - **Spec required:** {{SPEC_REQUIRED}}
 - **Rationale:** {{SCOPE_RATIONALE}}
-- **State directory (sidecar goes next to develop state):** `{{STATE_DIR}}`
+- **State directory (sidecar goes next to design state):** `{{STATE_DIR}}`
 
 ## Status
 
@@ -39,7 +39,7 @@ Present the written spec to the user in **2–4 chunks** aligned with [templates
 
 ## 4. Record completion (mandatory for step 7)
 
-Write **`.develop-spec-gate.json`** in **`{{STATE_DIR}}`** (same directory as `develop.json`) with **exactly** this shape:
+Write **`.design-spec-gate.json`** in **`{{STATE_DIR}}`** (same directory as the design session state) with **exactly** this shape:
 
 ```json
 {
@@ -54,4 +54,4 @@ Use a repo-relative path for `spec_path`. All three booleans must be `true` for 
 
 ## Overrides
 
-If you must hand off without a complete spec, the human must re-run step 7 with documented override flags (see `forge develop --help`).
+If you must hand off without a complete spec, the human must re-run step 7 with documented override flags (see `forge design --help`).

@@ -12,10 +12,10 @@ Follow **`templates/sketch-protocol.md`** for the full loop.
 2. Explore the codebase when that answers the question faster than asking.
 3. Maintain **`{{SKETCH_DECISIONS_PATH}}`** — update after each resolved branch.
 4. When domain-docs mode is on, apply `templates/CONTEXT-FORMAT.md` and `templates/ADR-FORMAT.md` rules.
-5. Do **not** author `docs/forge/specs/*-design.md` — develop does that after investigation and solution approval.
+5. Do **not** author `docs/forge/specs/*-design.md` — design does that after investigation and solution approval.
 
 ## Stop when
 
-The user agrees the decision tree for **intent** is clear enough to start develop (or plan if they want to skip develop).
+The user agrees the decision tree for **intent** is clear enough to start design (or plan if they want to skip design).
 
 Then run **`forge sketch --step 3`** (preserve `--state` if shown in orchestrator output).

@@ -1,6 +1,6 @@
 # Forge Studio (agent / runtime only)
 
-> **Not a user workflow.** End users never run `forge studio`. They use `forge:develop` or `forge:plan` and may open a **local URL** during visual gates. Agents start/stop Studio and push HTML screens.
+> **Not a user workflow.** End users never run `forge studio`. They use `forge:design` or `forge:plan` and may open a **local URL** during visual gates. Agents start/stop Studio and push HTML screens.
 
 ## When to use
 

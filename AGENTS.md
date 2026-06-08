@@ -61,7 +61,7 @@ Skill-specific tables also live in `skills/develop/SKILL.md`, `skills/diagnose/S
 
 Invoking a Forge workflow skill is itself permission to dispatch the Forge agent team required by that workflow.
 
-- `forge:sketch` is a lightweight 1:1 dialogue skill (no agent-team requirement); `forge:develop`, `forge:plan`, `forge:implement`, `forge:code-review`, `forge:test`, `forge:diagnose`, and `forge:iterate` imply automatic delegation to the relevant Forge agents.
+- `forge:sketch` is a lightweight 1:1 dialogue skill (no agent-team requirement); `forge:design`, `forge:plan`, `forge:implement`, `forge:code-review`, `forge:test`, `forge:diagnose`, and `forge:iterate` imply automatic delegation to the relevant Forge agents (`forge:develop` is a deprecated alias for `forge:design`).
 - `forge:evaluate` implies automatic delegation when team/review mode is active.
 - The user should not have to separately say "use sub-agents", "delegate", or "parallelize" after invoking a Forge skill.
 - If the active Codex session policy still blocks `spawn_agent`, surface that as an environment-policy limitation rather than silently falling back to single-agent execution.
@@ -112,7 +112,7 @@ When editing this repo's user-facing documentation, keep the role names aligned 
 The skill orchestrators handle state-file lifecycle so workflows are interruptible and resumable:
 
 - **Step 1 of any skill** refuses to silently overwrite an in-progress same-skill session. To intentionally restart, delete the state file or pass `--force` (where supported, e.g., `plan.py`). To continue, use `forge resume` or invoke the skill with `forge <skill> --step N --state <path>`.
-- **Step-1 auto-close** (pipeline skills: develop, plan, implement, code-review, test, diagnose): starting a skill at step 1 automatically removes superseded JSON state when (1) `handoff-{skill}.md` exists, (2) the session is **upstream** in the pipeline relative to the skill being started, or (3) the session is **step-1-only** and idle longer than `FORGE_STEP1_ABANDON_HOURS` (default `1`). The new step-1 target path is never deleted. Suppress with `FORGE_SKIP_AUTO_CLOSE=1`. Look for `AUTO-CLOSED:` lines on stderr.
+- **Step-1 auto-close** (pipeline skills: design, plan, implement, code-review, test, diagnose): starting a skill at step 1 automatically removes superseded JSON state when (1) `handoff-{skill}.md` exists, (2) the session is **upstream** in the pipeline relative to the skill being started, or (3) the session is **step-1-only** and idle longer than `FORGE_STEP1_ABANDON_HOURS` (default `1`). The new step-1 target path is never deleted. Suppress with `FORGE_SKIP_AUTO_CLOSE=1`. Look for `AUTO-CLOSED:` lines on stderr.
 - **Canonical completion** remains the final orchestrator step (`forge <skill> --step N` at max step): sets `completed_at`, writes handoff via `write_handoff`, then `clear_state_file`.
 - **Cross-skill conflicts** that survive auto-close still emit a stderr warning but do not block.
 - **Session directories (primary):** New runs allocate `.codex/forge/sessions/{id}/session.json` with optional `handoff.md` and `sidecars/`; `index.json` lists actives; `sessions/_archive/` holds completed or auto-closed sessions. See [`docs/sessions.md`](docs/sessions.md) and `scripts/shared/session_store.py`.
@@ -120,7 +120,7 @@ The skill orchestrators handle state-file lifecycle so workflows are interruptib
 - **`forge status`** and **`forge doctor`** surface leak hints (handoff present but JSON active, misplaced state paths, step-1 abandoned).
 - **Plan files** are now created by `scripts/plan/plan.py` itself with section-marker placeholders; agents replace markers rather than create the file. The step-6 completion gate refuses to mark the workflow complete while any markers remain.
 - **Evaluate findings** persist between phases via per-step sidecar files at `<state-dir>/.evaluate-findings-step<N>.json`. Each phase's prompt instructs the LLM to write findings there; the orchestrator ingests them on the next step.
-- **Develop design-spec gate:** when `spec_required` is true (medium/large scope from `memory/develop-scope.json`), step 7 validates `<state-dir>/.develop-spec-gate.json` (spec path, `spec_written`, `self_review_passed`, `user_approved`) before handoff. Optional strict bypass: `--allow-spec-incomplete` with `--spec-override-reason` and `--spec-override-follow-up` on `forge develop --step 7`.
+- **Design spec gate:** when `spec_required` is true (medium/large scope from `memory/design-scope.json`; legacy `develop-scope.json` still read), step 7 validates `<state-dir>/.design-spec-gate.json` (legacy `.develop-spec-gate.json` still read) before handoff. Optional strict bypass: `--allow-spec-incomplete` with `--spec-override-reason` and `--spec-override-follow-up` on `forge design --step 7`.
 
 ### Test Skill — Flows Mode State
 

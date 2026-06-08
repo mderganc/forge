@@ -88,7 +88,7 @@ PHASE_NAMES = {
 
 PHASE_TODOS = {
     1: [
-        {"content": "Read handoff-develop.md and memory files",
+        {"content": "Read handoff-design.md and memory files",
          "activeForm": "Reading handoff and memory"},
         {"content": "Initialize plan state",
          "activeForm": "Initializing state"},
@@ -266,7 +266,7 @@ def _build_variables(state: SkillState) -> dict[str, str]:
     handoff_content = state.custom.get("handoff_content", "")
     if handoff_content:
         handoff_section = (
-            "## Handoff from Develop\n\n"
+            "## Handoff from Design\n\n"
             "<handoff>\n"
             f"{handoff_content}\n"
             "</handoff>"
@@ -274,7 +274,7 @@ def _build_variables(state: SkillState) -> dict[str, str]:
     else:
         handoff_section = (
             "## No Handoff Found\n\n"
-            "No handoff-develop.md was found. Ask the user what needs to be planned."
+            "No handoff-design.md was found (legacy handoff-develop.md also accepted). Ask the user what needs to be planned."
         )
 
     plan_context = state.custom.get("plan_context", "(not yet captured)")

@@ -40,16 +40,16 @@ Expected:
 ## 5) Codex skill pack
 
 - Install with `forge install --codex` (copies `integrations/codex/skills/` under `~/.codex/skills/forge/`), then restart Codex.
-- Expect one **`forge-<cli_subcommand>/`** skill folder per workflow entry in [`integrations/spec/commands.json`](integrations/spec/commands.json) (includes `forge-sketch`, `forge-develop`, …); each contains `SKILL.md`.
+- Expect one **`forge-<cli_subcommand>/`** skill folder per workflow entry in [`integrations/spec/commands.json`](integrations/spec/commands.json) (includes `forge-sketch`, `forge-design`, …); each contains `SKILL.md`.
 - Invoke via `/use forge-plan` (etc.) or implicit matching on the skill description.
 - Run `forge codex-agents --force` so Graphify + delegation policy is written to `~/.codex/config.toml` (see README **OpenAI Codex**, [`docs/graphify.md`](../docs/graphify.md)).
 
 ## 6) Graphify enforcement (when `graphify-out/` exists)
 
-- Run a workflow step: `forge develop --step 1` — stdout should include a **GRAPHIFY** block when the repo has an index.
+- Run a workflow step: `forge design --step 1` — workflow steps do not print GRAPHIFY; refresh at `forge ship --step 1`.
 - **Claude:** `forge claude-graphify` — confirm `~/.claude/settings.json` hook commands use your **pipx Python** path (not `/usr/bin/python`). Restart Claude Code.
 - **Codex:** `forge codex-agents --force` — confirm `developer_instructions` in `~/.codex/config.toml` mentions Graphify first.
-- **CI:** `FORGE_SKIP_GRAPHIFY=1 forge develop --step 1` — GRAPHIFY block should be absent.
+- **CI:** `FORGE_SKIP_GRAPHIFY=1 forge ship --step 1` — GRAPHIFY banner can be suppressed.
 
 See [`docs/graphify.md`](../docs/graphify.md).
 

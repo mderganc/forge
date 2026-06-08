@@ -37,7 +37,7 @@ Create the implementation plan following `templates/writing-plans.md` and `templ
 Produce task breakdown with exact file paths, assigned agents, TDD steps, **verification command + expected outcome per task**, and acceptance criteria. No placeholders (`TBD`, `TODO`, "implement later", vague validation). Define parallelization map, branch strategy, risk register, and rollback strategy.
 
 **Process:**
-1. Read approved solutions from handoff or memory (`project.md`, `.codex/forge-codex/memory/solutions.md`, `.codex/forge-codex/memory/handoff-develop.md`)
+1. Read approved solutions from handoff or memory (`project.md`, `.codex/forge-codex/memory/solutions.md`, `.codex/forge-codex/memory/handoff-design.md`; legacy `handoff-develop.md` still read)
 2. Read AGENTS.md and any project rules for conventions
 3. Read the codebase to verify file paths and understand existing patterns
 4. Design task breakdown — each task must be independently completable and testable
@@ -143,7 +143,7 @@ Before declaring the plan complete:
 
 ## Memory
 
-- **Read:** ALL files in `.codex/forge-codex/memory/` (especially `investigation.md`, `solutions.md`, `handoff-develop.md`)
+- **Read:** ALL files in `.codex/forge-codex/memory/` (especially `investigation.md`, `solutions.md`, `handoff-design.md`)
 - **Write:** `.codex/forge-codex/memory/planner.md` and the plan file in `.codex/forge-codex/memory/plans/` (path provided in dispatch prompt)
 - Cross-reference beads IDs per `templates/memory-protocol.md`
 - Append-only within a skill phase

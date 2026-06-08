@@ -12,11 +12,18 @@ import sys
 from pathlib import Path
 from typing import Any
 
-SPEC_GATE_FILE = ".develop-spec-gate.json"
+SPEC_GATE_FILE = ".design-spec-gate.json"
+LEGACY_SPEC_GATE_FILE = ".develop-spec-gate.json"
 
 
 def gate_sidecar_path(state_path: Path) -> Path:
-    return state_path.parent / SPEC_GATE_FILE
+    primary = state_path.parent / SPEC_GATE_FILE
+    if primary.is_file():
+        return primary
+    legacy = state_path.parent / LEGACY_SPEC_GATE_FILE
+    if legacy.is_file():
+        return legacy
+    return primary
 
 
 def load_gate_json(path: Path) -> dict[str, Any] | None:
@@ -86,7 +93,7 @@ def validate_spec_gate(
     if not data:
         return (
             False,
-            f"Missing or invalid `{SPEC_GATE_FILE}` next to the develop state file "
+            f"Missing or invalid `{SPEC_GATE_FILE}` next to the design state file "
             f"({side}). Complete the spec workflow from step 6 before running step 7.",
         )
 
@@ -113,7 +120,7 @@ def validate_spec_gate(
 def exit_if_gate_fails(ok: bool, msg: str) -> None:
     if ok:
         return
-    print(f"ERROR: Develop spec gate failed — {msg}", file=sys.stderr)
+    print(f"ERROR: Design spec gate failed — {msg}", file=sys.stderr)
     sys.exit(1)
 
 

@@ -845,18 +845,18 @@ def main():
     if args.step == 1:
         handle_step_1(args)
     else:
-        # Load existing state for steps 2-8
-        state_file = args.state
-        sp = validate_state_path(state_file, SKILL_NAME) if state_file else None
+        from scripts.shared.orchestrator import resolve_step_state_path
 
-        if sp is None:
-            found = find_state_file(SKILL_NAME)
-            if found:
-                sp = found
-            else:
-                print("ERROR: No implementation in progress. Run step 1 first.")
-                print("If the state file is elsewhere, pass --state <path>")
-                sys.exit(1)
+        sp = resolve_step_state_path(
+            SKILL_NAME,
+            args.step,
+            state_file=args.state,
+            session_id=getattr(args, "session", None),
+        )
+        if not sp.exists():
+            print("ERROR: No implementation in progress. Run step 1 first.")
+            print("If the state file is elsewhere, pass --state <path> or --session <id>")
+            sys.exit(1)
 
         try:
             state = load_state(sp)

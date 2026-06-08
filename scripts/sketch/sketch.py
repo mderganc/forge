@@ -267,13 +267,17 @@ def handle_step_1(args: argparse.Namespace) -> None:
     )
 
 
-def _load_existing_state(step: int, state_file: str | None) -> tuple[SkillState, Path]:
-    sp = validate_state_path(state_file, SKILL_NAME) if state_file else None
-    if sp is None:
-        found = find_state_file(SKILL_NAME)
-        if found is not None:
-            sp = found
-    if sp is None or not sp.exists():
+def _load_existing_state(
+    step: int,
+    state_file: str | None,
+    session_id: str | None = None,
+) -> tuple[SkillState, Path]:
+    from scripts.shared.orchestrator import resolve_step_state_path
+
+    sp = resolve_step_state_path(
+        SKILL_NAME, step, state_file=state_file, session_id=session_id
+    )
+    if not sp.exists():
         print("ERROR: No sketch session in progress. Run step 1 first.")
         print("If the state file is elsewhere, pass --state <path>")
         sys.exit(1)
@@ -285,8 +289,12 @@ def _load_existing_state(step: int, state_file: str | None) -> tuple[SkillState,
     return state, sp
 
 
-def handle_step_n(step: int, state_file: str | None = None) -> None:
-    state, sp = _load_existing_state(step, state_file)
+def handle_step_n(
+    step: int,
+    state_file: str | None = None,
+    session_id: str | None = None,
+) -> None:
+    state, sp = _load_existing_state(step, state_file, session_id=session_id)
     _ensure_sketch_custom(state)
     save_state(state, sp)
 
@@ -377,7 +385,11 @@ def main() -> None:
     if args.step == 1:
         handle_step_1(args)
     else:
-        handle_step_n(args.step, state_file=args.state)
+        handle_step_n(
+            args.step,
+            state_file=args.state,
+            session_id=getattr(args, "session", None),
+        )
 
 
 if __name__ == "__main__":

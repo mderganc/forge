@@ -558,7 +558,11 @@ def _find_state_file(*, include_stale: bool = False) -> Path | None:
     return find_state_file(include_stale=include_stale)
 
 
-def handle_step_n(step: int, state_file: str | None = None) -> None:
+def handle_step_n(
+    step: int,
+    state_file: str | None = None,
+    session_id: str | None = None,
+) -> None:
     """Steps 2-6: Load state, render appropriate template, output prompt."""
     from scripts.evaluate.evaluate_steps import (
         load_evaluate_state,
@@ -567,7 +571,7 @@ def handle_step_n(step: int, state_file: str | None = None) -> None:
         resolve_state_path,
     )
 
-    sp = resolve_state_path(state_file)
+    sp = resolve_state_path(state_file, session_id=session_id, step=step)
     state = load_evaluate_state(sp)
 
     ingested = _ingest_findings_sidecars(state, sp.parent, step)
@@ -645,6 +649,7 @@ def main():
     parser.add_argument("--step", type=int, required=True, help="Phase number (1-7 for pre, 1-8 for post, 1-5 for review)")
     parser.add_argument("--plan", type=str, help="Plan file path or keywords (step 1 only, pre/post modes)")
     parser.add_argument("--state", type=str, help="Path to .evaluate-state.json (auto-detected if omitted)")
+    parser.add_argument("--session", type=str, default=None, help="Session id to continue")
     parser.add_argument(
         "--parallel",
         action="store_true",
@@ -676,7 +681,11 @@ def main():
     if args.step == 1:
         handle_step_1(args)
     else:
-        handle_step_n(args.step, state_file=args.state)
+        handle_step_n(
+            args.step,
+            state_file=args.state,
+            session_id=getattr(args, "session", None),
+        )
 
 
 if __name__ == "__main__":

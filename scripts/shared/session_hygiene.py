@@ -21,6 +21,7 @@ from scripts.shared.runtime_layout import (
     runtime_state_dir,
     state_path_candidates,
 )
+from scripts.shared.skill_aliases import skills_match
 from scripts.shared.skill_state import SkillState
 from scripts.shared.state_lifecycle import (
     is_evaluate_state_stale,
@@ -30,7 +31,8 @@ from scripts.shared.state_lifecycle import (
 )
 
 KNOWN_SKILLS = [
-    "develop",
+    "design",
+    "develop",  # legacy alias — flat state files and handoffs
     "plan",
     "implement",
     "code-review",
@@ -41,7 +43,7 @@ KNOWN_SKILLS = [
 ]
 
 PIPELINE_SKILLS = {
-    "develop",
+    "design",
     "plan",
     "implement",
     "code-review",
@@ -144,7 +146,7 @@ def detect_active_sessions(search_dir: Path | None = None) -> list[dict]:
             except Exception:
                 continue
 
-            if state.skill_name != skill:
+            if not skills_match(state.skill_name, skill):
                 continue
             if is_state_effectively_complete(state):
                 continue
@@ -428,7 +430,7 @@ def collect_unreadable_state_files(search_dir: Path | None = None) -> list[str]:
             except Exception as exc:
                 issues.append(f"{candidate}: {exc}")
                 continue
-            if state.skill_name != skill:
+            if not skills_match(state.skill_name, skill):
                 issues.append(
                     f"{candidate}: skill_name={state.skill_name!r} (expected {skill!r})"
                 )

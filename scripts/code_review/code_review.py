@@ -412,37 +412,6 @@ def handle_step_1(args) -> None:
     ))
 
 
-def _resolve_code_review_state_path(
-    state_file: str | None = None,
-    session_id: str | None = None,
-) -> Path:
-    """Resolve session.json for steps 2–6 (matches plan.py session semantics)."""
-    from scripts.shared.session_store import (
-        format_sessions_table,
-        list_active_sessions,
-        session_json_path,
-    )
-
-    sp = validate_state_path(state_file, SKILL_NAME) if state_file else None
-    if sp is None and session_id:
-        sp = session_json_path(session_id)
-    if sp is None:
-        active = [s for s in list_active_sessions() if s.skill == SKILL_NAME]
-        if len(active) == 1:
-            sp = active[0].path
-        elif len(active) > 1:
-            print(format_sessions_table(active), file=sys.stderr)
-            sys.exit(
-                f"ERROR: {len(active)} active code-review sessions — use --session <id> "
-                "(see table above)"
-            )
-        else:
-            sp = find_state_file(SKILL_NAME)
-        if sp is None:
-            sp = _state_path()
-    return sp
-
-
 def _probe_status_one_liner(probe_markdown: str) -> str:
     """Single-line probe status for run_summary / memory."""
     for line in probe_markdown.splitlines():
@@ -464,7 +433,11 @@ def handle_step_n(
     session_id: str | None = None,
 ) -> None:
     """Steps 2-6: Load state, render template, output prompt."""
-    sp = _resolve_code_review_state_path(state_file, session_id)
+    from scripts.shared.orchestrator import resolve_step_state_path
+
+    sp = resolve_step_state_path(
+        SKILL_NAME, step, state_file=state_file, session_id=session_id
+    )
 
     if not sp.exists():
         print("ERROR: No code-review session in progress. Run step 1 first.")

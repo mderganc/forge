@@ -646,13 +646,17 @@ def handle_step_1(args) -> None:
         ))
 
 
-def handle_step_n(step: int, state_file: str | None = None) -> None:
+def handle_step_n(
+    step: int,
+    state_file: str | None = None,
+    session_id: str | None = None,
+) -> None:
     """Steps 2-7: Load state, render template, output prompt."""
-    sp = validate_state_path(state_file, SKILL_NAME) if state_file else None
-    if sp is None:
-        sp = find_state_file(SKILL_NAME)
-        if sp is None:
-            sp = _state_path()
+    from scripts.shared.orchestrator import resolve_step_state_path
+
+    sp = resolve_step_state_path(
+        SKILL_NAME, step, state_file=state_file, session_id=session_id
+    )
 
     if not sp.exists():
         print("ERROR: No test session in progress. Run step 1 first.")
@@ -920,7 +924,11 @@ def main():
     if args.step == 1:
         handle_step_1(args)
     else:
-        handle_step_n(args.step, state_file=args.state)
+        handle_step_n(
+            args.step,
+            state_file=args.state,
+            session_id=getattr(args, "session", None),
+        )
 
 
 if __name__ == "__main__":

@@ -1509,6 +1509,7 @@ def test_skill_chain_default_for_each_skill():
 
     required_skills = {
         "sketch",
+        "design",
         "develop",
         "plan",
         "evaluate",
@@ -1585,15 +1586,15 @@ def test_diagnose_handoff_has_no_default():
     assert "WORKFLOW HANDOFF — diagnose complete" in menu
 
 
-def test_diagnose_handoff_large_defaults_develop():
-    """Large / systemic fix_complexity promotes develop as default next."""
+def test_diagnose_handoff_large_defaults_design():
+    """Large / systemic fix_complexity promotes design as default next."""
     from scripts.shared.orchestrator import SkillState, build_skill_handoff_menu
 
     state = SkillState(skill_name="diagnose")
     state.custom["fix_complexity"] = "large"
     menu = build_skill_handoff_menu("diagnose", state=state)
     assert "Default" in menu
-    assert "$forge:develop" in menu
+    assert "$forge:design" in menu
 
 
 def test_no_skill_has_legacy_workflow_complete_marker():
@@ -1605,7 +1606,7 @@ def test_no_skill_has_legacy_workflow_complete_marker():
     from scripts.shared.orchestrator import build_skill_handoff_menu
 
     # Spot check: each skill should render a handoff menu when at MAX_STEP
-    for skill in ["develop", "plan", "evaluate", "implement", "code-review", "test", "diagnose"]:
+    for skill in ["design", "plan", "evaluate", "implement", "code-review", "test", "diagnose"]:
         menu = build_skill_handoff_menu(skill)
         assert "WORKFLOW HANDOFF" in menu
         assert "$forge:" in menu

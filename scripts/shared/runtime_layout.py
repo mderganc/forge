@@ -150,9 +150,14 @@ def is_skill_state_filename(name: str, skill_name: str) -> bool:
         return name == EVALUATE_STATE_FILENAME or (
             name.startswith(".evaluate-state-") and name.endswith(".json")
         )
-    if name in {state_filename(skill_name), legacy_state_filename(skill_name)}:
-        return True
-    return name.startswith(f"{skill_name}-") and name.endswith(".json")
+    from scripts.shared.skill_aliases import skill_name_variants
+
+    for variant in skill_name_variants(skill_name):
+        if name in {state_filename(variant), legacy_state_filename(variant)}:
+            return True
+        if name.startswith(f"{variant}-") and name.endswith(".json"):
+            return True
+    return False
 
 
 def state_path_candidates(skill_name: str, search_dir: Path | None = None) -> list[Path]:
@@ -163,28 +168,30 @@ def state_path_candidates(skill_name: str, search_dir: Path | None = None) -> li
         legacy_state_dir(cwd),
         cwd,
     ]
+    from scripts.shared.skill_aliases import skill_name_variants, skills_match
+    from scripts.shared.session_store import iter_session_json_paths, sessions_root
+
     candidates: list[Path] = []
     seen: set[Path] = set()
 
-    for path in (
-        runtime_state_path(skill_name, cwd),
-        cwd / state_filename(skill_name),
-        legacy_state_dir(cwd) / legacy_state_filename(skill_name),
-        cwd / legacy_state_filename(skill_name),
-    ):
-        if path not in seen:
-            candidates.append(path)
-            seen.add(path)
-
-    for dir_path in dirs:
-        if not dir_path.exists():
-            continue
-        for path in sorted(dir_path.glob(f"{skill_name}-*.json")):
+    for variant in skill_name_variants(skill_name):
+        for path in (
+            runtime_state_path(variant, cwd),
+            cwd / state_filename(variant),
+            legacy_state_dir(cwd) / legacy_state_filename(variant),
+            cwd / legacy_state_filename(variant),
+        ):
             if path not in seen:
                 candidates.append(path)
                 seen.add(path)
 
-    from scripts.shared.session_store import iter_session_json_paths, sessions_root
+        for dir_path in dirs:
+            if not dir_path.exists():
+                continue
+            for path in sorted(dir_path.glob(f"{variant}-*.json")):
+                if path not in seen:
+                    candidates.append(path)
+                    seen.add(path)
 
     root = sessions_root(cwd)
     if root.is_dir():
@@ -193,7 +200,7 @@ def state_path_candidates(skill_name: str, search_dir: Path | None = None) -> li
                 state = json.loads(path.read_text(encoding="utf-8"))
             except Exception:
                 continue
-            if state.get("skill_name") == skill_name and path not in seen:
+            if skills_match(str(state.get("skill_name", "")), skill_name) and path not in seen:
                 candidates.append(path)
                 seen.add(path)
 
@@ -297,10 +304,12 @@ def find_state_file(
     """Find the best state file for a skill."""
     from scripts.shared.session_store import list_active_sessions
 
+    from scripts.shared.skill_aliases import skills_match
+
     session_matches = [
         s.path
         for s in list_active_sessions(search_dir)
-        if s.skill == skill_name
+        if skills_match(s.skill, skill_name)
     ]
     if session_matches:
         return session_matches[0]
@@ -316,7 +325,9 @@ def find_state_file(
             state = load_state(candidate)
         except Exception:
             continue
-        if state.skill_name != skill_name:
+        from scripts.shared.skill_aliases import skills_match
+
+        if not skills_match(state.skill_name, skill_name):
             continue
         if is_state_effectively_complete(state):
             complete.append(candidate)

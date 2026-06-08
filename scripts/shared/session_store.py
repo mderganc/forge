@@ -644,7 +644,9 @@ def resolve_session_for_step(
             state = SkillState.from_dict(json.loads(path.read_text(encoding="utf-8")))
         except Exception as exc:
             sys.exit(f"ERROR: unreadable session {session_id}: {exc}")
-        if state.skill_name != skill_name:
+        from scripts.shared.skill_aliases import skills_match
+
+        if not skills_match(state.skill_name, skill_name):
             sys.exit(
                 f"ERROR: session {session_id} is skill {state.skill_name!r}, "
                 f"not {skill_name!r}"
@@ -670,7 +672,9 @@ def resolve_session_for_step(
             "ERROR: step 1 must create a session via orchestrator resolve_step1_state_path"
         )
 
-    active = [s for s in list_active_sessions(repo_root) if s.skill == skill_name]
+    from scripts.shared.skill_aliases import skills_match
+
+    active = [s for s in list_active_sessions(repo_root) if skills_match(s.skill, skill_name)]
     if len(active) == 1:
         return active[0].path
     if len(active) > 1:

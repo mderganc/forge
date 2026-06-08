@@ -14,6 +14,7 @@ from forge_next.cli_runtime import repo_root_from_args, run_module_main
 
 _WORKFLOW_MODULES = {
     "evaluate": "scripts.evaluate.evaluate",
+    "design": "scripts.develop.develop",
     "develop": "scripts.develop.develop",
     "plan": "scripts.plan.plan",
     "implement": "scripts.implement.implement",
@@ -260,6 +261,11 @@ def dispatch_session(args: Any) -> int:
 
 
 def dispatch_workflow(cmd: str, args: Any) -> int:
+    if cmd == "develop":
+        print(
+            "Warning: 'forge develop' is deprecated; use 'forge design'.",
+            file=sys.stderr,
+        )
     module_name = _WORKFLOW_MODULES[cmd]
     repo_root = repo_root_from_args(getattr(args, "repo", None))
     passthrough = _passthrough_argv(args)

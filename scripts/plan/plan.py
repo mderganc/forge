@@ -396,7 +396,7 @@ def handle_step_1(args: argparse.Namespace) -> None:
         target_state_path=sp,
     )
 
-    handoff_content = consume_handoff("develop")
+    handoff_content = consume_handoff("design")
 
     run_step1_session_hygiene(SKILL_NAME, sp)
     print_remaining_session_warning(SKILL_NAME)
@@ -485,29 +485,11 @@ def handle_step_1(args: argparse.Namespace) -> None:
 
 def handle_step_n(step: int, state_file: str | None = None, session_id: str | None = None) -> None:
     """Steps 2-6: Load state, render template, output prompt."""
-    from scripts.shared.session_store import (
-        format_sessions_table,
-        list_active_sessions,
-        session_json_path,
-    )
+    from scripts.shared.orchestrator import resolve_step_state_path
 
-    sp = validate_state_path(state_file, SKILL_NAME) if state_file else None
-    if sp is None and session_id:
-        sp = session_json_path(session_id)
-    if sp is None:
-        active = [s for s in list_active_sessions() if s.skill == SKILL_NAME]
-        if len(active) == 1:
-            sp = active[0].path
-        elif len(active) > 1:
-            print(format_sessions_table(active), file=sys.stderr)
-            sys.exit(
-                f"ERROR: {len(active)} active plan sessions — use --session <id> "
-                "(see table above)"
-            )
-        else:
-            sp = find_state_file(SKILL_NAME)
-        if sp is None:
-            sp = _state_path()
+    sp = resolve_step_state_path(
+        SKILL_NAME, step, state_file=state_file, session_id=session_id
+    )
 
     if not sp.exists():
         print("ERROR: No plan session in progress. Run step 1 first.")

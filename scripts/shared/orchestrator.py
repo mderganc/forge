@@ -342,6 +342,26 @@ def resolve_skill_state_path(
     )
 
 
+def resolve_step_state_path(
+    skill_name: str,
+    step: int,
+    *,
+    state_file: str | None = None,
+    session_id: str | None = None,
+) -> Path:
+    """Resolve session/state path for steps 2+ using CLI ``--state`` / ``--session``."""
+
+    class _StepArgs:
+        pass
+
+    args = _StepArgs()
+    args.state = state_file
+    args.session = session_id
+    args.label = None
+    args.parallel = False
+    return resolve_skill_state_path(skill_name, step, args)
+
+
 def read_memory_file(name: str) -> str:
     """Read a file from the runtime memory directory if it exists.
 

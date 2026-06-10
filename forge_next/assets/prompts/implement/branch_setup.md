@@ -29,7 +29,7 @@ Wave N = tasks whose dependencies are all in waves < N.
 
 If you still cannot produce a reliable wave map, **do not prompt the user to pick a fallback**. Continue automatically with direct implementation from the plan in dependency order (single-pass mode).
 
-Record waves in `.codex/forge-codex/memory/project.md`:
+Record waves in `{{MEMORY_DIR}}/project.md`:
 
 ```
 ## Implementation Waves
@@ -56,7 +56,7 @@ Before proceeding, verify:
    - `git checkout -b {{FEATURE_BRANCH_PATTERN}}`
 4. **Never create branches with `forge/` prefix.** Valid prefixes are only: `feat/`, `fix/`, `chore/`, `refactor/`, `docs/`, `hotfix/`.
 
-Record branch name in `.codex/forge-codex/memory/project.md`.
+Record branch name in `{{MEMORY_DIR}}/project.md`.
 
 ## Optional: git worktree (second checkout)
 

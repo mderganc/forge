@@ -36,6 +36,7 @@ from scripts.shared.orchestrator import (
     resolve_step1_state_path,
     run_step1_session_hygiene,
     runtime_memory_dir,
+    runtime_memory_dir_relative,
     runtime_state_path,
     save_state,
     validate_state_path,
@@ -104,7 +105,7 @@ def _no_edit_policy(with_domain_docs: bool) -> str:
     base = (
         "## Permission to modify files\n\n"
         "**Default:** Read-only on the codebase unless exploring answers a question.\n\n"
-        "**Session memory (always allowed):** `.codex/forge-codex/memory/` — "
+        f"**Session memory (always allowed):** `{runtime_memory_dir_relative()}/` — "
         "especially `sketch-decisions.md` and `project.md`.\n\n"
         "**Do not write** `docs/forge/specs/*-design.md` — that is **design's** named spec.\n"
     )

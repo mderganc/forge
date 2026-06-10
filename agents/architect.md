@@ -36,7 +36,7 @@ Conduct the five-why root cause analysis following `templates/five-why-protocol.
 5. For bugfix tasks: follow `templates/systematic-debugging.md` structure
 6. For feature tasks: follow `templates/brainstorming.md` for requirements exploration
 
-**Output:** Write to `.codex/forge-codex/memory/investigation.md`
+**Output:** Write to `.codex/forge/memory/investigation.md`
 
 ## Stage 1: IN_PROGRESS [timestamp]
 
@@ -70,7 +70,7 @@ Stage 2 is a **three-dispatch loop** orchestrated by the PM, not a single run. Y
 
 Between dispatches, the PM uses `templates/brainstorming-gates.md` to ask the user questions directly. You **must not** read or execute `brainstorming-gates.md` yourself — user questioning is a main-agent responsibility.
 
-**Intermediate artifacts you write (in `.codex/forge-codex/memory/`):**
+**Intermediate artifacts you write (in `.codex/forge/memory/`):**
 
 | File | Written in | Contents |
 |------|-----------|----------|
@@ -131,7 +131,7 @@ Between dispatches, the PM uses `templates/brainstorming-gates.md` to ask the us
 
 ### Plan Skill — Architecture Contributor
 
-Contribute the architecture design to the planner's implementation plan. The **planner leads** planning and owns the plan file in `.codex/forge-codex/memory/plans/`; the architect provides the **Architecture Overview** section only.
+Contribute the architecture design to the planner's implementation plan. The **planner leads** planning and owns the plan file in `.codex/forge/memory/plans/`; the architect provides the **Architecture Overview** section only.
 
 Honor **`plan_mode`** (`default` | `lite`) per `templates/plan-modes.md`: `lite` allows a shorter overview but must still state boundaries, data flow, and key decisions concretely.
 
@@ -151,7 +151,7 @@ Honor **`plan_mode`** (`default` | `lite`) per `templates/plan-modes.md`: `lite`
 4. Review the planner's task breakdown for architectural consistency
 5. Follow `templates/writing-plans.md` structure for architecture sections
 
-**Output:** Contribute architecture sections to the plan file in `.codex/forge-codex/memory/plans/` (path provided in dispatch prompt, owned by planner)
+**Output:** Contribute architecture sections to the plan file in `.codex/forge/memory/plans/` (path provided in dispatch prompt, owned by planner)
 
 ### Architecture Contribution
 
@@ -175,13 +175,13 @@ Honor **`plan_mode`** (`default` | `lite`) per `templates/plan-modes.md`: `lite`
 Verify implementation matches the approved plan via the evaluate skill's review mode.
 
 **Process:**
-1. Read the plan file (from `.codex/forge-codex/memory/plans/` or handoff) for the approved architecture
+1. Read the plan file (from `.codex/forge/memory/plans/` or handoff) for the approved architecture
 2. Read dev memory files for what was actually built
 3. Read the implementation code
 4. Check: component boundaries, data flow, API contracts, no architectural drift
 5. Check: no unapproved deviations from the plan
 
-**Output:** Append to `.codex/forge-codex/memory/investigation.md`
+**Output:** Append to `.codex/forge/memory/investigation.md`
 
 ## Architecture Review: Round N [timestamp]
 
@@ -215,10 +215,10 @@ Analyze module coupling patterns:
 ## Memory Protocol
 
 - **Read:** `project.md` first, then stage-relevant files
-- **Write:** `investigation.md` (stages 1, review), `solutions.md` (stage 2); contribute architecture to the plan file in `.codex/forge-codex/memory/plans/` (owned by planner)
+- **Write:** `investigation.md` (stages 1, review), `solutions.md` (stage 2); contribute architecture to the plan file in `.codex/forge/memory/plans/` (owned by planner)
 - All entries cross-reference beads IDs per `templates/memory-protocol.md`
 - Append-only within a stage
-- All memory files live in `.codex/forge-codex/memory/`
+- All memory files live in `.codex/forge/memory/`
 
 ## Beads Integration
 

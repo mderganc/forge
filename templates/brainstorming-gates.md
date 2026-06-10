@@ -43,7 +43,7 @@ For **Autonomy Level 1**, use **two separate user interactions** for Gate 2: com
 
 ## Intermediate Artifact Contract
 
-The Architect writes these files into `.codex/forge-codex/memory/` during Stage 2. The PM reads them between dispatches and cites them directly so the user is choosing from real generated content, not abstractions.
+The Architect writes these files into `.codex/forge/memory/` during Stage 2. The PM reads them between dispatches and cites them directly so the user is choosing from real generated content, not abstractions.
 
 | File | Written after | Contents |
 |------|---------------|----------|
@@ -56,7 +56,7 @@ The Architect writes these files into `.codex/forge-codex/memory/` during Stage 
 
 ## Gate 1 — Pre-Divergence
 
-**Trigger:** Dispatch 1 has completed and `.codex/forge-codex/memory/solution-requirements.md` exists. `divergent-ideas.md` does **not** yet exist.
+**Trigger:** Dispatch 1 has completed and `.codex/forge/memory/solution-requirements.md` exists. `divergent-ideas.md` does **not** yet exist.
 
 **Why we pause here:** The HMW framing and the technique set jointly determine the *shape* of the solution space the user will eventually choose from. Locking these in before Phase 2 runs prevents the Architect from anchoring on whichever default techniques happened to fit its own prior.
 
@@ -80,7 +80,7 @@ The PM passes the Q1 answer (HMW) and the Q2 answer (additional techniques) into
 
 ## Gate 2 — Pre-Scoring
 
-**Trigger:** Dispatch 2 has completed and `.codex/forge-codex/memory/solutions.md` exists in *draft* form — candidates are developed but the scoring table is empty (no Pugh Matrix, no rubric scores, no recommendation).
+**Trigger:** Dispatch 2 has completed and `.codex/forge/memory/solutions.md` exists in *draft* form — candidates are developed but the scoring table is empty (no Pugh Matrix, no rubric scores, no recommendation).
 
 Gate 2 cuts candidates to ≤4, captures the user's priority dimension, and then fires Dispatch 3 which does the actual scoring with the user's weights. The tiebreak (Q3) is conditional and fires *after* Dispatch 3 if the final scores are close.
 
@@ -122,7 +122,7 @@ Use the Gate 2 Q3 question template from the section below, populating options w
 
 **"≤4, keep all" fallback.** When Dispatch 2 produces 4 or fewer draft candidates, the Level 2/3 "ICE top 4" default has nothing to do — all candidates carry forward unchanged. This avoids a degenerate no-op ICE call.
 
-**Level-3 determinism.** Every skipped gate must log its chosen default into `.codex/forge-codex/memory/project.md` under the Stage 2 marker so the decision is reproducible and auditable. A resumed session with the same inputs must produce the same outputs.
+**Level-3 determinism.** Every skipped gate must log its chosen default into `.codex/forge/memory/project.md` under the Stage 2 marker so the decision is reproducible and auditable. A resumed session with the same inputs must produce the same outputs.
 
 ## Escalation Override
 
@@ -140,8 +140,8 @@ The develop skill uses **two** persistence mechanisms and they serve different p
 
 | File | Owner | Purpose |
 |------|-------|---------|
-| `.codex/forge-codex/state/develop.json` | `scripts/develop/develop.py` | Orchestrator step machine. Tracks which of the 7 CLI steps the skill is on. Advanced by `develop.py --step N`. |
-| `.codex/forge-codex/memory/current-step.md` | PM (Codex) | Human-readable lifeline for context-compaction resume. Tracks *sub-step* state within a CLI step (e.g., which gate is waiting). Never read by `develop.py`. |
+| `.codex/forge/state/develop.json` | `scripts/develop/develop.py` | Orchestrator step machine. Tracks which of the 7 CLI steps the skill is on. Advanced by `develop.py --step N`. |
+| `.codex/forge/memory/current-step.md` | PM (Codex) | Human-readable lifeline for context-compaction resume. Tracks *sub-step* state within a CLI step (e.g., which gate is waiting). Never read by `develop.py`. |
 
 **On resume, the PM must check `current-step.md` *before* invoking `develop.py`.** If `current-step.md` says `Step: gate-N-waiting` or `Step: gate-N-answered`, the PM handles the gate directly (re-fires it, or advances to the next dispatch) and only calls `develop.py --step 6` after Stage 2 is truly complete. This keeps the script's coarse step machine from stomping on sub-step gate state.
 

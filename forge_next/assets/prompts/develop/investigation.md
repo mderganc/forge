@@ -20,7 +20,7 @@ Explore the codebase and gather evidence:
 - Collect error messages, stack traces, reproduction steps
 - For bugfixes: follow `templates/systematic-debugging.md`
 
-Write evidence to `.codex/forge-codex/memory/investigator.md`
+Write evidence to `{{MEMORY_DIR}}/investigator.md`
 
 ### Architect (analysis lead)
 Analyze the evidence using `templates/five-why-protocol.md`:
@@ -30,4 +30,4 @@ Analyze the evidence using `templates/five-why-protocol.md`:
 - Stop at an actionable root cause
 - For features: use `templates/brainstorming.md` for requirements exploration
 
-Write findings to `.codex/forge-codex/memory/investigation.md`
+Write findings to `{{MEMORY_DIR}}/investigation.md`

@@ -18,7 +18,7 @@ git checkout -b feat/<short-slug>
 
 ### 2. Identify Waves
 
-From the parallelization map in the plan file (under `.codex/forge-codex/memory/plans/`):
+From the parallelization map in the plan file (under `.codex/forge/memory/plans/`):
 - **Wave 1:** All tasks with no blockers
 - **Wave 2:** Tasks depending only on Wave 1 completions
 - **Wave N:** Tasks depending only on completed waves
@@ -32,7 +32,7 @@ For each task in the wave, send to the assigned agent:
 > **Branch:** git checkout -b [sub-branch] from feat/<short-slug>
 > **Plan:** Read the plan file (path from handoff), section for Task [N]
 > **Beads:** Update status: bd update [id] --status in_progress --claim
-> **Memory:** Write progress to `.codex/forge-codex/memory/[role]-dev.md`
+> **Memory:** Write progress to `.codex/forge/memory/[role]-dev.md`
 > **TDD:** Write failing test before implementation code
 >
 > On completion: commit, bd close [id], write notes to memory.
@@ -83,7 +83,7 @@ Agent reports blocker →
 
 ### 8. Git Checkpoint
 
-git add .codex/forge-codex/memory/ && git commit -m "workflow: Stage 5 complete — implementation done"
+git add .codex/forge/memory/ && git commit -m "workflow: Stage 5 complete — implementation done"
 
 Record in project.md: `## Stage 5: COMPLETE [timestamp]`
 

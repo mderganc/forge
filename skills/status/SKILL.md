@@ -26,7 +26,7 @@ Present a composite dashboard:
 | Skill | Status | Key Output |
 |-------|--------|------------|
 | sketch | COMPLETE / IN_PROGRESS / NOT_STARTED | Intent decisions logged |
-| develop | COMPLETE / IN_PROGRESS / NOT_STARTED | Approved N solutions |
+| design | COMPLETE / IN_PROGRESS / NOT_STARTED | Approved N solutions |
 | plan | ... | N tasks planned |
 | evaluate | ... | N findings (mode) |
 | implement | ... | N files changed |
@@ -57,9 +57,9 @@ Read beads state from `project.md` or state files:
 ### Suggested Next
 
 Based on flow position, suggest the next skill:
-- If intent is fuzzy: suggest `sketch` then `develop`
-- If no skills have run: suggest `develop`
-- If develop is complete but plan is not: suggest `plan`
+- If intent is fuzzy: suggest `sketch` then `design`
+- If no skills have run: suggest `design`
+- If design is complete but plan is not: suggest `plan`
 - If implement is complete but code-review is not: suggest `code-review`
 - If code-review is complete but test is not: suggest `test`
 - If test has failures: suggest `diagnose`

@@ -21,9 +21,9 @@ Select **`default`** or **`lite`** per `templates/plan-modes.md`. If mode is not
 
 Send to Planner:
 
-> Read approved solutions from `.codex/forge-codex/memory/project.md` and handoff/develop memory.
+> Read approved solutions from `.codex/forge/memory/project.md` and handoff/develop memory.
 > Use Codex runtime conventions from `templates/codex-runtime.md`.
-> Plan file: `.codex/forge-codex/memory/plans/` (timestamped path from orchestrator).
+> Plan file: `.codex/forge/memory/plans/` (timestamped path from orchestrator).
 >
 > Produce:
 > 1. Plan header (Goal, scope, plan mode)
@@ -91,6 +91,6 @@ User can: approve, request changes, reject a solution (→ backlog), change auto
 
 ### 7. Git Checkpoint
 
-git add .codex/forge-codex/ && git commit -m "workflow: Stage 4 complete — plan approved"
+git add .codex/forge/ && git commit -m "workflow: Stage 4 complete — plan approved"
 
 Record in project.md: `## Stage 4: COMPLETE [timestamp]`

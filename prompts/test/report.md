@@ -25,7 +25,7 @@ The orchestrator runs pytest at step 3 unless `FORGE_SKIP_TEST_AUTO_RUN=1`. Incl
 
 ### 1. Write the Test Report
 
-Write the report to `.codex/forge-codex/memory/test-report.md` with this structure:
+Write the report to `{{MEMORY_DIR}}/test-report.md` with this structure:
 
 - **Summary:** total tests, pass/fail/skip counts, coverage percentage
 - **Results table:** each test suite with its pass/fail/skip counts
@@ -40,7 +40,7 @@ Write the report to `.codex/forge-codex/memory/test-report.md` with this structu
 
 ### 2. Update Memory
 
-- Update `.codex/forge-codex/memory/project.md` with test completion status
+- Update `{{MEMORY_DIR}}/project.md` with test completion status
 - Record pass/fail counts and coverage metrics
 
 ### 3. Prepare Handoff

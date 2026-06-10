@@ -14,7 +14,7 @@ Protocol inspired by [mattpocock/skills](https://github.com/mattpocock/skills) g
 
 ## Session artifact
 
-Maintain **`sketch-decisions.md`** in the Forge memory directory (typically `.codex/forge-codex/memory/`):
+Maintain **`sketch-decisions.md`** in the Forge memory directory (typically `.codex/forge/memory/`):
 
 ```md
 # Sketch decisions

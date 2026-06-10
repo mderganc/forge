@@ -110,6 +110,6 @@ Once clean (or user accepts), present:
 
 ### 7. Git Checkpoint
 
-git add .codex/forge-codex/ && git commit -m "workflow: Stage 6 complete — reviews clean, [N] findings resolved"
+git add .codex/forge/ && git commit -m "workflow: Stage 6 complete — reviews clean, [N] findings resolved"
 
 Record in project.md: `## Stage 6: COMPLETE [timestamp]`

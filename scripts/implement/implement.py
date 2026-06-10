@@ -40,6 +40,7 @@ from scripts.shared.orchestrator import (
     now_iso,
     render_dashboard,
     resolve_step1_state_path,
+    runtime_memory_dir_relative,
     runtime_state_path,
     save_state,
     validate_state_path,
@@ -338,11 +339,11 @@ def _build_wave_variables(state: SkillState) -> dict[str, str]:
         else:
             wave_tasks = (
                 f"No parallelization table parsed yet. Read the plan file at `{state.custom.get('plan_path', '')}` "
-                f"and `.codex/forge-codex/memory/project.md` for the Wave {current_wave} task list.\n"
+                f"and `{runtime_memory_dir_relative()}/project.md` for the Wave {current_wave} task list.\n"
                 f"Each task includes: title, assigned agent, file paths, acceptance criteria."
             )
             agent_list = (
-                f"Read `.codex/forge-codex/memory/project.md` for the agent assignments for Wave {current_wave}.\n"
+                f"Read `{runtime_memory_dir_relative()}/project.md` for the agent assignments for Wave {current_wave}.\n"
                 f"Dispatch each agent per `templates/parallel-dispatch.md`."
             )
 

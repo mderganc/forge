@@ -98,6 +98,34 @@ def legacy_runtime_root(search_dir: Path | None = None) -> Path:
     return base_dir / LEGACY_RUNTIME_DIRNAME
 
 
+def repo_relative_path(path: Path, search_dir: Path | None = None) -> str:
+    """Return a repo-relative path using forward slashes (for prompts and agents)."""
+    base = (search_dir or detect_repo_root()).resolve()
+    try:
+        rel = path.resolve().relative_to(base)
+    except ValueError:
+        rel = path
+    return rel.as_posix()
+
+
+def runtime_dir_relative(search_dir: Path | None = None) -> str:
+    """Repo-relative Forge runtime root (e.g. ``.codex/forge``)."""
+    return repo_relative_path(runtime_root(search_dir), search_dir)
+
+
+def runtime_memory_dir_relative(search_dir: Path | None = None) -> str:
+    """Repo-relative Forge memory directory (e.g. ``.codex/forge/memory``)."""
+    return repo_relative_path(runtime_memory_dir(search_dir), search_dir)
+
+
+def template_runtime_variables(search_dir: Path | None = None) -> dict[str, str]:
+    """Variables injected into workflow prompt templates."""
+    return {
+        "RUNTIME_DIR": runtime_dir_relative(search_dir),
+        "MEMORY_DIR": runtime_memory_dir_relative(search_dir),
+    }
+
+
 def runtime_memory_dir(search_dir: Path | None = None) -> Path:
     return runtime_root(search_dir) / "memory"
 

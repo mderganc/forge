@@ -34,6 +34,7 @@ forge doctor
 | `forge-status` | `forge status` |
 | `forge-doctor` | `forge doctor` |
 | `forge-iterate` | `forge iterate` |
+| `forge-ship` | `forge ship` |
 | `forge-graphify` | `forge graphify` (subcommands: `refresh`, `install-hook`, `uninstall-hook`) |
 
 ## Default install location (via `forge install`)

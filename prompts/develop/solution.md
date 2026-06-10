@@ -24,7 +24,7 @@ Stage 2 is a **PM-orchestrated three-dispatch loop**, not a single Architect run
 - Decision gates: `templates/brainstorming-gates.md` (read by the PM only)
 - Scoring rubric: `templates/scoring-rubric.md`
 
-Intermediate artifacts written to `.codex/forge-codex/memory/`:
+Intermediate artifacts written to `{{MEMORY_DIR}}/`:
 - `solution-requirements.md` — Requirements Context + How-Might-We framings (after Dispatch 1)
 - `divergent-ideas.md` — raw ideas grouped into families (after Dispatch 2)
 - `solutions.md` — draft candidates after Dispatch 2 (unscored); final candidates + scores + recommendation after Dispatch 3
@@ -46,7 +46,7 @@ Dispatch **Architect** with:
 
 > **Task: Brainstorm Phase 1 only — Requirements Exploration**
 >
-> Read `.codex/forge-codex/memory/investigation.md` for the confirmed root causes.
+> Read `{{MEMORY_DIR}}/investigation.md` for the confirmed root causes.
 >
 > Follow `templates/brainstorming.md` **Phase 1 only**:
 >
@@ -55,7 +55,7 @@ Dispatch **Architect** with:
 > - Generate 3–5 How-Might-We framings per the HMW rules. Mark your suggested driver.
 > - If the task type is `feature`, append a Job Story.
 >
-> Write everything to `.codex/forge-codex/memory/solution-requirements.md` and return.
+> Write everything to `{{MEMORY_DIR}}/solution-requirements.md` and return.
 >
 > **Do not run Phase 2 or Phase 3. Do not generate ideas or candidates.** Stop at the Phase 1 → Phase 2 boundary.
 
@@ -63,7 +63,7 @@ Dispatch **Architect** with:
 
 Execute `templates/brainstorming-gates.md` **Gate 1**:
 
-1. Write `.codex/forge-codex/memory/current-step.md` with `Step: gate-1-waiting` before asking the user.
+1. Write `{{MEMORY_DIR}}/current-step.md` with `Step: gate-1-waiting` before asking the user.
 2. Read `solution-requirements.md` to populate Q1 options (HMW candidates) with the Architect's suggested driver first + `(Recommended)`.
 3. Apply the Autonomy Routing table — Level 2/3 skip the gate, use the suggested HMW, and log the choice in `project.md`.
 4. Record user answers (or chosen defaults) in `project.md` under the Stage 2 marker and in `current-step.md` with `Step: gate-1-answered`.
@@ -78,11 +78,11 @@ Dispatch **Architect** with:
 > - Driver HMW: [exact HMW text from user]
 > - Advanced techniques to add: [list from user, or "none"] (core SCAMPER + Reverse Brainstorming + Constraint Removal are always applied; bugfix tasks also auto-apply 5W1H/Starbursting)
 >
-> Read `.codex/forge-codex/memory/investigation.md` and `.codex/forge-codex/memory/solution-requirements.md`.
+> Read `{{MEMORY_DIR}}/investigation.md` and `{{MEMORY_DIR}}/solution-requirements.md`.
 >
 > Follow `templates/brainstorming.md`:
 >
-> **Phase 2 — Divergent Thinking.** Apply each selected technique and generate raw ideas in the required output format. Cluster into solution families (one family per `###` header) and tag each idea with the technique that produced it. Write to `.codex/forge-codex/memory/divergent-ideas.md`.
+> **Phase 2 — Divergent Thinking.** Apply each selected technique and generate raw ideas in the required output format. Cluster into solution families (one family per `###` header) and tag each idea with the technique that produced it. Write to `{{MEMORY_DIR}}/divergent-ideas.md`.
 >
 > **Phase 3 Steps 1–3 only:**
 > 1. Group ideas into families.
@@ -90,7 +90,7 @@ Dispatch **Architect** with:
 > 3. If >4 families survive, apply the ICE pre-filter (`brainstorming.md` Step 2b) to cut to 4.
 > 4. Develop each surviving family into a full candidate with approach / pros / cons / open questions.
 >
-> Write the developed candidates to `.codex/forge-codex/memory/solutions.md` as a **draft** — no scoring tables, no Pugh Matrix, no recommendation yet.
+> Write the developed candidates to `{{MEMORY_DIR}}/solutions.md` as a **draft** — no scoring tables, no Pugh Matrix, no recommendation yet.
 >
 > **Stop at the Phase 3 Step 3 → Step 3b boundary.** Do not run the Pugh Matrix. Do not score. Do not recommend. Return once `divergent-ideas.md` and draft `solutions.md` both exist.
 
@@ -116,7 +116,7 @@ Dispatch **Architect** with:
 > - Candidates to score: [list from Q1, or "all candidates" if Level 2/3]
 > - Scoring weights (per `brainstorming-gates.md` weight translation): Q=[w], T=[w], C=[w], R=[w], E=[w]
 >
-> Read `.codex/forge-codex/memory/solutions.md` (draft) and `.codex/forge-codex/memory/investigation.md`.
+> Read `{{MEMORY_DIR}}/solutions.md` (draft) and `{{MEMORY_DIR}}/investigation.md`.
 >
 > Remove any candidates the user did not pick from the main candidate list — move them to an "Also Considered" section at the bottom of `solutions.md` with their draft approach preserved.
 >
@@ -126,7 +126,7 @@ Dispatch **Architect** with:
 > 3. Cross-solution check: any conflicts? Any compound solutions worth highlighting?
 > 4. State a recommendation per root cause with rationale that explicitly references the user's priority dimension.
 >
-> Overwrite `.codex/forge-codex/memory/solutions.md` with the final version: draft candidates → candidates with Pugh row + scoring table + recommendation, plus the "Also Considered" section and a note recording the user's weights. Create beads issues per scored option and label the recommended one.
+> Overwrite `{{MEMORY_DIR}}/solutions.md` with the final version: draft candidates → candidates with Pugh row + scoring table + recommendation, plus the "Also Considered" section and a note recording the user's weights. Create beads issues per scored option and label the recommended one.
 
 ## 6. Gate 2 Q3 — Tiebreak (conditional, PM)
 
@@ -141,7 +141,7 @@ If **no**, skip Q3 and proceed to finalize.
 
 ## 7. Finalize
 
-Update `.codex/forge-codex/memory/solutions.md` with a closing block:
+Update `{{MEMORY_DIR}}/solutions.md` with a closing block:
 
 ```
 ## Stage 2 Decision Record
@@ -165,4 +165,4 @@ Record stage completion in `project.md`:
 - Recommended: [Candidate title]
 ```
 
-Write `.codex/forge-codex/memory/current-step.md` with `Step: stage-2-complete`, `Next: run stage-3 approval`.
+Write `{{MEMORY_DIR}}/current-step.md` with `Step: stage-2-complete`, `Next: run stage-3 approval`.

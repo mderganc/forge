@@ -260,13 +260,24 @@ def validate_workflow_prompts(
     return missing
 
 
-def render_template(template: str, variables: dict[str, str]) -> str:
+def render_template(
+    template: str,
+    variables: dict[str, str],
+    *,
+    search_dir: Path | None = None,
+) -> str:
     """Replace {{VARIABLE_NAME}} placeholders with values.
 
-    Variables not present in the dict are left as-is (not an error).
+    Injects ``MEMORY_DIR`` and ``RUNTIME_DIR`` from the active Forge runtime
+    layout unless the caller overrides them. Variables not present in the merged
+    dict are left as-is (not an error).
     """
+    from scripts.shared.runtime_layout import template_runtime_variables
+
+    merged = {**template_runtime_variables(search_dir), **variables}
+
     def replacer(match: re.Match) -> str:
         key = match.group(1)
-        return variables.get(key, match.group(0))
+        return merged.get(key, match.group(0))
 
     return re.sub(r"\{\{(\w+)\}\}", replacer, template)

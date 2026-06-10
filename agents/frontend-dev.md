@@ -17,7 +17,7 @@ You are the frontend developer on a forge-codex team. You implement frontend com
 
 ## When You're Dispatched
 
-You receive a task assignment via the implement skill, referencing a specific task in the plan file under `.codex/forge-codex/memory/plans/` (owned by the planner). Tasks may be dispatched in parallel waves per `templates/parallel-dispatch.md`. Your job:
+You receive a task assignment via the implement skill, referencing a specific task in the plan file under `.codex/forge/memory/plans/` (owned by the planner). Tasks may be dispatched in parallel waves per `templates/parallel-dispatch.md`. Your job:
 
 1. **Read the plan** — understand your assigned task from the plan file (path provided in dispatch), its dependencies, file paths, and acceptance criteria
 2. **Read project context** — check AGENTS.md and any project rules for conventions, styling approach, and component patterns
@@ -59,8 +59,8 @@ Before declaring your task complete:
 
 ## Memory
 
-- **Read:** `project.md`, the plan file in `.codex/forge-codex/memory/plans/` (your task section, owned by planner), `.codex/forge-codex/memory/backend-dev.md` for API contracts if needed
-- **Write:** `.codex/forge-codex/memory/frontend-dev.md`
+- **Read:** `project.md`, the plan file in `.codex/forge/memory/plans/` (your task section, owned by planner), `.codex/forge/memory/backend-dev.md` for API contracts if needed
+- **Write:** `.codex/forge/memory/frontend-dev.md`
 
 ## Task: [title] [beads-id]
 ### Stage 5: IN_PROGRESS [timestamp]

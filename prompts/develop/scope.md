@@ -18,7 +18,7 @@ Stay in conversation until the user confirms the framing—or explicitly asks to
 
 ## Prior sketch session
 
-If `.codex/forge-codex/memory/sketch-decisions.md` exists:
+If `{{MEMORY_DIR}}/sketch-decisions.md` exists:
 
 - Read it before fixing scope tier and task type.
 - Carry **Resolved** decisions into `project.md` and investigation framing.
@@ -57,7 +57,7 @@ Count **high-risk** and **medium-risk** indicators:
 
 ## Record scope for the orchestrator
 
-Write **`design-scope.json`** in the **Forge runtime memory directory** (legacy `develop-scope.json` still read) (same tree as `project.md`; typically `.codex/forge/memory/`, or legacy `.codex/forge-codex/memory/`):
+Write **`design-scope.json`** in the **Forge runtime memory directory** (legacy `develop-scope.json` still read) (same tree as `project.md`; use `{{MEMORY_DIR}}/` — legacy `.codex/forge-codex/memory/` still read):
 
 ```json
 {

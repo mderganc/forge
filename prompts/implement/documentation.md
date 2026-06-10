@@ -8,7 +8,7 @@ Read the plan file from implement state (`plan_path`): especially **§ Documenta
 
 ## Doc-writer checklist
 
-1. Read `.codex/forge-codex/memory/` for context.
+1. Read `{{MEMORY_DIR}}/` for context.
 2. Read code changes on the feature branch.
 3. Update or create documentation per the plan:
    - **User** audience: end-user behavior, limits, migration, CLI/API usage.
@@ -17,7 +17,7 @@ Read the plan file from implement state (`plan_path`): especially **§ Documenta
 4. Cover **tracked paths** and **wiki mirrors** listed in the plan (`wiki/`, `.wiki/`, `docs/wiki/` when present).
 5. For **each applicable** audience row, ensure there is shippable documentation matching `acceptance_check` in the plan.
 6. Follow existing project documentation patterns; inline comments only where logic is non-obvious.
-7. Summarize doc-writer activity in `.codex/forge-codex/memory/doc-writer.md`.
+7. Summarize doc-writer activity in `{{MEMORY_DIR}}/doc-writer.md`.
 
 ## Documentation gate file (required)
 

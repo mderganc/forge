@@ -12,7 +12,9 @@ from scripts.shared.structural_probes import (
     _extract_stdout_json,
     _madge_entry,
     _parse_skylos_json_findings,
+    _pyscn_analyze_command,
     _pyscn_check_command,
+    _pyscn_probe_targets,
     _run_cmd,
     _skip_probe,
     _skylos_scan_command,
@@ -21,10 +23,12 @@ from scripts.shared.structural_probes import (
     build_stack_inventory,
     detect_stack,
     filter_applicable_probe_tools,
+    is_broad_probe_scope,
     merge_plan_with_scope,
     node_probe_root,
     normalize_probe_tools,
     python_probe_root,
+    repo_has_large_ignored_dirs,
     skylos_use_quick_scan,
     suggest_probe_plan,
 )
@@ -142,16 +146,23 @@ def run_pyscn_probe(
     pyscn = resolve_pyscn_command()
     if not pyscn:
         return _skip_probe("pyscn", "pyscn not available — run forge structural-tools install")
-    if effective_scope:
-        py_target = effective_scope[0]
+
+    targets = _pyscn_probe_targets(
+        repo_root,
+        python_root=python_root,
+        effective_scope=effective_scope,
+    )
+    if not targets:
+        return _skip_probe(
+            "pyscn",
+            "skipped: no safe Python probe scope (repo root blocked by large ignored dirs)",
+        )
+
+    use_analyze = bool(effective_scope) or repo_has_large_ignored_dirs(repo_root)
+    if use_analyze:
+        cmd = _pyscn_analyze_command(pyscn, targets=targets)
     else:
-        py_target = "."
-        if python_root != repo_root:
-            try:
-                py_target = str(python_root.relative_to(repo_root))
-            except ValueError:
-                py_target = str(python_root)
-    cmd = _pyscn_check_command(pyscn, target=py_target)
+        cmd = _pyscn_check_command(pyscn, target=targets[0])
     code, out = _run_cmd(cmd, cwd=repo_root, timeout=timeout)
     return {
         "tool": "pyscn",
@@ -171,6 +182,7 @@ def run_skylos_probe(
     quick_mode: bool,
     skill_name: str | None,
     step: int | None,
+    exclude_paths: list[str] | None = None,
 ) -> dict[str, Any]:
     from forge_next.structural_tools import resolve_skylos_command
 
@@ -182,10 +194,24 @@ def run_skylos_probe(
         python_root=python_root,
         scope_paths=effective_scope,
     )
+    if (
+        not effective_scope
+        and repo_has_large_ignored_dirs(repo_root)
+        and is_broad_probe_scope(sky_targets)
+    ):
+        return _skip_probe(
+            "skylos",
+            "skipped: no safe Python probe scope (repo root blocked by large ignored dirs)",
+        )
     quick_scan = quick_mode or skylos_use_quick_scan(
         skill_name, step, scope_paths=effective_scope
     )
-    cmd = _skylos_scan_command(skylos, sky_targets, quick_scan=quick_scan)
+    cmd = _skylos_scan_command(
+        skylos,
+        sky_targets,
+        quick_scan=quick_scan,
+        exclude_folders=exclude_paths,
+    )
     code, out = _run_cmd(cmd, cwd=repo_root, timeout=timeout)
     parsed = _extract_stdout_json(out)
     findings = _parse_skylos_json_findings(out) if parsed is not None else []

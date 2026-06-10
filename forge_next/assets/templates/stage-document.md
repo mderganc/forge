@@ -14,7 +14,7 @@ Send to Doc Writer:
 
 > **Task: Write documentation for completed feature**
 >
-> Read ALL memory files in `.codex/forge-codex/memory/`.
+> Read ALL memory files in `.codex/forge/memory/`.
 > Read the actual implementation code to verify.
 > Use Codex runtime conventions from `templates/codex-runtime.md`.
 >
@@ -101,9 +101,9 @@ bd close [epic-id] --reason "Feature complete"
 
 ### 6. Final Git
 
-git add .codex/forge-codex/
+git add .codex/forge/
 git commit -m "workflow: Stage 7 complete — [feature name] documented"
 
 Report to user:
-Development complete. Backlog items (if any) are in .codex/forge-codex/backlog.md
+Development complete. Backlog items (if any) are in .codex/forge/backlog.md
 and can be picked up in a future session. Run `resume` to continue forge-codex work.

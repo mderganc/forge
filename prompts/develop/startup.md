@@ -30,10 +30,10 @@ If agent teams unavailable -> inform user:
 {{AUTONOMY_INSTRUCTIONS}}
 
 ## Session Resume
-If .codex/forge-codex/memory/project.md exists:
+If {{MEMORY_DIR}}/project.md exists:
   -> Read all memory files, check stage markers
   -> Find earliest incomplete stage
   -> Report and resume
 
 ## Initialize
-Create .codex/forge-codex/memory/ directory and project.md with feature name, timestamps, dependencies, autonomy.
+Create {{MEMORY_DIR}}/ directory and project.md with feature name, timestamps, dependencies, autonomy.

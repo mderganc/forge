@@ -83,4 +83,4 @@ Create `.diagnose-technique-coverage.json` with a row per **activated** techniqu
 - **Hypothesis register** — only if **Hypothesis-driven problem solving** or **Fishbone / Ishikawa** is activated (minimum **{{HYPOTHESIS_MIN}}** candidates when active).
 - **MECE tree** — only if **MECE issue tree** is activated.
 
-Write to `.codex/forge-codex/memory/investigator.md`
+Write to `{{MEMORY_DIR}}/investigator.md`

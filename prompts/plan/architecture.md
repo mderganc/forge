@@ -6,7 +6,7 @@ Dispatch the **Architect** to design the unified architecture.
 
 - This is a planning-only phase. Do not edit product code.
 - Allowed edits are limited to planning artifacts (`{{PLAN_FILE}}` and
-  `.codex/forge-codex/memory/*.md` notes referenced by this workflow).
+  `{{MEMORY_DIR}}/*.md` notes referenced by this workflow).
 - Do not run git mutation commands: `git add`, `git commit`, `git push`,
   `git reset`, `git rebase`, `git checkout`, `git restore`, `git cherry-pick`,
   `git merge`, `git stash`, `git tag`.

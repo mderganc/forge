@@ -43,7 +43,7 @@ Workflows can hook **[Beads](https://github.com/steveyegge/beads)** (`bd` CLI) s
 
 - **Canonical guide:** `templates/beads-integration.md` (epic layout, `bd` examples, degraded mode).
 - **Cross-references:** `templates/memory-protocol.md`, `templates/handoff-protocol.md` (Beads section in status handoffs).
-- **Runtime:** design startup checks Beads (`prompts/develop/startup.md`). Skill state includes a `beads_available` flag in `scripts/shared/orchestrator.py`, but whether Beads is used is driven by prompts and `project.md` (“beads: available/unavailable”), not by automatic detection in the orchestrator.
+- **Runtime:** design startup checks Beads (`prompts/develop/startup.md` — legacy prompt path). Skill state includes a `beads_available` flag in `scripts/shared/orchestrator.py`, but whether Beads is used is driven by prompts and `project.md` (“beads: available/unavailable”), not by automatic detection in the orchestrator.
 
 ---
 
@@ -93,43 +93,266 @@ Options (defaults are usually fine): `--ref`, `--repo-url`, `--cursor-dir`, `--c
 
 Work in another folder than the editor root only when your integration documents it (some flows pass a repo path through the launcher).
 
-After a new `forge-next` release on PyPI, upgrade with `pipx upgrade forge-next` (or reinstall with `pipx install forge-next --force`). Pin a specific version when reproducibility matters, for example `pipx install 'forge-next==0.19.0'` (see `project.version` in `pyproject.toml`).
+After a new `forge-next` release on PyPI, upgrade with `pipx upgrade forge-next` (or reinstall with `pipx install forge-next --force`). Pin a specific version when reproducibility matters, for example `pipx install 'forge-next==0.19.2'` (see `project.version` in `pyproject.toml`).
 
 ---
 
 ## Commands in your apps
 
-All **14** workflows are defined in [`integrations/spec/commands.json`](integrations/spec/commands.json). They split into **core** delivery commands (linear pipeline + ship) and **helper** commands (meta, resume, environment, graph).
+All **14** workflows are defined in [`integrations/spec/commands.json`](integrations/spec/commands.json). Each command below uses the same layout: **invoke table**, purpose, when to use, artifacts, and methodologies.
 
-### Core commands (9)
+**Terminal:** `forge <subcommand> …` (for example `forge design --step 1`, `forge graphify refresh`). **`forge develop`** is a **deprecated alias** for **`forge design`** (stderr warning).
 
-| Workflow | Cursor / Claude | Codex |
-|----------|-----------------|-------|
-| **Sketch** — organize intent before design (optional) | `/forge:sketch` | `$forge:sketch` |
-| **Design** — discovery, requirements, options; medium/large scope requires a **named** spec at `docs/forge/specs/YYYY-MM-DD-<slug>-design.md` | `/forge:design` | `$forge:design` |
-| Implementation plan | `/forge:plan` | `$forge:plan` |
-| Plan / implementation review | `/forge:evaluate` | `$forge:evaluate` |
-| Execute plan in waves | `/forge:implement` | `$forge:implement` |
-| Structured code review (includes structural probe summary on final step) | `/forge:code-review` | `$forge:code-review` |
-| Tests or mock-flow authoring | `/forge:test` | `$forge:test` |
-| Root-cause / incident analysis | `/forge:diagnose` | `$forge:diagnose` |
-| **Ship** — finalize: commit, push, PR, publish | `/forge:ship` | `$forge:ship` |
+**Sessions:** steps 2+ accept **`--session <id>`** when multiple active sessions exist — see [`docs/sessions.md`](docs/sessions.md).
 
-### Helper commands (5)
+**Codex:** `forge install --codex` installs skills under `~/.codex/skills/forge/` — see [`integrations/codex/README.md`](integrations/codex/README.md).
 
-| Workflow | Cursor / Claude | Codex |
-|----------|-----------------|-------|
-| Meta-workflow (chained loops) | `/forge:iterate` | `$forge:iterate` |
-| Resume or cleanup | `/forge:resume` | `$forge:resume` |
-| Dashboard | `/forge:status` | `$forge:status` |
-| Check install / environment | `/forge:doctor` | `$forge:doctor` |
-| Optional Graphify (codebase map) | `/forge:graphify` | `$forge:graphify` |
+### Quick index
 
-**Terminal:** same subcommands as `forge <subcommand> …` (for example `forge design --step 1`, `forge graphify refresh`). **`forge develop`** remains a **deprecated alias** for `forge design` (stderr warning).
+| Command | Anchor |
+|---------|--------|
+| sketch | [Sketch](#sketch) |
+| design | [Design](#design) |
+| plan | [Plan](#plan) |
+| evaluate | [Evaluate](#evaluate) |
+| implement | [Implement](#implement) |
+| code-review | [Code review](#code-review) |
+| test | [Test](#test) |
+| diagnose | [Diagnose](#diagnose) |
+| iterate | [Iterate](#iterate) |
+| resume | [Resume](#resume) |
+| status | [Status](#status) |
+| doctor | [Doctor](#doctor) |
+| ship | [Ship](#ship) |
+| graphify | [Graphify](#graphify) |
 
-**Sessions:** steps 2+ accept **`--session <id>`** when multiple active sessions exist; see [`docs/sessions.md`](docs/sessions.md).
+### Delivery pipeline
 
-**Codex:** `forge install --codex` installs skills under `~/.codex/skills/forge/` (see [`integrations/codex/README.md`](integrations/codex/README.md)). In the app you invoke `$forge:<subcommand>`; that matches `name: forge:<subcommand>` in each `SKILL.md` (aligned with [`integrations/spec/commands.json`](integrations/spec/commands.json)).
+Default linear order (evaluate and diagnose also run standalone):
+
+| Step | Cursor / Claude | Codex |
+|------|-----------------|-------|
+| 0 (optional) | `/forge:sketch` | `$forge:sketch` |
+| 1 | `/forge:design` | `$forge:design` |
+| 2 | `/forge:plan` | `$forge:plan` |
+| 3 (as needed) | `/forge:evaluate` | `$forge:evaluate` |
+| 4 | `/forge:implement` | `$forge:implement` |
+| 5 | `/forge:code-review` | `$forge:code-review` |
+| 6 | `/forge:test` | `$forge:test` |
+
+Handoff menus may recommend **evaluate** as a quality gate; **`forge resume`** treats evaluate as standalone when no session is active — follow the last handoff menu when in doubt. **Ship** is a finalize utility (not a pipeline step); handoff menus after implement, code-review, and test often list it.
+
+When intent is fuzzy, run [sketch](#sketch) before [design](#design).
+
+**Plan discovery:** For **evaluate** (`--plan`), **implement**, and **code-review**, Forge searches markdown plans in the repo and native IDE plan folders (`.cursor/plans`, `.claude/plans`, `.codex/plans`, and `~/.cursor/plans`, …).
+
+---
+
+### Sketch
+
+| | Cursor / Claude | Codex | Terminal |
+|--|-----------------|-------|----------|
+| Invoke | `/forge:sketch` | `$forge:sketch` | `forge sketch --step 1` |
+
+**What it does:** Organizes intent when the problem, constraints, or terminology are still fuzzy — one question at a time with a recommended answer.
+
+**When to use:** Before design when requirements are unclear. Optional **`--with-domain-docs`** updates `CONTEXT.md` and sparse `docs/adr/`.
+
+**Artifacts:** `memory/sketch-decisions.md` under `.codex/forge/memory/`.
+
+**Default handoff:** [design](#design). Protocol: `templates/sketch-protocol.md`.
+
+---
+
+### Design
+
+| | Cursor / Claude | Codex | Terminal |
+|--|-----------------|-------|----------|
+| Invoke | `/forge:design` | `$forge:design` | `forge design --step 1` |
+
+**What it does:** Back-and-forth discovery — surface opportunities, brainstorm requirements, explore and score solution directions before planning.
+
+**When to use:** After sketch (if needed) or when you have a defined feature/problem. Read-only on the codebase unless the user explicitly allows edits.
+
+**Artifacts:** Session memory under `.codex/forge/memory/`; **`memory/design-scope.json`** (legacy `develop-scope.json` still read); for **medium/large** scope, named spec **`docs/forge/specs/YYYY-MM-DD-<slug>-design.md`** and gate **`.design-spec-gate.json`** (legacy `.develop-spec-gate.json` still read).
+
+**Notable flags:** `--quick`; step 7 bypass: `--allow-spec-incomplete` with override reason/follow-up.
+
+**Deprecated:** `forge develop` / `/forge:develop` / `$forge:develop` alias design for one release cycle.
+
+**Default handoff:** [plan](#plan) or [evaluate](#evaluate).
+
+**Methodologies:** evidence-first investigation; 5 Whys; systematic debugging; brainstorming gates; HMW framing; Pugh scoring; cross-review; user approval gates. Template: `templates/design-spec.md`.
+
+---
+
+### Plan
+
+| | Cursor / Claude | Codex | Terminal |
+|--|-----------------|-------|----------|
+| Invoke | `/forge:plan` | `$forge:plan` | `forge plan --step 1` |
+
+**What it does:** Turns an approved direction into a concrete implementation plan with waves, tasks, and documentation sections.
+
+**Artifacts:** Plan file under `memory/plans/`; `memory/planner.md`.
+
+**Default handoff:** [evaluate](#evaluate) (pre) or [implement](#implement).
+
+**Methodologies:** architecture overview; INVEST tasks; parallelization map; risk register; pre-mortem; skeleton markers through step 7. Documentation step 6: audience matrix and wiki checklist.
+
+---
+
+### Evaluate
+
+| | Cursor / Claude | Codex | Terminal |
+|--|-----------------|-------|----------|
+| Invoke | `/forge:evaluate` | `$forge:evaluate` | `forge evaluate --step 1 --mode pre` |
+
+**What it does:** Structured review — **`--mode pre`** (before implementation), **`--mode post`** (after), or **`--mode review`**.
+
+**Artifacts:** `.evaluate-state.json` and `.evaluate-findings-step<N>.json` sidecars.
+
+**Methodologies:** feasibility ratings; completeness audit; correctness, quality, performance, operational readiness lenses; team dispatch when enabled.
+
+---
+
+### Implement
+
+| | Cursor / Claude | Codex | Terminal |
+|--|-----------------|-------|----------|
+| Invoke | `/forge:implement` | `$forge:implement` | `forge implement --step 1` |
+
+**What it does:** Executes the plan in waves with per-task review loops.
+
+**Artifacts:** `handoff-implement.md`; `.implement-documentation-gate.json` at step 8.
+
+**Default handoff:** [code-review](#code-review).
+
+**Methodologies:** branch setup; wave dispatch; review loop per `templates/review-loop.md`; integration check; documentation gate (step 8).
+
+---
+
+### Code review
+
+| | Cursor / Claude | Codex | Terminal |
+|--|-----------------|-------|----------|
+| Invoke | `/forge:code-review` | `$forge:code-review` | `forge code-review --step 1` |
+
+**What it does:** Structured PR/diff/architecture review with Pass A (spec) and Pass B (engineering quality).
+
+**Artifacts:** `memory/code-review-report.md`; step 3 runs structural probes (pyscn/skylos on Python repos) — see [`docs/structural-quality.md`](docs/structural-quality.md).
+
+**Default handoff:** [test](#test) or [ship](#ship).
+
+**Methodologies:** mode selection (PR / deep / architecture); two-pass framework; team dispatch; discussion and report.
+
+---
+
+### Test
+
+| | Cursor / Claude | Codex | Terminal |
+|--|-----------------|-------|----------|
+| Invoke | `/forge:test` | `$forge:test` | `forge test --step 1` |
+
+**What it does:** Run test suites (**run** mode) or author mock flows (**`--mode flows`**).
+
+**Artifacts:** `memory/test-report.md`; flows mode updates scenario index when parseable.
+
+**Default handoff:** [diagnose](#diagnose) on failures, or [ship](#ship).
+
+**Methodologies:** discovery, execution, failure analysis, coverage gaps; flows mode — eight quality criteria and pytest reliability checks.
+
+---
+
+### Diagnose
+
+| | Cursor / Claude | Codex | Terminal |
+|--|-----------------|-------|----------|
+| Invoke | `/forge:diagnose` | `$forge:diagnose` | `forge diagnose --step 1` |
+
+**What it does:** Evidence-led root-cause analysis with gated JSON sidecars.
+
+**When to use:** Incidents, regressions, flaky failures. Handoff for **`large`** fixes defaults to [design](#design); **`complex`** defaults to [plan](#plan).
+
+**Methodologies:** playbooks in `templates/diagnose-execution-playbooks.md`; 5 Whys; hypothesis register; technique coverage. Detail: [`skills/diagnose/SKILL.md`](skills/diagnose/SKILL.md).
+
+---
+
+### Iterate
+
+| | Cursor / Claude | Codex | Terminal |
+|--|-----------------|-------|----------|
+| Invoke | `/forge:iterate` | `$forge:iterate` | `forge iterate --step 1 --goal "…"` |
+
+**What it does:** Meta-workflow chaining diagnose → plan → evaluate → implement → code-review → test with inner and outer loops until metrics or max loops.
+
+**Artifacts:** `.iterate-gates/` under runtime memory.
+
+**CLI:** `--target "accuracy >= 0.9" --max-loops 5` or `--text "… until …, max loops N"`.
+
+---
+
+### Resume
+
+| | Cursor / Claude | Codex | Terminal |
+|--|-----------------|-------|----------|
+| Invoke | `/forge:resume` | `$forge:resume` | `forge resume` |
+
+**What it does:** Discovers active sessions, prints continuity from `resume-context.json` and memory synthesis, suggests the next `forge <skill> --step …` line.
+
+**When to use:** After interruption; use **`--cleanup`** (dry-run) or **`--cleanup --force`** to remove stale state.
+
+**Behavior:** With multiple active sessions the menu is authoritative. Snapshot vs JSON disagreement offers two resume paths. See [`skills/resume/SKILL.md`](skills/resume/SKILL.md).
+
+---
+
+### Status
+
+| | Cursor / Claude | Codex | Terminal |
+|--|-----------------|-------|----------|
+| Invoke | `/forge:status` | `$forge:status` | `forge status` |
+
+**What it does:** Dashboard of handoffs, active sessions, and suggested next workflow (inspection only).
+
+**Behavior:** Composite view from `memory/`, `sessions/`, and legacy `state/`. See [`skills/status/SKILL.md`](skills/status/SKILL.md).
+
+---
+
+### Doctor
+
+| | Cursor / Claude | Codex | Terminal |
+|--|-----------------|-------|----------|
+| Invoke | `/forge:doctor` | `$forge:doctor` | `forge doctor` |
+
+**What it does:** Checks installation, PATH, encoding, runtime root, and common misconfiguration.
+
+**When to use:** First run in a repo; after `pipx install forge-next` or integration install.
+
+---
+
+### Ship
+
+| | Cursor / Claude | Codex | Terminal |
+|--|-----------------|-------|----------|
+| Invoke | `/forge:ship` | `$forge:ship` | `forge ship --step 1` |
+
+**What it does:** Finalizes coding work — preflight, commit, push, PR, merge, publish (PyPI/npm). **Not** a delivery pipeline step.
+
+**When to use:** After implement, code-review, or test when you are ready to land changes. Run step 1 before commit/PR when `graphify-out/` exists (GRAPHIFY banner + background refresh). Cursor skill: [`.cursor/skills/ship/SKILL.md`](.cursor/skills/ship/SKILL.md).
+
+---
+
+### Graphify
+
+| | Cursor / Claude | Codex | Terminal |
+|--|-----------------|-------|----------|
+| Invoke | `/forge:graphify` | `$forge:graphify` | `forge graphify refresh` |
+
+**What it does:** Optional codebase knowledge graph — refresh index, install/uninstall post-commit hook.
+
+**When to use:** Setup and troubleshooting; agents read `graphify-out/GRAPH_REPORT.md` before broad search. Full guide: [`docs/graphify.md`](docs/graphify.md).
+
+**Note:** CLI-only helpers `forge structural-tools` and `forge structural-probes` are documented in [`docs/structural-quality.md`](docs/structural-quality.md) (not slash commands).
 
 ---
 
@@ -177,156 +400,6 @@ pipx uninstall forge-next
 - **Session completeness:** Active-session detection treats a run as complete when either `completed_at` is set or legacy state reached max step (`current_step >= max_step` and `last_completed_step >= max_step`).
 - **Cleanup behavior:** `forge resume --cleanup` removes stale session directories and legacy flat state files (dry-run by default; `--force` to delete). Env: `FORGE_SESSION_MAX_AGE_DAYS` (default `7`), `FORGE_SKIP_SESSION_CLEANUP=1` to disable automatic archive of old sessions.
 - **Auto-close on step 1:** Starting a pipeline skill removes superseded session JSON when a handoff exists, when you move forward in the pipeline, or when a step-1-only session was abandoned (see [AGENTS.md](AGENTS.md) State Lifecycle). `forge status` / `forge doctor` report remaining leaks.
-
----
-
-## Workflows (what each one is for)
-
-**Default linear delivery:** same order for Cursor, Claude (`/forge:…`) and Codex (`$forge:…` — see [Commands in your apps](#commands-in-your-apps)).
-
-One nuance from the code: the **handoff menu** and `scripts/shared/skill_chain.py` often recommend using **evaluate** as a quality gate (for example, “evaluate pre” after plan), but the **no-active-sessions** resume helper (`scripts/shared/resume.py`) treats **evaluate as standalone** and does not include it in the hard-coded pipeline order. When in doubt, follow the last handoff menu you saw; use `forge resume`, `/forge:resume`, or `$forge:resume` to pick up an active session.
-
-When intent is still fuzzy, run **sketch** before design (see [Sketch](#sketch-before-design)).
-
-| Step | Cursor / Claude | Codex |
-|------|-----------------|-------|
-| 0 (optional) | `/forge:sketch` | `$forge:sketch` |
-| 1 | `/forge:design` | `$forge:design` |
-| 2 | `/forge:plan` | `$forge:plan` |
-| 3 or As Needed | `/forge:evaluate` (e.g. --mode pre or --mode post) | `$forge:evaluate` |
-| 4 | `/forge:implement` | `$forge:implement` |
-| 5 | `/forge:code-review` | `$forge:code-review` |
-| 6 | `/forge:test` | `$forge:test` |
-| As Needed | `/forge:diagnose` | `$forge:diagnose` |
-| Meta (full loop) | `/forge:iterate` | `$forge:iterate` |
-
-Evaluate and diagnose also run standalone. **Iterate** chains the linear workflow with inner review loops and outer loops until a metric target is met or a max loop count (see [Iterate](#iterate)).
-
-**Plan discovery:** For **evaluate** (`--plan`), **implement** (`--plan`), and **code-review** (`--plan`), Forge searches markdown plans in the repo and in native IDE plan folders — for example `<repo>/.cursor/plans`, `<repo>/.claude/plans`, `<repo>/.codex/plans`, and the same paths under your user home directory (`~/.cursor/plans`, …). Pass a path or keywords.
-
-**Status:** `/forge:status` / `$forge:status`. 
-
-**Resume:** `/forge:resume` / `$forge:resume`.
-
-### Sketch (before design)
-
-- **Cursor / Claude:** `/forge:sketch`
-- **Codex:** `$forge:sketch`
-
-**Sketch organizes intent** when the problem, constraints, or terminology are still fuzzy: one question at a time with a recommended answer, logged in **`memory/sketch-decisions.md`**. It is **not** solution brainstorming (that is design) and **not** the design spec file. Optional **`--with-domain-docs`** updates `CONTEXT.md` (glossary) and sparse `docs/adr/` per `templates/CONTEXT-FORMAT.md` and `templates/ADR-FORMAT.md`.
-
-Default handoff: **design**. Protocol: `templates/sketch-protocol.md`.
-
-### Design
-
-- **Cursor / Claude:** `/forge:design`
-- **Codex:** `$forge:design`
-
-**Design is a back-and-forth with you:** surface opportunities (not only bugs), brainstorm and refine requirements, and generate multiple solution directions before anything is “locked.” The step sequence structures that conversation—short rounds of questions, options, and gates—not a one-shot report.
-
-If intent is still messy, run **sketch** first. Then investigate the problem or feature, explore and score options, and converge before plan. Handoff often points to plan (`/forge:plan` or `$forge:plan`) or evaluate (`/forge:evaluate` or `$forge:evaluate`).
-
-**Named design spec:** For **medium** and **large** scope, design produces **`docs/forge/specs/YYYY-MM-DD-<slug>-design.md`** before handoff to plan — not sketch.
-
-**Scope tiers and design spec:** Scope assessment can set **trivial / medium / large** (persisted as **`memory/design-scope.json`** under the Forge runtime root, e.g. `.codex/forge/`; legacy **`memory/develop-scope.json`** still read). For **medium** and **large**, step 7 enforces a **design-spec gate**: **`.design-spec-gate.json`** beside the design state file must record a real spec path, completion booleans, and user approval (legacy **`.develop-spec-gate.json`** still read). Strict bypass is opt-in via `forge design --step 7 --allow-spec-incomplete` with **`--spec-override-reason`** and **`--spec-override-follow-up`** (optional **`--spec-override-requested-by`**). Template: `templates/design-spec.md`.
-
-**Deprecated:** `forge develop` / `/forge:develop` / `$forge:develop` alias design for one release cycle.
-
-**Methodologies:** evidence-first investigation and git/history context; 5 Whys (`templates/five-why-protocol.md`); systematic debugging for defects (`templates/systematic-debugging.md`); brainstorming phased for requirements and solution families (`templates/brainstorming.md`, `brainstorming-gates.md`); How-Might-We framing; Pugh / weighted scoring and rubrics (`templates/scoring-rubric.md`); cross-review of investigation; user approval gates.
-
-### Plan
-
-- **Cursor / Claude:** `/forge:plan`
-- **Codex:** `$forge:plan`
-
-Turn an approved direction into an implementation plan. Handoff often points to evaluate pre (`/forge:evaluate` or `$forge:evaluate`) or implement (`/forge:implement` / `$forge:implement`).
-
-**Methodologies:** architecture overview before task breakdown; INVEST-style tasks; parallelization / wave planning with explicit dependencies; interface contracts between tasks; risk register with mitigations; pre-mortem (`templates/pre-mortem.md`) before risks; concrete rollback steps (not “revert commits” only); plan review loop and skeleton markers through completion gates.
-
-**Documentation planning (step 6):** audience applicability (`architect_expert`, `technical_operator`, `user`) with justification per tier — not all three required every time; Documentation Definition of Done table; wiki mirrors (`wiki/`, `.wiki/`, `docs/wiki/`) and external wiki checklist rows. Step 7 handoff is blocked until every `<!-- FORGE_SKELETON: … -->` marker is cleared in the plan file (including Documentation).
-
-### Evaluate
-
-- **Cursor / Claude:** `/forge:evaluate`
-- **Codex:** `$forge:evaluate`
-
-Structured review: --mode pre (before implementation), --mode post (after), or review. 
-
-**Methodologies:** feasibility and step-level FEASIBLE/RISKY/BLOCKED rating; codebase alignment and risk/dependency surfacing; completeness audit (plan vs code: COMPLETE/PARTIAL/MISSING/EXTRA); correctness, code quality, performance, operational readiness lenses; structured findings JSON sidecars; team dispatch and remediation loops where enabled.
-
-### Implement
-
-- **Cursor / Claude:** `/forge:implement`
-- **Codex:** `$forge:implement`
-
-Execute the plan in waves; hands off toward code-review (`/forge:code-review` / `$forge:code-review`).
-
-**Methodologies:** branch/setup and plan detection; wave dispatch with TDD expectations; per-task review loop (self-review, cross-review QA, critic, PM validation) per `templates/review-loop.md`; mutation-testing mental audit; performance and backward-compatibility checks; integration verification; documentation phase writes `.implement-documentation-gate.json` beside the implement state file and clears the plan **Documentation** skeleton marker.
-
-**Documentation gate (step 8):** strict by default — validates gate JSON (`complete`, `audience_matrix` with per-tier justification and `delivery_evidence` when applicable, `external_wiki_checklist` array even if empty) and that the plan no longer contains `<!-- FORGE_SKELETON: DOCUMENTATION -->`. Override only with `--allow-docs-incomplete --docs-override-reason … --docs-override-follow-up …` (optional `--docs-override-requested-by`); override metadata is printed to stderr and embedded in `handoff-implement.md`.
-
-### Code review
-
-- **Cursor / Claude:** `/forge:code-review`
-- **Codex:** `$forge:code-review`
-
-Deep, structured review; often feeds test (`/forge:test` / `$forge:test`).
-
-**Methodologies:** mode selection (PR vs deep vs architecture): diff-centric, trace/deep-dive, or SOLID/coupling/cohesion; diff analysis; architecture and security passes; structured discussion and report with severities.
-
-### Test
-
-- **Cursor / Claude:** `/forge:test`
-- **Codex:** `$forge:test`
-
-Default run mode; flows mode for end-to-end mock flows. Handoff may push diagnose (`/forge:diagnose` / `$forge:diagnose`).
-
-**Methodologies:** run mode — suite discovery (unit/integration/e2e/perf/property), coverage tooling, execution plan, failure analysis, coverage gaps, reporting. Flows mode — scored recommendation across flow types (scenario, BDD, HTTP-replay, workflow-dry-run); eight progressive quality criteria (realistic journeys, data packs, roles matrix, entry-point ladder, outcome validation, minimal mocking, failure paths, repeatable/double-run); scope, scaffold, author, execute, report phases with pytest reliability checks (fixture teardown/isolation, `tmp_path` usage, deterministic assertions, strict markers, seam-first targeted runs before full sweeps).
-
-### Iterate
-
-- **Cursor / Claude:** `/forge:iterate`
-- **Codex:** `$forge:iterate`
-
-Runs **diagnose → plan → evaluate (pre) → implement → evaluate (post) → code-review → test** with **inner loops** until evaluate/code-review gates report no open findings, and **outer loops** until a **target metric** is satisfied or `--max-loops` is reached. Gate JSON files live under runtime memory **`.iterate-gates/`** (for example `diagnose.json`, `evaluate-pre.json`, `metric.json`) so progress stays auditable.
-
-**CLI:** `forge iterate --step 1 --goal "…" --target "accuracy >= 0.9" --max-loops 5` or `--text "… until …, max loops N"`. Advance `--step` as each phase completes.
-
-### Diagnose
-
-- **Cursor / Claude:** `/forge:diagnose`
-- **Codex:** `$forge:diagnose`
-
-Evidence-led root-cause analysis and reporting. When the workflow classifies the fix as **`large`** (systemic / needs design before planning), the closing handoff menu defaults to **design** first, then plan; for **`complex`** (broad but plannable), it defaults to **plan**.
-
-**Methodologies:** Execution playbooks (`templates/diagnose-execution-playbooks.md`); Phase 2 **Reproduce & Observe** with `.diagnose-feedback-loop.json` (step-3 gate, template [`diagnose-feedback-loop.md`](templates/diagnose-feedback-loop.md)); JSON sidecars beside state (problem spec, feedback loop, first-principles, hypotheses, MECE tree, five-whys chains, 20-row technique coverage, barriers when high-severity); orchestrator gates at steps 3–5–7 with **DIAGNOSE ARTIFACT GATE** (override `repro_loop_override_reason` when no loop is possible); **symptom-level root causes rejected** at closure gates; IS/IS-NOT; Cynefin; change analysis; fishbone via hypothesis register (≥10 candidates, ≥4 categories); FMEA via `fmea_score.py`; but-for / Pareto; git hotspots and logs; solutions only for confirmed causes. Skill detail: [`skills/diagnose/SKILL.md`](skills/diagnose/SKILL.md).
-
-**Graphify / architecture:** Historically only the hypothesis register was wired through `orchestrate.py` (graphify community 93); `technique_catalog.md` (community 153) fed the report phase but not decompose/analyze. Playbooks plus sidecar validators close that gap — see [AGENTS.md — Diagnose methodology sidecars](AGENTS.md#diagnose--methodology-sidecars-and-gates) and [`docs/graphify.md`](docs/graphify.md).
-
-### Status
-
-- **Cursor / Claude:** `/forge:status`
-- **Codex:** `$forge:status`
-
-Dashboard of handoffs and active sessions.
-
-**Methodologies:** follows `skills/status/SKILL.md` — composite view from `memory/` handoffs, `state/` files, and findings; suggests next workflow from pipeline position (inspection-only).
-
-### Resume
-
-- **Cursor / Claude:** `/forge:resume`
-- **Codex:** `$forge:resume`
-
-**What it does:** discovers active workflow **JSON** sessions, prints **continuity** context from `resume-context.json`, a **memory** block (prefers `forge-memory-synthesis.md`, then `current-step.md`, then handoffs), and optional **Graphify** status plus a short **GRAPH_REPORT** excerpt when those files exist. Emits the next `forge <skill> --step … --state …` line when there is a single clear session; with **multiple** active sessions, the **menu is authoritative** and synthesis/Graphify are annotation only. If snapshot and JSON state **disagree**, output shows **two** resume options and asks which source to trust before treating the command as auto-run. **Cleanup** (`--cleanup`, `--force`, `--all-stale`) lists or deletes stale state files.
-
-**Methodologies:** active-session detection, cross-session conflict warnings from other skills, step inference from state, retry guard after repeated same-step failures, cleanup dry-run vs forced delete; completion checks include both `completed_at` and legacy max-step states.
-
-### Ship (finalize)
-
-- **Cursor / Claude:** `/forge:ship`
-- **Codex:** `$forge:ship`
-
-**Ship** is not a delivery pipeline skill — it finalizes coding work: preflight, commit, push, open or update a PR, merge, and publish (PyPI/npm/etc.). Run **`forge ship --step 1`** (or `/forge:ship`) before commit/PR when `graphify-out/` exists; that step prints the **GRAPHIFY** banner and starts a background graph refresh (see [`docs/graphify.md`](docs/graphify.md)). Cursor also ships a dedicated skill at [`.cursor/skills/ship/SKILL.md`](.cursor/skills/ship/SKILL.md). Handoff menus after implement, code-review, and test often list **ship** as an alternative.
 
 ---
 

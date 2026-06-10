@@ -222,3 +222,37 @@ def test_status_does_not_crash_on_evaluate_state(monkeypatch):
 
     monkeypatch.setattr(cli, "_repo_root_from_args", fake_repo)
     cli._run_status(repo, json_output=True)
+
+
+def test_template_runtime_variables_use_canonical_layout(tmp_path: Path):
+    (tmp_path / ".codex").mkdir()
+
+    vars_ = orchestrator.template_runtime_variables(tmp_path)
+    assert vars_["RUNTIME_DIR"] == ".codex/forge"
+    assert vars_["MEMORY_DIR"] == ".codex/forge/memory"
+
+
+def test_render_template_injects_memory_dir(tmp_path: Path):
+    from scripts.evaluate.template_engine import render_template
+
+    (tmp_path / ".codex").mkdir()
+    rendered = render_template(
+        "Write to `{{MEMORY_DIR}}/investigator.md`",
+        {},
+        search_dir=tmp_path,
+    )
+    assert rendered == "Write to `.codex/forge/memory/investigator.md`"
+    assert "forge-codex" not in rendered
+
+
+def test_agents_memory_paths_use_canonical_forge_layout():
+    import re
+
+    agents_dir = Path(__file__).resolve().parent.parent / "agents"
+    bad = re.compile(r"\.codex/forge-codex/memory")
+    violations: list[str] = []
+    for path in sorted(agents_dir.glob("*.md")):
+        for i, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
+            if bad.search(line):
+                violations.append(f"{path.name}:{i}: {line.strip()}")
+    assert not violations, "agents still reference legacy memory paths:\n" + "\n".join(violations)

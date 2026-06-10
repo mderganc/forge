@@ -161,7 +161,7 @@ def format_mode_selection_block(
         "Use `templates/user-questions.md`. Question: **Which plan mode should we use?** "
         "Options: `default`, `lite`, plus optional **Save as my default** for future sessions.\n\n"
         "Record the choice in `state.custom['plan_mode']` via planner notes in "
-        "`.codex/forge-codex/memory/planner.md` and proceed with that mode for steps 2–7.\n"
+        "`.codex/forge/memory/planner.md` and proceed with that mode for steps 2–7.\n"
     )
 
 

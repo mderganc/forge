@@ -18,7 +18,7 @@ Send to Architect:
 
 > **Task: Investigate [task-type] — [feature/bug description]**
 >
-> Read `.codex/forge-codex/memory/project.md` for requirements, task type, and scope.
+> Read `.codex/forge/memory/project.md` for requirements, task type, and scope.
 > Read AGENTS.md and any project rules for conventions.
 >
 > Conduct five-why root cause analysis following `templates/five-why-protocol.md`:
@@ -27,7 +27,7 @@ Send to Architect:
 > - Record evidence at every layer
 > - Stop at an actionable root cause
 >
-> Write findings to `.codex/forge-codex/memory/investigation.md`.
+> Write findings to `.codex/forge/memory/investigation.md`.
 > Use Codex runtime conventions from `templates/codex-runtime.md`.
 > Create beads issues for each finding and root cause (if beads available).
 > Cross-reference beads IDs in memory per `templates/memory-protocol.md`.
@@ -64,6 +64,6 @@ bd dep add [root-cause-id] [finding-id] --type discovered-from
 
 ### 5. Git Checkpoint
 
-git add .codex/forge-codex/ && git commit -m "workflow: Stage 1 complete — investigation"
+git add .codex/forge/ && git commit -m "workflow: Stage 1 complete — investigation"
 
 Record in project.md: `## Stage 1: COMPLETE [timestamp]`

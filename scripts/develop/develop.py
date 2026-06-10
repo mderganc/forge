@@ -53,6 +53,7 @@ from scripts.shared.orchestrator import (
     resolve_step1_state_path,
     is_state_stale,
     runtime_memory_dir,
+    runtime_memory_dir_relative,
     runtime_state_path,
     save_state,
     validate_state_path,
@@ -146,7 +147,7 @@ def _ensure_develop_custom(state: SkillState) -> None:
 
 
 def _sync_develop_scope_from_memory(state: SkillState) -> None:
-    """Ingest `.codex/forge-codex/memory/develop-scope.json` if present."""
+    """Ingest design-scope.json (legacy develop-scope.json) from runtime memory if present."""
     path = runtime_memory_dir() / "design-scope.json"
     legacy = runtime_memory_dir() / "develop-scope.json"
     if not path.is_file() and legacy.is_file():
@@ -238,7 +239,7 @@ def _build_variables(state: SkillState) -> dict[str, str]:
         '(e.g. “you may edit `agents/foo.md` now” or “apply the drafted updates”). '
         "Exploration must be **read-only** on the codebase.\n\n"
         "**Allowed without asking:** Append or update files **only** under design session "
-        "memory when this workflow explicitly tells you to (typically `.codex/forge-codex/memory/` "
+        f"memory when this workflow explicitly tells you to (typically `{runtime_memory_dir_relative()}/` "
         "— e.g. `project.md`, investigation notes). If unsure whether a path counts as "
         "session memory, **ask first**.\n\n"
         "Do **not** skip this requirement based on autonomy level.\n"

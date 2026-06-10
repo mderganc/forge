@@ -10,7 +10,7 @@ Legend: **OK** | **stale** | **missing** | **fixed** (after this audit PR)
 | Command | commands.json | README table | README workflow | integrations |
 |---------|---------------|--------------|-----------------|--------------|
 | sketch | OK | was missing → **fixed** | OK § Sketch | OK |
-| develop | OK | OK | OK | OK |
+| design (was develop) | OK | OK | OK | OK |
 | plan | OK | OK | OK | OK |
 | evaluate | OK | OK | OK | OK |
 | implement | OK | OK | OK | OK |

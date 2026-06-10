@@ -1,6 +1,6 @@
 # Forge Studio (agent / runtime only)
 
-> **This is not a Forge workflow.** Users do not install or run Studio. It is internal transport for **develop** and **plan** visual gates (browser URL during gate questions).
+> **This is not a Forge workflow.** Users do not install or run Studio. It is internal transport for **design** and **plan** visual gates (browser URL during gate questions).
 
 Operational guide for agents: [`templates/studio.md`](../templates/studio.md).
 

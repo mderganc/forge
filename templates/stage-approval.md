@@ -64,7 +64,7 @@ Read `investigation.md` and `solutions.md` to compile:
 
 For deferred items:
 1. Close beads issue: bd close [id] --reason "Deferred by user: [reason]"
-2. Write to `.codex/forge-codex/backlog.md`:
+2. Write to `.codex/forge/backlog.md`:
 
 ## Deferred: [title] [beads-id]
 **Date:** [YYYY-MM-DD]

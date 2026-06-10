@@ -20,7 +20,7 @@ Waves completed: {{WAVES_COMPLETED}} of {{TOTAL_WAVES}}
 
 ## Wave Summary
 
-Record in `.codex/forge-codex/memory/project.md`:
+Record in `{{MEMORY_DIR}}/project.md`:
 
 ```
 ## Wave {{CURRENT_WAVE}} -- Complete

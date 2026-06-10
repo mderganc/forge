@@ -207,14 +207,19 @@ def _state_path() -> Path:
     return runtime_state_path(SKILL_NAME)
 
 
-def _load_or_fail(state_file: str | None) -> tuple[SkillState, Path]:
+def _load_or_fail(
+    step: int,
+    state_file: str | None,
+    session_id: str | None = None,
+) -> tuple[SkillState, Path]:
     """Load state or exit with error."""
-    sp = validate_state_path(state_file, SKILL_NAME) if state_file else None
+    from scripts.shared.orchestrator import resolve_step_state_path
 
-    if sp is None:
-        sp = find_state_file(SKILL_NAME)
+    sp = resolve_step_state_path(
+        SKILL_NAME, step, state_file=state_file, session_id=session_id
+    )
 
-    if sp is None or not sp.exists():
+    if not sp.exists():
         print("ERROR: No diagnosis in progress. Run step 1 first.")
         print("If the state file is elsewhere, pass --state <path>")
         sys.exit(1)
@@ -457,7 +462,12 @@ def handle_step_1(args) -> None:
     ))
 
 
-def handle_step_n(step: int, state_file: str | None = None, mode: str | None = None) -> None:
+def handle_step_n(
+    step: int,
+    state_file: str | None = None,
+    mode: str | None = None,
+    session_id: str | None = None,
+) -> None:
     """Steps 2-7: Load state, render template, output prompt."""
     from scripts.diagnose.diagnose_step_output import print_diagnose_step
     from scripts.diagnose.diagnose_steps import (
@@ -466,7 +476,7 @@ def handle_step_n(step: int, state_file: str | None = None, mode: str | None = N
         resolve_step_gate,
     )
 
-    state, sp = _load_or_fail(state_file)
+    state, sp = _load_or_fail(step, state_file, session_id=session_id)
 
     template_name = PHASE_TEMPLATES.get(step)
     if not template_name:
@@ -519,7 +529,12 @@ def main():
     if args.step == 1:
         handle_step_1(args)
     else:
-        handle_step_n(args.step, state_file=args.state, mode=args.mode)
+        handle_step_n(
+            args.step,
+            state_file=args.state,
+            mode=args.mode,
+            session_id=getattr(args, "session", None),
+        )
 
 
 if __name__ == "__main__":

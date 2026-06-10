@@ -896,10 +896,10 @@ def test_step_output_prompts_when_next_step_is_ambiguous():
 def test_forge_session_opt_in_banner_step1_only(monkeypatch: pytest.MonkeyPatch) -> None:
     from scripts.shared.orchestrator import forge_session_opt_in_banner
 
-    assert "SESSION OPT-IN" in forge_session_opt_in_banner("develop", 1)
+    assert "SESSION OPT-IN" in forge_session_opt_in_banner("design", 1)
     assert forge_session_opt_in_banner("iterate", 2) == ""
     monkeypatch.setenv("FORGE_SKIP_SESSION_OPTIN", "1")
-    assert forge_session_opt_in_banner("develop", 1) == ""
+    assert forge_session_opt_in_banner("design", 1) == ""
 
 
 def test_forge_graphify_banner_ship_only_for_workflow_steps(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -924,8 +924,8 @@ def test_format_step_output_omits_graphify_on_workflow_steps() -> None:
     if not graph_index_present(repo):
         pytest.skip("forge repo has no graphify index in this checkout")
 
-    out1 = format_step_output("develop", 1, 7, "Startup", "BODY")
-    out2 = format_step_output("develop", 2, 7, "Scope", "BODY")
+    out1 = format_step_output("design", 1, 7, "Startup", "BODY")
+    out2 = format_step_output("design", 2, 7, "Scope", "BODY")
     assert "GRAPHIFY" not in out1
     assert "GRAPHIFY" not in out2
 
@@ -934,21 +934,21 @@ def test_format_step_output_includes_session_opt_in_on_step1_only() -> None:
     from scripts.shared.orchestrator import format_step_output
 
     out = format_step_output(
-        "develop",
+        "design",
         1,
         7,
         "Startup",
         "BODY",
-        next_cmd="$forge:develop --step 2 --state .codex/forge-codex/state/develop.json",
+        next_cmd="$forge:design --step 2 --state .codex/forge/sessions/abc/session.json",
     )
     assert "SESSION OPT-IN" in out
     out2 = format_step_output(
-        "develop",
+        "design",
         2,
         7,
         "Scope",
         "BODY",
-        next_cmd="$forge:develop --step 3 --state .codex/forge-codex/state/develop.json",
+        next_cmd="$forge:design --step 3 --state .codex/forge/sessions/abc/session.json",
     )
     assert "SESSION OPT-IN" not in out2
 
@@ -1509,6 +1509,7 @@ def test_skill_chain_default_for_each_skill():
 
     required_skills = {
         "sketch",
+        "design",
         "develop",
         "plan",
         "evaluate",
@@ -1585,15 +1586,15 @@ def test_diagnose_handoff_has_no_default():
     assert "WORKFLOW HANDOFF — diagnose complete" in menu
 
 
-def test_diagnose_handoff_large_defaults_develop():
-    """Large / systemic fix_complexity promotes develop as default next."""
+def test_diagnose_handoff_large_defaults_design():
+    """Large / systemic fix_complexity promotes design as default next."""
     from scripts.shared.orchestrator import SkillState, build_skill_handoff_menu
 
     state = SkillState(skill_name="diagnose")
     state.custom["fix_complexity"] = "large"
     menu = build_skill_handoff_menu("diagnose", state=state)
     assert "Default" in menu
-    assert "$forge:develop" in menu
+    assert "$forge:design" in menu
 
 
 def test_no_skill_has_legacy_workflow_complete_marker():
@@ -1605,7 +1606,7 @@ def test_no_skill_has_legacy_workflow_complete_marker():
     from scripts.shared.orchestrator import build_skill_handoff_menu
 
     # Spot check: each skill should render a handoff menu when at MAX_STEP
-    for skill in ["develop", "plan", "evaluate", "implement", "code-review", "test", "diagnose"]:
+    for skill in ["design", "plan", "evaluate", "implement", "code-review", "test", "diagnose"]:
         menu = build_skill_handoff_menu(skill)
         assert "WORKFLOW HANDOFF" in menu
         assert "$forge:" in menu

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 # Explicit pipeline order — never iterate PIPELINE_SKILLS set for ordering.
 PIPELINE_SKILL_ORDER: tuple[str, ...] = (
-    "develop",
+    "design",
     "plan",
     "implement",
     "code-review",

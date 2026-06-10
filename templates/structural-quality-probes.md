@@ -29,11 +29,15 @@ On **evaluate post step 4** and **evaluate review step 1**, the orchestrator usu
 
 ```json
 {
-  "tools": ["knip", "madge"],
-  "node_root": "client",
-  "python_root": null,
-  "scope_paths": ["client/src"],
-  "reasoning": "TS app lives under client/; root pyproject is tooling only — skip pyscn.",
+  "tools": ["pyscn", "skylos"],
+  "node_root": "frontend",
+  "python_root": ".",
+  "scope_paths": [
+    "benchmark/dashboard/operator_editing_endpoints.py",
+    "project_context/storage.py"
+  ],
+  "exclude_paths": [".venv", "node_modules", ".pyscn", "graphify-out"],
+  "reasoning": "Review scoped to changed backend files; avoid .venv, node_modules, graphify-out, .pyscn.",
   "source": "agent"
 }
 ```
@@ -55,10 +59,10 @@ Do not run pyscn/skylos on repos where Python is only scripts/tooling next to a 
 |------|-------------------|---------|
 | knip | `FORGE_KNIP_COMMAND` or Forge manifest / npx | `knip` (repo may need `knip.json`) |
 | madge | `FORGE_MADGE_COMMAND` | `madge --circular src/` |
-| pyscn | `FORGE_PYSCN_COMMAND` | `pyscn check .` |
-| skylos | `FORGE_SKYLOS_COMMAND` | `skylos . --json` (dead code); `skylos . -a --json` when `FORGE_SKYLOS_AUDIT=1` |
+| pyscn | `FORGE_PYSCN_COMMAND` | `pyscn analyze --json --min-complexity=15 <paths>` (scoped); avoid `check .` on repo root |
+| skylos | `FORGE_SKYLOS_COMMAND` | `skylos <paths> --json` (dead code); broad scans add `--exclude-folder` for `.venv`, `node_modules`, `.pyscn`, `graphify-out` |
 
-**Code-review step 3:** skylos runs dead-code `--json` on `scope_paths` (or changed files) by default. Full audit: `FORGE_SKYLOS_AUDIT=1`.
+**Code-review / evaluate:** orchestrator prefers **changed-file** `scope_paths` from git diff. Repo-root Python scans are skipped when large ignored dirs exist. Full skylos audit: `FORGE_SKYLOS_AUDIT=1`.
 
 ## Eight parallel subagents (Civil Learning)
 

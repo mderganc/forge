@@ -10,7 +10,7 @@ Dispatch agents for Wave {{CURRENT_WAVE}} of {{TOTAL_WAVES}}.
 
 For each task in the wave, dispatch the assigned agent with:
 
-1. Task details from the plan file (path from handoff or `.codex/forge-codex/memory/plans/`)
+1. Task details from the plan file (path from handoff or `{{MEMORY_DIR}}/plans/`)
 2. Branch name for their sub-branch
 3. TDD instructions per `templates/tdd-protocol.md`:
    - Write failing test first

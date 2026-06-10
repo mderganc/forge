@@ -708,9 +708,14 @@ def main() -> None:
             session_id=getattr(args, "session", None),
         )
     else:
-        sp = validate_state_path(args.state, SKILL_NAME) if args.state else None
-        if sp is None:
-            sp = find_state_file(SKILL_NAME) or runtime_state_path(SKILL_NAME)
+        from scripts.shared.orchestrator import resolve_step_state_path
+
+        sp = resolve_step_state_path(
+            SKILL_NAME,
+            args.step,
+            state_file=args.state,
+            session_id=getattr(args, "session", None),
+        )
     if args.step == 1:
         handle_step_1(args, sp)
         return

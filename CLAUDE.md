@@ -11,7 +11,7 @@ This project has a knowledge graph at `graphify-out/` with god nodes, community 
 
 ### Forge workflow skills (`forge:*` slash commands)
 
-When you run a Forge workflow (`/forge:develop`, `/forge:plan`, etc.):
+When you run a Forge workflow (`/forge:design`, `/forge:plan`, etc.):
 
 1. **Graphify refresh at ship** — run `forge ship --step 1` or `/forge:ship` before commit/PR (not on every workflow `--step`).
 2. You may still use the graph during investigation when helpful (`graphify query`, `path`, `explain`).

@@ -55,7 +55,12 @@ def find_state_file(*, include_stale: bool = False) -> Path | None:
     return max(existing, key=lambda p: p.stat().st_mtime)
 
 
-def resolve_state_path(state_file: str | None) -> Path:
+def resolve_state_path(
+    state_file: str | None,
+    *,
+    session_id: str | None = None,
+    step: int = 2,
+) -> Path:
     sp = Path(state_file).resolve() if state_file else None
 
     if sp is not None:
@@ -66,18 +71,35 @@ def resolve_state_path(state_file: str | None) -> Path:
             print(f"WARNING: --state path is outside the repository, ignoring: {state_file}", file=sys.stderr)
             sp = None
         if sp is not None and not is_evaluate_state_name(sp.name):
-            print(
-                f"WARNING: --state path doesn't look like an evaluate state file, ignoring: {state_file}",
-                file=sys.stderr,
-            )
-            sp = None
+            from scripts.shared.session_store import is_session_state_path
+
+            if not (is_session_state_path(sp) and sp.is_file()):
+                print(
+                    f"WARNING: --state path doesn't look like an evaluate state file, ignoring: {state_file}",
+                    file=sys.stderr,
+                )
+                sp = None
 
     if sp is None or not sp.exists():
-        sp = find_state_file()
+        if session_id:
+            from scripts.shared.session_store import session_json_path
+
+            sp = session_json_path(session_id)
+        else:
+            sp = find_state_file()
+            if sp is None:
+                from scripts.shared.session_store import resolve_session_for_step
+
+                sp = resolve_session_for_step(
+                    "evaluate",
+                    step,
+                    session_id=None,
+                    state_file=None,
+                )
 
     if sp is None or not sp.exists():
         print("ERROR: No evaluation in progress. Run step 1 first with --plan.")
-        print("If the state file is elsewhere, pass --state <path>")
+        print("If the state file is elsewhere, pass --state <path> or --session <id>")
         sys.exit(1)
 
     return sp

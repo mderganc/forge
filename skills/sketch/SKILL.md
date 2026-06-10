@@ -1,11 +1,11 @@
 ---
 description: |
-  Organize intent and open decisions before develop. One question at a time with
-  recommended answers; optional CONTEXT.md/ADRs with --with-domain-docs. Develop
+  Organize intent and open decisions before design. One question at a time with
+  recommended answers; optional CONTEXT.md/ADRs with --with-domain-docs. Design
   (not sketch) writes docs/forge/specs design specs.
 ---
 
-# forge sketch — Pre-develop intent
+# forge sketch — Pre-design intent
 
 When this skill activates, invoke the orchestrator via the `forge` launcher.
 
@@ -17,10 +17,10 @@ wording for delegation after `forge:sketch` has been invoked.
 | Situation | Prefer |
 |-----------|--------|
 | Fuzzy idea, pitch, or half-plan before investigation | **`forge:sketch`** |
-| Ready for evidence + solution brainstorming + design spec | **`forge:develop`** |
-| Direction fully locked; skip develop | **`forge:plan`** (rare from sketch) |
+| Ready for evidence + solution brainstorming + design spec | **`forge:design`** |
+| Direction fully locked; skip design | **`forge:plan`** (rare from sketch) |
 
-**Sketch** = intent organization. **Develop** = investigation, solution brainstorming, and **`docs/forge/specs/...-design.md`** for medium/large scope.
+**Sketch** = intent organization. **Design** = investigation, solution brainstorming, and **`docs/forge/specs/...-design.md`** for medium/large scope.
 
 ## Graphify
 
@@ -38,4 +38,4 @@ Optional: read `graphify-out/GRAPH_REPORT.md` before broad search. Refresh at sh
 
 ## Handoff
 
-Default next: **`forge:develop`**. Develop reads `sketch-decisions.md` when present and authors the design spec — not sketch.
+Default next: **`forge:design`**. Design reads `sketch-decisions.md` when present and authors the named design spec — not sketch.

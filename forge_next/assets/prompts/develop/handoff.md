@@ -1,11 +1,11 @@
-# Develop Complete — Handoff
+# Design Complete — Handoff
 
 {{DEVELOP_NO_EDIT_POLICY}}
 
 ## Handoff
 Capture not only facts but the **shared framing** from the session—what opportunities surfaced, which creative directions were considered, and what the user valued—so the next skill inherits the conversation, not just artifacts.
 
-Write `.codex/forge-codex/memory/handoff-develop.md` with:
+Write `{{MEMORY_DIR}}/handoff-design.md` with:
 - Approved solutions with beads IDs
 - Team composition
 - Scope assessment
@@ -16,11 +16,11 @@ Write `.codex/forge-codex/memory/handoff-develop.md` with:
 Render skill completion dashboard per `templates/dashboard.md`.
 
 ## Doc-writer Capture
-Dispatch Doc-writer to capture learnings in `.codex/forge-codex/memory/doc-writer.md`.
+Dispatch Doc-writer to capture learnings in `{{MEMORY_DIR}}/doc-writer.md`.
 
 ## Suggested Next
 
-`plan` — **only after** any required design spec gate is complete (see `.develop-spec-gate.json` when `spec_required`). The design spec path (when required) lives under `docs/forge/specs/` — plan and implement should consume that file, not sketch memory alone.
+`plan` — **only after** any required design spec gate is complete (see `.design-spec-gate.json` when `spec_required`; legacy `.develop-spec-gate.json` still read). The design spec path (when required) lives under `docs/forge/specs/` — plan and implement should consume that file, not sketch memory alone.
 
 Orchestrator context:
 
@@ -29,4 +29,4 @@ Orchestrator context:
 - **Spec gate status:** {{SPEC_GATE_STATUS}}
 
 ## Git Checkpoint
-git add .codex/forge-codex/ && git commit -m "workflow: develop complete -- solutions approved"
+git add {{RUNTIME_DIR}}/ && git commit -m "workflow: design complete -- solutions approved"

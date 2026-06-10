@@ -88,7 +88,7 @@ PHASE_NAMES = {
 
 PHASE_TODOS = {
     1: [
-        {"content": "Read handoff-develop.md and memory files",
+        {"content": "Read handoff-design.md and memory files",
          "activeForm": "Reading handoff and memory"},
         {"content": "Initialize plan state",
          "activeForm": "Initializing state"},
@@ -266,7 +266,7 @@ def _build_variables(state: SkillState) -> dict[str, str]:
     handoff_content = state.custom.get("handoff_content", "")
     if handoff_content:
         handoff_section = (
-            "## Handoff from Develop\n\n"
+            "## Handoff from Design\n\n"
             "<handoff>\n"
             f"{handoff_content}\n"
             "</handoff>"
@@ -274,7 +274,7 @@ def _build_variables(state: SkillState) -> dict[str, str]:
     else:
         handoff_section = (
             "## No Handoff Found\n\n"
-            "No handoff-develop.md was found. Ask the user what needs to be planned."
+            "No handoff-design.md was found (legacy handoff-develop.md also accepted). Ask the user what needs to be planned."
         )
 
     plan_context = state.custom.get("plan_context", "(not yet captured)")
@@ -396,7 +396,7 @@ def handle_step_1(args: argparse.Namespace) -> None:
         target_state_path=sp,
     )
 
-    handoff_content = consume_handoff("develop")
+    handoff_content = consume_handoff("design")
 
     run_step1_session_hygiene(SKILL_NAME, sp)
     print_remaining_session_warning(SKILL_NAME)
@@ -485,29 +485,11 @@ def handle_step_1(args: argparse.Namespace) -> None:
 
 def handle_step_n(step: int, state_file: str | None = None, session_id: str | None = None) -> None:
     """Steps 2-6: Load state, render template, output prompt."""
-    from scripts.shared.session_store import (
-        format_sessions_table,
-        list_active_sessions,
-        session_json_path,
-    )
+    from scripts.shared.orchestrator import resolve_step_state_path
 
-    sp = validate_state_path(state_file, SKILL_NAME) if state_file else None
-    if sp is None and session_id:
-        sp = session_json_path(session_id)
-    if sp is None:
-        active = [s for s in list_active_sessions() if s.skill == SKILL_NAME]
-        if len(active) == 1:
-            sp = active[0].path
-        elif len(active) > 1:
-            print(format_sessions_table(active), file=sys.stderr)
-            sys.exit(
-                f"ERROR: {len(active)} active plan sessions — use --session <id> "
-                "(see table above)"
-            )
-        else:
-            sp = find_state_file(SKILL_NAME)
-        if sp is None:
-            sp = _state_path()
+    sp = resolve_step_state_path(
+        SKILL_NAME, step, state_file=state_file, session_id=session_id
+    )
 
     if not sp.exists():
         print("ERROR: No plan session in progress. Run step 1 first.")

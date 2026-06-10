@@ -320,6 +320,93 @@ def test_skylos_scan_command_code_review_quick() -> None:
     assert "-a" not in cmd
 
 
+def test_skylos_scan_command_adds_excludes_for_repo_root() -> None:
+    cmd = sp._skylos_scan_command(
+        ["skylos"],
+        ["."],
+        quick_scan=True,
+    )
+    assert "--exclude-folder" in cmd
+    assert ".venv" in cmd
+    assert "graphify-out" in cmd
+    assert ".pyscn" in cmd
+
+
+def test_pyscn_analyze_command_targets_files() -> None:
+    cmd = sp._pyscn_analyze_command(
+        ["pyscn"],
+        targets=[
+            "benchmark/dashboard/operator_editing_endpoints.py",
+            "project_context/storage.py",
+        ],
+    )
+    assert cmd[:4] == ["pyscn", "analyze", "--json", "--min-complexity=15"]
+    assert "benchmark/dashboard/operator_editing_endpoints.py" in cmd
+    assert "project_context/storage.py" in cmd
+    assert "check" not in cmd
+
+
+def test_repo_has_large_ignored_dirs(tmp_path: Path) -> None:
+    assert sp.repo_has_large_ignored_dirs(tmp_path) is False
+    (tmp_path / ".venv").mkdir()
+    assert sp.repo_has_large_ignored_dirs(tmp_path) is True
+
+
+def test_is_broad_probe_scope() -> None:
+    assert sp.is_broad_probe_scope(None) is True
+    assert sp.is_broad_probe_scope([]) is True
+    assert sp.is_broad_probe_scope(["."]) is True
+    assert sp.is_broad_probe_scope(["src/mod.py"]) is False
+
+
+def test_resolve_effective_scope_paths_prefers_explicit_files(tmp_path: Path) -> None:
+    target = tmp_path / "pkg" / "mod.py"
+    target.parent.mkdir(parents=True)
+    target.write_text("x = 1\n", encoding="utf-8")
+    scope, note = sp.resolve_effective_scope_paths(
+        tmp_path,
+        ["pkg/mod.py"],
+        skill_name="code-review",
+        step=3,
+        mode="pr",
+    )
+    assert scope == ["pkg/mod.py"]
+    assert note == ""
+
+
+def test_resolve_effective_scope_paths_blocks_root_with_venv(tmp_path: Path) -> None:
+    (tmp_path / "pyproject.toml").write_text("[project]\nname='x'\n", encoding="utf-8")
+    (tmp_path / ".venv").mkdir()
+    scope, note = sp.resolve_effective_scope_paths(
+        tmp_path,
+        ["."],
+        skill_name="code-review",
+        step=3,
+        mode="pr",
+    )
+    assert scope == []
+    assert "large ignored dirs" in note
+
+
+def test_ensure_primary_probe_plan_skips_python_without_safe_scope(
+    tmp_path: Path,
+) -> None:
+    (tmp_path / "pyproject.toml").write_text("[project]\nname='x'\n", encoding="utf-8")
+    (tmp_path / ".venv").mkdir()
+    inv = sp.build_stack_inventory(tmp_path)
+    plan = sp.ensure_primary_probe_plan(
+        {"tools": ["pyscn", "skylos"], "reasoning": "test"},
+        inv,
+        skill_name="code-review",
+        step=3,
+        scope_paths=["."],
+        mode="pr",
+    )
+    assert "pyscn" not in plan["tools"]
+    assert "skylos" not in plan["tools"]
+    assert plan.get("exclude_paths")
+
+
 def test_ensure_primary_probe_plan_replaces_reasoning(tmp_path: Path) -> None:
     (tmp_path / "pyproject.toml").write_text("[project]\nname='x'\n", encoding="utf-8")
     inv = sp.build_stack_inventory(tmp_path)
@@ -372,6 +459,75 @@ def test_inject_auto_mode_runs_probes(tmp_path: Path, monkeypatch: pytest.Monkey
     assert "results" in body.lower()
     assert sidecar is not None
     assert payload is not None
+
+
+def test_run_pyscn_probe_uses_analyze_for_scoped_files(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    mod = tmp_path / "pkg" / "mod.py"
+    mod.parent.mkdir(parents=True)
+    mod.write_text("def f():\n    pass\n", encoding="utf-8")
+    captured: list[list[str]] = []
+
+    def fake_run(cmd, *, cwd, timeout):
+        captured.append(cmd)
+        return 0, "{}"
+
+    monkeypatch.setattr(
+        "scripts.shared.structural_probe_runners._run_cmd",
+        fake_run,
+    )
+    monkeypatch.setattr(
+        "forge_next.structural_tools.resolve_pyscn_command",
+        lambda: ["pyscn"],
+    )
+    from scripts.shared.structural_probe_runners import run_pyscn_probe
+
+    run_pyscn_probe(
+        repo_root=tmp_path,
+        python_root=tmp_path,
+        effective_scope=["pkg/mod.py"],
+        timeout=30,
+    )
+    assert captured
+    cmd = captured[0]
+    assert "analyze" in cmd
+    assert "pkg/mod.py" in cmd
+    assert "check" not in cmd
+
+
+def test_run_skylos_probe_adds_excludes_on_root_scan(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    captured: list[list[str]] = []
+
+    def fake_run(cmd, *, cwd, timeout):
+        captured.append(cmd)
+        return 0, json.dumps({"unused_functions": []})
+
+    monkeypatch.setattr(
+        "scripts.shared.structural_probe_runners._run_cmd",
+        fake_run,
+    )
+    monkeypatch.setattr(
+        "forge_next.structural_tools.resolve_skylos_command",
+        lambda: ["skylos"],
+    )
+    from scripts.shared.structural_probe_runners import run_skylos_probe
+
+    run_skylos_probe(
+        repo_root=tmp_path,
+        python_root=tmp_path,
+        effective_scope=None,
+        timeout=30,
+        quick_mode=True,
+        skill_name="code-review",
+        step=3,
+    )
+    assert captured
+    cmd = captured[0]
+    assert "--exclude-folder" in cmd
+    assert ".venv" in cmd
 
 
 def test_run_probes_respects_plan_tools(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

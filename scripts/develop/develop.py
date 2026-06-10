@@ -53,6 +53,7 @@ from scripts.shared.orchestrator import (
     resolve_step1_state_path,
     is_state_stale,
     runtime_memory_dir,
+    runtime_memory_dir_relative,
     runtime_state_path,
     save_state,
     validate_state_path,
@@ -68,7 +69,7 @@ from scripts.develop.spec_gate import (
 )
 from scripts.evaluate.template_engine import load_template, render_template
 
-SKILL_NAME = "develop"
+SKILL_NAME = "design"
 MAX_STEP = 7
 PROMPTS_DIR = REPO_ROOT / "prompts"
 
@@ -86,7 +87,7 @@ PHASE_TODOS = {
     1: [
         {"content": "Detect autonomy level and check for resumable session",
          "activeForm": "Detecting autonomy and session state"},
-        {"content": "Initialize develop state and memory directory",
+        {"content": "Initialize design state and memory directory",
          "activeForm": "Initializing state"},
     ],
     2: [
@@ -146,8 +147,11 @@ def _ensure_develop_custom(state: SkillState) -> None:
 
 
 def _sync_develop_scope_from_memory(state: SkillState) -> None:
-    """Ingest `.codex/forge-codex/memory/develop-scope.json` if present."""
-    path = runtime_memory_dir() / "develop-scope.json"
+    """Ingest design-scope.json (legacy develop-scope.json) from runtime memory if present."""
+    path = runtime_memory_dir() / "design-scope.json"
+    legacy = runtime_memory_dir() / "develop-scope.json"
+    if not path.is_file() and legacy.is_file():
+        path = legacy
     if not path.is_file():
         return
     try:
@@ -229,13 +233,13 @@ def _build_variables(state: SkillState) -> dict[str, str]:
 
     no_edit_policy = (
         "## Permission to modify files\n\n"
-        "**Hard rule — applies to every develop phase:** Do **not** modify the repository "
+        "**Hard rule — applies to every design phase:** Do **not** modify the repository "
         "(including source code, `agents/`, `prompts/`, integrations, tests, or any tracked "
         "project files) unless the user gives **explicit permission** for that specific change "
         '(e.g. “you may edit `agents/foo.md` now” or “apply the drafted updates”). '
         "Exploration must be **read-only** on the codebase.\n\n"
-        "**Allowed without asking:** Append or update files **only** under develop session "
-        "memory when this workflow explicitly tells you to (typically `.codex/forge-codex/memory/` "
+        "**Allowed without asking:** Append or update files **only** under design session "
+        f"memory when this workflow explicitly tells you to (typically `{runtime_memory_dir_relative()}/` "
         "— e.g. `project.md`, investigation notes). If unsure whether a path counts as "
         "session memory, **ask first**.\n\n"
         "Do **not** skip this requirement based on autonomy level.\n"
@@ -381,18 +385,21 @@ def handle_step_1(args: argparse.Namespace) -> None:
     print(_format(1, body, next_cmd))
 
 
-def _load_existing_state(step: int, state_file: str | None) -> tuple[SkillState, Path]:
+def _load_existing_state(
+    step: int,
+    state_file: str | None,
+    session_id: str | None = None,
+) -> tuple[SkillState, Path]:
     """Load existing state for steps 2-7."""
-    sp = validate_state_path(state_file, SKILL_NAME) if state_file else None
+    from scripts.shared.orchestrator import resolve_step_state_path
 
-    if sp is None:
-        found = find_state_file(SKILL_NAME)
-        if found is not None:
-            sp = found
+    sp = resolve_step_state_path(
+        SKILL_NAME, step, state_file=state_file, session_id=session_id
+    )
 
-    if sp is None or not sp.exists():
-        print("ERROR: No develop session in progress. Run step 1 first.")
-        print("If the state file is elsewhere, pass --state <path>")
+    if not sp.exists():
+        print("ERROR: No design session in progress. Run step 1 first.")
+        print("If the state file is elsewhere, pass --state <path> or --session <id>")
         sys.exit(1)
 
     try:
@@ -416,9 +423,10 @@ def handle_step_n(
     step: int,
     state_file: str | None = None,
     args: argparse.Namespace | None = None,
+    session_id: str | None = None,
 ) -> None:
     """Steps 2-7: Load state, render appropriate template, output prompt."""
-    state, sp = _load_existing_state(step, state_file)
+    state, sp = _load_existing_state(step, state_file, session_id=session_id)
 
     _ensure_develop_custom(state)
     _sync_develop_scope_from_memory(state)
@@ -591,7 +599,12 @@ def main() -> None:
     if args.step == 1:
         handle_step_1(args)
     else:
-        handle_step_n(args.step, state_file=args.state, args=args)
+        handle_step_n(
+            args.step,
+            state_file=args.state,
+            args=args,
+            session_id=getattr(args, "session", None),
+        )
 
 
 if __name__ == "__main__":

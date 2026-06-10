@@ -20,7 +20,7 @@ Write the final code review report and hand off to the test skill.
 
 ### 1. Write the Code Review Report
 
-Write the report to `.codex/forge-codex/memory/code-review-report.md` with this structure:
+Write the report to `{{MEMORY_DIR}}/code-review-report.md` with this structure:
 
 - Summary section with mode, target, date, reviewers
 - **Pass A / Pass B summary:** counts (or short bullet list) of findings by pass — align with the *Two-pass review framework* from phase 2 (mode selection)
@@ -35,7 +35,7 @@ Write the report to `.codex/forge-codex/memory/code-review-report.md` with this 
 
 ### 2. Update Memory
 
-- Update `.codex/forge-codex/memory/project.md` with code review completion status
+- Update `{{MEMORY_DIR}}/project.md` with code review completion status
 - Record the finding count and severity breakdown
 
 ### 3. Prepare Handoff

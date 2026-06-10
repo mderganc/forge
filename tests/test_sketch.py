@@ -41,14 +41,14 @@ def test_sketch_step1_outputs_startup(tmp_path, monkeypatch):
     assert "design spec" in proc.stdout.lower() or "docs/forge/specs" in proc.stdout
 
 
-def test_sketch_handoff_menu_defaults_to_develop(tmp_path, monkeypatch):
+def test_sketch_handoff_menu_defaults_to_design(tmp_path, monkeypatch):
     from scripts.shared.orchestrator import SkillState, build_skill_handoff_menu, runtime_state_path
 
     monkeypatch.setenv("FORGE_CODEX_ROOT", str(tmp_path / ".codex" / "forge-codex"))
     sp = runtime_state_path("sketch", tmp_path)
     state = SkillState(skill_name="sketch", max_step=3)
     menu = build_skill_handoff_menu("sketch", state, sp)
-    assert "develop" in menu
+    assert "$forge:design" in menu
     assert "WORKFLOW HANDOFF — sketch complete" in menu
 
 
@@ -56,8 +56,8 @@ def test_skill_chain_sketch_entry():
     from scripts.shared.skill_chain import SKILL_CHAIN
 
     assert "sketch" in SKILL_CHAIN
-    assert SKILL_CHAIN["sketch"].default == "develop"
-    assert "sketch" in SKILL_CHAIN["develop"].alternatives
+    assert SKILL_CHAIN["sketch"].default == "design"
+    assert "sketch" in SKILL_CHAIN["design"].alternatives
 
 
 @pytest.mark.parametrize("prompt", ["sketch/startup", "sketch/session", "sketch/handoff"])

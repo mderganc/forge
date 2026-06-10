@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""Sketch skill orchestrator — organize intent before develop.
+"""Sketch skill orchestrator — organize intent before design.
 
 Three steps: startup, sketch session (one question at a time), handoff.
 Optional --with-domain-docs allows CONTEXT.md glossary and sparse ADRs.
-Develop (not sketch) authors docs/forge/specs/*-design.md.
+Design (not sketch) authors docs/forge/specs/*-design.md.
 """
 
 from __future__ import annotations
@@ -36,6 +36,7 @@ from scripts.shared.orchestrator import (
     resolve_step1_state_path,
     run_step1_session_hygiene,
     runtime_memory_dir,
+    runtime_memory_dir_relative,
     runtime_state_path,
     save_state,
     validate_state_path,
@@ -66,9 +67,9 @@ PHASE_TODOS = {
          "activeForm": "Recording sketch decisions"},
     ],
     3: [
-        {"content": "Write handoff-sketch.md for develop",
+        {"content": "Write handoff-sketch.md for design",
          "activeForm": "Writing sketch handoff"},
-        {"content": "Present handoff menu (default develop)",
+        {"content": "Present handoff menu (default design)",
          "activeForm": "Completing sketch handoff"},
     ],
 }
@@ -104,9 +105,9 @@ def _no_edit_policy(with_domain_docs: bool) -> str:
     base = (
         "## Permission to modify files\n\n"
         "**Default:** Read-only on the codebase unless exploring answers a question.\n\n"
-        "**Session memory (always allowed):** `.codex/forge-codex/memory/` — "
+        f"**Session memory (always allowed):** `{runtime_memory_dir_relative()}/` — "
         "especially `sketch-decisions.md` and `project.md`.\n\n"
-        "**Do not write** `docs/forge/specs/*-design.md` — that is **develop's** design spec.\n"
+        "**Do not write** `docs/forge/specs/*-design.md` — that is **design's** named spec.\n"
     )
     if with_domain_docs:
         base += (
@@ -267,13 +268,17 @@ def handle_step_1(args: argparse.Namespace) -> None:
     )
 
 
-def _load_existing_state(step: int, state_file: str | None) -> tuple[SkillState, Path]:
-    sp = validate_state_path(state_file, SKILL_NAME) if state_file else None
-    if sp is None:
-        found = find_state_file(SKILL_NAME)
-        if found is not None:
-            sp = found
-    if sp is None or not sp.exists():
+def _load_existing_state(
+    step: int,
+    state_file: str | None,
+    session_id: str | None = None,
+) -> tuple[SkillState, Path]:
+    from scripts.shared.orchestrator import resolve_step_state_path
+
+    sp = resolve_step_state_path(
+        SKILL_NAME, step, state_file=state_file, session_id=session_id
+    )
+    if not sp.exists():
         print("ERROR: No sketch session in progress. Run step 1 first.")
         print("If the state file is elsewhere, pass --state <path>")
         sys.exit(1)
@@ -285,8 +290,12 @@ def _load_existing_state(step: int, state_file: str | None) -> tuple[SkillState,
     return state, sp
 
 
-def handle_step_n(step: int, state_file: str | None = None) -> None:
-    state, sp = _load_existing_state(step, state_file)
+def handle_step_n(
+    step: int,
+    state_file: str | None = None,
+    session_id: str | None = None,
+) -> None:
+    state, sp = _load_existing_state(step, state_file, session_id=session_id)
     _ensure_sketch_custom(state)
     save_state(state, sp)
 
@@ -328,11 +337,11 @@ def handle_step_n(step: int, state_file: str | None = None) -> None:
                 ),
                 "Decisions artifact": decisions_note,
                 "Next": (
-                    "Run forge develop — develop investigates, scores solutions, "
+                    "Run forge design — design investigates, scores solutions, "
                     "and writes docs/forge/specs/...-design.md when scope is medium/large."
                 ),
             },
-            suggested_next="develop",
+            suggested_next="design",
         )
         body += f"\n\nHandoff written to: {handoff_path}"
         handoff_menu = build_skill_handoff_menu(SKILL_NAME, state, sp)
@@ -377,7 +386,11 @@ def main() -> None:
     if args.step == 1:
         handle_step_1(args)
     else:
-        handle_step_n(args.step, state_file=args.state)
+        handle_step_n(
+            args.step,
+            state_file=args.state,
+            session_id=getattr(args, "session", None),
+        )
 
 
 if __name__ == "__main__":

@@ -48,4 +48,4 @@ If **First-principles thinking** is activated, link major 5 Whys branches to vio
 
 Update `.diagnose-technique-coverage.json` — one row per activated technique; `applied` requires `evidence_pointer`.
 
-Write supporting narrative to `.codex/forge-codex/memory/investigator.md`.
+Write supporting narrative to `{{MEMORY_DIR}}/investigator.md`.

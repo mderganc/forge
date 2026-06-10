@@ -6,7 +6,7 @@ Defines how the forge-codex team uses beads for structured issue tracking. All b
 
 If beads is unavailable (`beads: unavailable` in project.md):
 - All tracking falls back to memory files only
-- Backlog entries still get written to `.codex/forge-codex/backlog.md`
+- Backlog entries still get written to `.codex/forge/backlog.md`
 - Beads ID references in memory files are replaced with sequential IDs (e.g., `[F-001]`, `[RC-001]`, `[S-001]`, `[T-001]`)
 - The workflow is otherwise identical
 

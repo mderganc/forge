@@ -19,9 +19,9 @@ def spec_commands() -> dict:
 
 def test_readme_lists_all_forge_command_ids(spec_commands: dict):
     readme = (REPO_ROOT / "README.md").read_text(encoding="utf-8")
-    # Section between "## Commands in your apps" and next ## heading
+    # Commands block through per-command reference (ends before integration sections)
     match = re.search(
-        r"## Commands in your apps\s*\n(.*?)\n## ",
+        r"## Commands in your apps\s*\n(.*?)\n## OpenAI Codex",
         readme,
         re.DOTALL,
     )

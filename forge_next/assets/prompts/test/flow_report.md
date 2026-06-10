@@ -87,7 +87,7 @@ Confirm and document these best-practice checks:
 
 ### 3. Update Project Memory
 
-Append to `.codex/forge-codex/memory/test-report.md`:
+Append to `{{MEMORY_DIR}}/test-report.md`:
 
 ```markdown
 ## Flow: {{FLOW_TYPE}} \xe2\u20ac\u201d {{FEATURE_NAME}}
@@ -141,7 +141,7 @@ If `tests/scenarios/README.md` exists (or `tests/features/` equivalent), add a r
 
 ### 5. Write Handoff
 
-Create `handoff-test.md` in the project root (or in `.codex/forge-codex/`):
+Create `handoff-test.md` in the project root (or in `{{RUNTIME_DIR}}/`):
 
 ```markdown
 # Test Handoff \xe2\u20ac\u201d Mock Flow Complete

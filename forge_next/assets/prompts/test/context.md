@@ -18,7 +18,7 @@ You are starting a test execution and analysis workflow. First, identify what wi
    - If a test command/path was given, verify it exists
    - If a handoff from code-review exists, extract files to focus testing on
    - If a handoff from implement exists, extract changed files
-   - Read `.codex/forge-codex/memory/project.md` for project scope and task type
+   - Read `{{MEMORY_DIR}}/project.md` for project scope and task type
    - If nothing was provided, discover test infrastructure in the project
 
 2. **Gather test infrastructure information:**

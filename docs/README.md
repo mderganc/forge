@@ -31,7 +31,7 @@ User-facing guides for installing and running Forge workflows. Internal design n
 
 | Doc | Topic |
 |-----|--------|
-| [studio.md](studio.md) | Forge Studio localhost UI (develop/plan gates) |
+| [studio.md](studio.md) | Forge Studio localhost UI (design/plan gates) |
 | [skylos-triage.md](skylos-triage.md) | Skylos probe notes |
 | `plans/`, `evaluations/` | Historical plans and skill evaluations |
 

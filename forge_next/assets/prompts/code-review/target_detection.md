@@ -23,7 +23,7 @@ You are starting a code review. First, identify what will be reviewed.
    - If nothing was provided, check git for uncommitted changes or recent commits
 
 2. **Gather context:**
-   - Read `.codex/forge-codex/memory/project.md` if it exists for project context
+   - Read `{{MEMORY_DIR}}/project.md` if it exists for project context
    - Check for recent handoff files to understand flow position
    - Note the scope: how many files, how many lines changed
 

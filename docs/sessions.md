@@ -26,8 +26,13 @@ Resume with:
 
 ```bash
 forge resume
+forge <skill> --step N --session <id>
 forge <skill> --step N --state .codex/forge/sessions/<id>/session.json
 ```
+
+When **multiple active sessions** exist for the same skill, steps 2+ require **`--session <id>`** (or an explicit `--state` path). `forge resume` lists session IDs.
+
+**Design / develop:** new sessions use skill name `design`. Legacy flat files such as `develop.json` and `skill_name: develop` in session JSON still resolve when you run `forge design` (alias: deprecated `forge develop`).
 
 ## Legacy layout (still supported)
 

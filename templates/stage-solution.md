@@ -16,11 +16,11 @@ Generate 2-4 meaningfully distinct solution options per root cause, score each o
 
 Stage 2 is no longer a single Architect dispatch. It's a loop of **Dispatch 1 → Gate 1 → Dispatch 2 → Gate 2 Q1+Q2 → Dispatch 3 → Gate 2 Q3 (conditional)** driven by the PM. The full protocol and exact dispatch prompts live in `prompts/develop/solution.md`; summary below.
 
-**Dispatch 1 — Requirements Exploration (Phase 1 only).** Architect runs only Phase 1 of `templates/brainstorming.md`: 6 exploration questions, Requirements Context block, 3–5 HMW framings with a suggested driver, optional Job Story. Writes `.codex/forge-codex/memory/solution-requirements.md` and stops at the Phase 1 → Phase 2 boundary. No ideas, no candidates yet.
+**Dispatch 1 — Requirements Exploration (Phase 1 only).** Architect runs only Phase 1 of `templates/brainstorming.md`: 6 exploration questions, Requirements Context block, 3–5 HMW framings with a suggested driver, optional Job Story. Writes `.codex/forge/memory/solution-requirements.md` and stops at the Phase 1 → Phase 2 boundary. No ideas, no candidates yet.
 
 **Gate 1 — Pre-Divergence (PM).** Execute `templates/brainstorming-gates.md` Gate 1. Ask the user which HMW framing drives divergence (Q1) and which **advanced** divergent techniques to add on top of the always-on core (SCAMPER + Reverse Brainstorming + Constraint Removal) (Q2). Keep the options short and concrete. Respects autonomy: Level 1 asks; Level 2/3 skip and use the suggested HMW + task-type defaults.
 
-**Dispatch 2 — Divergence + Candidate Development (draft `solutions.md`).** Architect runs Phase 2 (with the user's selected techniques) and Phase 3 Steps 1–3 (group → eliminate → ICE → develop candidates). Writes `.codex/forge-codex/memory/divergent-ideas.md` and a **draft** `.codex/forge-codex/memory/solutions.md` with candidates but **no scoring, no Pugh Matrix, no recommendation**. Architect stops at the Phase 3 Step 3 → Step 3b boundary.
+**Dispatch 2 — Divergence + Candidate Development (draft `solutions.md`).** Architect runs Phase 2 (with the user's selected techniques) and Phase 3 Steps 1–3 (group → eliminate → ICE → develop candidates). Writes `.codex/forge/memory/divergent-ideas.md` and a **draft** `.codex/forge/memory/solutions.md` with candidates but **no scoring, no Pugh Matrix, no recommendation**. Architect stops at the Phase 3 Step 3 → Step 3b boundary.
 
 **Gate 2 Q1 + Q2 — Pre-Scoring (PM).** Execute `templates/brainstorming-gates.md` Gate 2. Q1 asks the user which developed candidates (2–4) to carry into full scoring; Q2 asks which scoring dimension matters most (Quality / Time / Risk / Balanced — 4 options, collapsed from the rubric's 5 dimensions per the Q2 weight-translation table). Respects autonomy: Level 1 asks Q1 + Q2; Level 2 asks only Q2 and auto-keeps all ≤4 candidates; Level 3 skips both and uses Balanced weights.
 
@@ -74,6 +74,6 @@ Mark recommended: bd label add [solution-id] recommended
 
 ### 6. Git Checkpoint
 
-git add .codex/forge-codex/ && git commit -m "workflow: Stage 2 complete — solutions evaluated"
+git add .codex/forge/ && git commit -m "workflow: Stage 2 complete — solutions evaluated"
 
 Record in project.md: `## Stage 2: COMPLETE [timestamp]`

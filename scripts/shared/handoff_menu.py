@@ -17,7 +17,7 @@ def resolve_handoff_commands(
         fc = str(state.custom.get("fix_complexity", "unknown")).lower()
         base_alts = list(alternatives)
         if fc == "large":
-            return "develop", [c for c in base_alts if c != "develop"]
+            return "design", [c for c in base_alts if c not in ("design", "develop")]
         if fc == "complex":
             return "plan", [c for c in base_alts if c != "plan"]
 

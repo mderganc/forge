@@ -25,15 +25,15 @@ This directory contains the shared memory files for a forge-codex team session.
 
 ## ADR Directory
 
-The `.codex/forge-codex/adr/` directory stores Architecture Decision Records (ADRs) — lightweight records of significant design decisions. See `templates/adr-template.md` for format.
+The `.codex/forge/adr/` directory stores Architecture Decision Records (ADRs) — lightweight records of significant design decisions. See `templates/adr-template.md` for format.
 
 ## Handoff Files
 
-Skills write handoff files to `.codex/forge-codex/memory/` to pass context to the next skill in the flow:
+Skills write handoff files to `.codex/forge/memory/` to pass context to the next skill in the flow:
 
 | File | Written By | Read By | Purpose |
 |------|-----------|---------|---------|
-| `handoff-develop.md` | develop | plan | Approved solutions, team composition, scope |
+| `handoff-design.md` | design | plan | Approved solutions, team composition, scope (legacy `handoff-develop.md` still read) |
 | `handoff-plan.md` | plan | implement, evaluate (pre) | Plan reference, task list, dependencies |
 | `handoff-evaluate.md` | evaluate | implement, plan | Evaluation findings, mode used |
 | `handoff-implement.md` | implement | code-review | Branch, files changed, tests written |
@@ -49,7 +49,7 @@ See `templates/handoff-protocol.md` for the handoff file format.
 - **Stage markers:** `## Stage N: IN_PROGRESS [timestamp]` / `## Stage N: COMPLETE [timestamp]`
 - **Append-only:** Within a stage, append new sections — never overwrite previous rounds.
 - **Ownership:** Agents write only to their own file. PM writes only to `project.md`.
-- **ADR tracking:** Architecture decisions are recorded in `.codex/forge-codex/adr/` with beads cross-references per `templates/adr-template.md`.
+- **ADR tracking:** Architecture decisions are recorded in `.codex/forge/adr/` with beads cross-references per `templates/adr-template.md`.
 
 ## Resume
 

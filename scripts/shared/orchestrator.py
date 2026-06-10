@@ -49,6 +49,9 @@ _blocked_runtime_anchor = _runtime_layout.blocked_runtime_anchor
 runtime_root = _runtime_layout.runtime_root
 legacy_runtime_root = _runtime_layout.legacy_runtime_root
 runtime_memory_dir = _runtime_layout.runtime_memory_dir
+runtime_memory_dir_relative = _runtime_layout.runtime_memory_dir_relative
+runtime_dir_relative = _runtime_layout.runtime_dir_relative
+template_runtime_variables = _runtime_layout.template_runtime_variables
 legacy_memory_dir = _runtime_layout.legacy_memory_dir
 runtime_state_dir = _runtime_layout.runtime_state_dir
 legacy_state_dir = _runtime_layout.legacy_state_dir
@@ -340,6 +343,26 @@ def resolve_skill_state_path(
         session_id=session_id,
         state_file=None,
     )
+
+
+def resolve_step_state_path(
+    skill_name: str,
+    step: int,
+    *,
+    state_file: str | None = None,
+    session_id: str | None = None,
+) -> Path:
+    """Resolve session/state path for steps 2+ using CLI ``--state`` / ``--session``."""
+
+    class _StepArgs:
+        pass
+
+    args = _StepArgs()
+    args.state = state_file
+    args.session = session_id
+    args.label = None
+    args.parallel = False
+    return resolve_skill_state_path(skill_name, step, args)
 
 
 def read_memory_file(name: str) -> str:

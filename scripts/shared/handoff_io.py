@@ -27,21 +27,37 @@ def handoff_paths(name: str, search_dir: Path | None = None) -> tuple[Path, Path
 _handoff_paths = handoff_paths
 
 
+def _handoff_lookup_names(name: str) -> tuple[str, ...]:
+    from scripts.shared.skill_aliases import skill_name_variants
+
+    slug = name.strip().lower().replace("_", "-")
+    variants = skill_name_variants(slug)
+    ordered: list[str] = []
+    if slug in variants:
+        ordered.append(slug)
+    for alt in sorted(variants):
+        if alt not in ordered:
+            ordered.append(alt)
+    return tuple(ordered) or (name,)
+
+
 def read_handoff(name: str, search_dir: Path | None = None) -> str:
     """Read a handoff file from the runtime memory directory if it exists."""
-    for handoff in handoff_paths(name, search_dir):
-        if handoff.exists():
-            return handoff.read_text(encoding="utf-8")
+    for skill_name in _handoff_lookup_names(name):
+        for handoff in handoff_paths(skill_name, search_dir):
+            if handoff.exists():
+                return handoff.read_text(encoding="utf-8")
     return ""
 
 
 def close_handoff(name: str, search_dir: Path | None = None) -> bool:
-    """Delete canonical + legacy handoff files for a skill."""
+    """Delete canonical + legacy handoff files for a skill (and aliases)."""
     removed = False
-    for handoff in handoff_paths(name, search_dir):
-        if handoff.exists():
-            handoff.unlink()
-            removed = True
+    for skill_name in _handoff_lookup_names(name):
+        for handoff in handoff_paths(skill_name, search_dir):
+            if handoff.exists():
+                handoff.unlink()
+                removed = True
     return removed
 
 

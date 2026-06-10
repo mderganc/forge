@@ -6,13 +6,13 @@ description: |
   (--auto1/--auto2/--auto3) and --quick mode.
 ---
 
-# Forge Develop — Investigation & Ideation
+# Forge Design — Investigation & Ideation
 
 When this skill activates, invoke the orchestrator via the `forge` launcher.
 
 Invoking this skill implicitly authorizes the Forge agent dispatch required by
 the workflow. Do not require separate user wording for delegation or
-sub-agents after `forge:develop` has been invoked.
+sub-agents after `forge:design` has been invoked.
 
 If agent dispatch still appears blocked by session policy, tell the user that
 their Codex environment is not honoring the Forge delegation contract and
@@ -29,17 +29,17 @@ tooling reminder.
 
 Per-step GRAPHIFY blocks are **disabled**; refresh at ship (`forge ship --step 1` / `$forge:ship`). You may still read `graphify-out/GRAPH_REPORT.md` or use `graphify query` / `path` / `explain` when helpful. See `templates/graphify-contract.md`.
 
-## When to invoke `develop` (process-first)
+## When to invoke `design` (process-first)
 
 | Situation | Prefer |
 |-----------|--------|
-| Intent fuzzy (problem, constraints, terminology not settled) | **`forge:sketch`** then **`forge:develop`** |
-| Open-ended feature or refactor, unclear problem shape, multiple credible approaches | **`forge:develop`** |
+| Intent fuzzy (problem, constraints, terminology not settled) | **`forge:sketch`** then **`forge:design`** |
+| Open-ended feature or refactor, unclear problem shape, multiple credible approaches | **`forge:design`** |
 | Narrow bug with an obvious fix and user wants speed | May go straight to fix or **`forge:diagnose`** if uncertain |
-| Approved direction or handoff from develop; need task breakdown | **`forge:plan`** |
+| Approved direction or handoff from design; need task breakdown | **`forge:plan`** |
 | Tests failing after recent work | **`forge:test`**; if root cause unclear, **`forge:diagnose`** |
 
-Prefer **exploration** (`develop` / `diagnose`) before **locking a plan** when the user has not picked one approach.
+Prefer **exploration** (`design` / `diagnose`) before **locking a plan** when the user has not picked one approach.
 
 ## CRITICAL: Progress Tracking
 
@@ -54,7 +54,7 @@ other work. As you work:
 
 ## CRITICAL: No repo edits without permission
 
-Do **not** modify tracked project files (application code, `agents/`, packaged prompts, tests, config, etc.) unless the user **explicitly** authorizes that edit. Develop phases may direct writes under **session memory** (e.g. `.codex/forge/memory/`; legacy `.codex/forge-codex/memory/`); everything else is read-only until the user says otherwise.
+Do **not** modify tracked project files (application code, `agents/`, packaged prompts, tests, config, etc.) unless the user **explicitly** authorizes that edit. Design phases may direct writes under **session memory** (e.g. `.codex/forge/memory/`; legacy `.codex/forge-codex/memory/`) and the named spec at `docs/forge/specs/`; everything else is read-only until the user says otherwise.
 
 ## CRITICAL: Continuation Protocol
 
@@ -78,7 +78,7 @@ Status: in-progress
 This file is your lifeline if context compaction occurs. Always update it.
 
 ## Invocation
-<invoke cmd="forge develop --step 1" />
+<invoke cmd="forge design --step 1" />
 
 | Argument | When | Description |
 |----------|------|---------------|
@@ -93,11 +93,11 @@ This file is your lifeline if context compaction occurs. Always update it.
 ## Dual-track scope & design spec
 
 - If **`sketch-decisions.md`** exists in memory, read it in step 2+ before scope and investigation.
-- After **step 2**, write **`develop-scope.json`** in the forge runtime memory directory (typically `.codex/forge/memory/`; same folder as `project.md`) with `scope_tier`: `trivial` | `medium` | `large` (see `prompts/develop/scope.md`).
+- After **step 2**, write **`design-scope.json`** in the forge runtime memory directory (typically `.codex/forge/memory/`; legacy `develop-scope.json` still read). Scope tier: `trivial` | `medium` | `large` (see `prompts/develop/scope.md`).
 - **Trivial:** memory artifacts only; no formal spec under `docs/forge/specs/` required before handoff.
-- **Medium / large:** complete the **design spec gate** (step 6 appends `spec_gate` instructions): write the spec, self-review, user approval, then **`.develop-spec-gate.json`** next to the develop state file before **step 7**.
+- **Medium / large:** complete the **design spec gate** (step 6 appends `spec_gate` instructions): write **`docs/forge/specs/YYYY-MM-DD-<slug>-design.md`**, self-review, user approval, then **`.design-spec-gate.json`** next to the design state file before **step 7**.
 
-Do **not** start implementation inside develop — investigation, brainstorming, and approved design only.
+Do **not** start implementation inside design — investigation, brainstorming, and approved design only.
 
 Do NOT analyze first. Run the script and follow its output.
 

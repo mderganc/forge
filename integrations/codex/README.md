@@ -23,7 +23,7 @@ forge doctor
 | Skill folder | CLI entry |
 |--------------|-----------|
 | `forge-sketch` | `forge sketch` |
-| `forge-develop` | `forge develop` |
+| `forge-design` | `forge design` |
 | `forge-plan` | `forge plan` |
 | `forge-evaluate` | `forge evaluate` |
 | `forge-implement` | `forge implement` |
@@ -34,6 +34,7 @@ forge doctor
 | `forge-status` | `forge status` |
 | `forge-doctor` | `forge doctor` |
 | `forge-iterate` | `forge iterate` |
+| `forge-ship` | `forge ship` |
 | `forge-graphify` | `forge graphify` (subcommands: `refresh`, `install-hook`, `uninstall-hook`) |
 
 ## Default install location (via `forge install`)

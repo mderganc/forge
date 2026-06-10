@@ -4,7 +4,7 @@ Write handoff and render dashboard.
 
 ## Handoff Content
 
-Write `.codex/forge-codex/memory/handoff-implement.md` with:
+Write `{{MEMORY_DIR}}/handoff-implement.md` with:
 - Feature branch name
 - Files created/modified (list)
 - Tests written (list)
@@ -25,7 +25,7 @@ Render skill completion dashboard with:
 ## Git Checkpoint
 
 ```
-git add .codex/forge-codex/ && git commit -m "workflow: implementation complete"
+git add {{RUNTIME_DIR}}/ && git commit -m "workflow: implementation complete"
 ```
 
 ## Closure checklist (before merge / PR)

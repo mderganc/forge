@@ -32,7 +32,7 @@ Per-step GRAPHIFY blocks are **disabled**; refresh at ship (`forge ship --step 1
 ## Process-first routing
 
 - **Unclear root cause**, flaky failures, or incident triage → use **`forge:diagnose`** before speculative refactors or big **`forge:plan`** work.
-- When diagnose classifies **`large`** (systemic), the handoff menu often defaults to **`forge:develop`** first — follow it unless the user overrides.
+- When diagnose classifies **`large`** (systemic), the handoff menu often defaults to **`forge:design`** first — follow it unless the user overrides.
 
 ## CRITICAL: Progress Tracking
 
@@ -121,8 +121,8 @@ The Investigator agent carries supporting methodology detail — see
 
 On the final phase, the orchestrator emits a **WORKFLOW HANDOFF** menu.
 
-- **`fix_complexity=large` (systemic):** default next is **`forge:develop`** (design/brainstorm before planning); alternatives include `plan`, `implement`.
-- **`fix_complexity=complex`:** default next is **`forge:plan`**; alternatives include `develop`, `implement`.
-- **`simple` or unknown:** no default — pick `plan`, `develop`, `implement`, or stop.
+- **`fix_complexity=large` (systemic):** default next is **`forge:design`** (brainstorm before planning); alternatives include `plan`, `implement`.
+- **`fix_complexity=complex`:** default next is **`forge:plan`**; alternatives include `design`, `implement`.
+- **`simple` or unknown:** no default — pick `plan`, `design`, `implement`, or stop.
 
 Reply with a number, `yes`/`1` when a default is shown, a literal command, or `stop`. See `scripts/shared/skill_chain.py` and `build_skill_handoff_menu()` in `scripts/shared/orchestrator.py`.

@@ -5,8 +5,8 @@ Detect and load the implementation plan.
 ## Detection Order
 
 1. If `--plan` argument provided, resolve it (file path, repo-relative path, keywords, or a match under native IDE plan dirs: `.cursor/plans`, `.claude/plans`, `.codex/plans`, and `~/.cursor/plans`, etc.)
-2. If `.codex/forge-codex/memory/handoff-plan.md` exists, read plan path from it
-3. If `.codex/forge-codex/memory/plans/` exists, use the most recent plan file (sorted by filename)
+2. If `{{MEMORY_DIR}}/handoff-plan.md` exists, read plan path from it
+3. If `{{MEMORY_DIR}}/plans/` exists, use the most recent plan file (sorted by filename)
 4. Otherwise, ask the user for the plan location
 
 ## Instructions
@@ -14,7 +14,7 @@ Detect and load the implementation plan.
 1. Read the plan file
 2. Validate that file paths in the plan exist or can be created
 3. Count total tasks and identify assigned agents
-4. Record plan summary in `.codex/forge-codex/memory/project.md`
+4. Record plan summary in `{{MEMORY_DIR}}/project.md`
 
 ## Approved UI reference (Studio)
 
@@ -28,7 +28,7 @@ Based on plan agent assignments, activate:
 
 {{TEAM_COMPOSITION}}
 
-Record active team in `.codex/forge-codex/memory/project.md` under `## Team`.
+Record active team in `{{MEMORY_DIR}}/project.md` under `## Team`.
 
 ## Plan Summary
 

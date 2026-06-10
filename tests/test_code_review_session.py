@@ -8,7 +8,7 @@ from pathlib import Path
 import pytest
 
 from scripts.code_review import code_review as cr
-from scripts.shared.orchestrator import SkillState, save_state
+from scripts.shared.orchestrator import SkillState, resolve_step_state_path, save_state
 from scripts.shared.session_store import create_session
 
 
@@ -20,7 +20,7 @@ def test_resolve_code_review_state_path_uses_session_id(tmp_path: Path, monkeypa
     st.custom = {"mode": "pr"}
     save_state(st, session_path)
 
-    resolved = cr._resolve_code_review_state_path(session_id=sid)
+    resolved = resolve_step_state_path("code-review", 2, session_id=sid)
     assert resolved.resolve() == session_path.resolve()
 
 
@@ -36,7 +36,7 @@ def test_resolve_code_review_state_path_errors_on_multiple_active(
         save_state(st, path)
 
     with pytest.raises(SystemExit) as exc:
-        cr._resolve_code_review_state_path()
+        resolve_step_state_path("code-review", 2)
     assert "active code-review sessions" in str(exc.value)
 
 

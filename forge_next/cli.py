@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import argparse
-import json
 import os
 import sys
 
@@ -46,10 +45,10 @@ def build_parser() -> argparse.ArgumentParser:
     ev.add_argument("--mode", choices=["pre", "post", "review"])
     ev.add_argument("--team", action="store_true")
 
-    # sketch (pre-develop intent organization)
+    # sketch (pre-design intent organization)
     sk = sub.add_parser(
         "sketch",
-        help="Organize intent and decisions before develop (optional domain docs)",
+        help="Organize intent and decisions before design (optional domain docs)",
     )
     add_common_repo_flag(sk)
     add_common_output_flags(sk)
@@ -62,8 +61,23 @@ def build_parser() -> argparse.ArgumentParser:
         help="Allow CONTEXT.md glossary and sparse docs/adr/ updates",
     )
 
-    # develop
-    dv = sub.add_parser("develop", help="Run the develop orchestrator")
+    # design (investigation + named design spec)
+    dn = sub.add_parser(
+        "design",
+        help="Investigate, brainstorm, and write a named design spec (medium/large)",
+    )
+    add_common_repo_flag(dn)
+    add_common_output_flags(dn)
+    add_session_flags(dn)
+    dn.add_argument("--step", type=int, required=True)
+    dn.add_argument("--state", type=str)
+    dn.add_argument("--quick", action="store_true")
+    dn.add_argument("--auto1", action="store_true")
+    dn.add_argument("--auto2", action="store_true")
+    dn.add_argument("--auto3", action="store_true")
+
+    # develop (deprecated alias for design)
+    dv = sub.add_parser("develop", help="Deprecated alias for forge design")
     add_common_repo_flag(dv)
     add_common_output_flags(dv)
     add_session_flags(dv)

@@ -59,10 +59,10 @@ Do not run pyscn/skylos on repos where Python is only scripts/tooling next to a 
 |------|-------------------|---------|
 | knip | `FORGE_KNIP_COMMAND` or Forge manifest / npx | `knip` (repo may need `knip.json`) |
 | madge | `FORGE_MADGE_COMMAND` | `madge --circular src/` |
-| pyscn | `FORGE_PYSCN_COMMAND` | `pyscn analyze --json --min-complexity=15 <paths>` (scoped); avoid `check .` on repo root |
+| pyscn | `FORGE_PYSCN_COMMAND` | `pyscn analyze --json --min-complexity=15 <path>` per scoped file (full timeout each) |
 | skylos | `FORGE_SKYLOS_COMMAND` | `skylos <paths> --json` (dead code); broad scans add `--exclude-folder` for `.venv`, `node_modules`, `.pyscn`, `graphify-out` |
 
-**Code-review / evaluate:** orchestrator prefers **changed-file** `scope_paths` from git diff. Repo-root Python scans are skipped when large ignored dirs exist. Full skylos audit: `FORGE_SKYLOS_AUDIT=1`.
+**Code-review / evaluate:** orchestrator prefers **changed-file** `scope_paths` from git diff. **Gitignored** and **graphifyignored** (``.graphifyignore``) paths are never scanned. Repo-root Python scans are skipped when large ignored dirs exist. Full skylos audit: `FORGE_SKYLOS_AUDIT=1`.
 
 ## Eight parallel subagents (Civil Learning)
 

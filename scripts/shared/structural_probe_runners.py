@@ -159,17 +159,42 @@ def run_pyscn_probe(
         )
 
     use_analyze = bool(effective_scope) or repo_has_large_ignored_dirs(repo_root)
-    if use_analyze:
-        cmd = _pyscn_analyze_command(pyscn, targets=targets)
+    findings: list[dict[str, Any]] = []
+    commands: list[list[str]] = []
+    failed = False
+    summaries: list[str] = []
+
+    # One file per invocation — avoids batch hangs; each target gets the full timeout.
+    for rel in targets:
+        if use_analyze:
+            cmd = _pyscn_analyze_command(pyscn, targets=[rel])
+        else:
+            cmd = _pyscn_check_command(pyscn, target=rel)
+        commands.append(cmd)
+        code, out = _run_cmd(cmd, cwd=repo_root, timeout=timeout)
+        if code != 0:
+            failed = True
+        summaries.append((out.splitlines() or [f"exit {code}"])[0][:120])
+        for row in _tool_findings("pyscn", code, out):
+            row["id"] = f"P{len(findings) + 1}"
+            findings.append(row)
+
+    if len(commands) == 1:
+        command: list[str] = commands[0]
+        summary = summaries[0]
     else:
-        cmd = _pyscn_check_command(pyscn, target=targets[0])
-    code, out = _run_cmd(cmd, cwd=repo_root, timeout=timeout)
+        command = commands[0]
+        summary = (
+            f"per-file pyscn x{len(commands)} "
+            f"({timeout}s each); {summaries[0]}"
+        )
+
     return {
         "tool": "pyscn",
-        "status": "pass" if code == 0 else "fail",
-        "command": cmd,
-        "summary": (out.splitlines() or [f"exit {code}"])[0][:200],
-        "findings": _tool_findings("pyscn", code, out),
+        "status": "fail" if failed else "pass",
+        "command": command,
+        "summary": summary[:200],
+        "findings": findings,
     }
 
 
@@ -211,6 +236,7 @@ def run_skylos_probe(
         sky_targets,
         quick_scan=quick_scan,
         exclude_folders=exclude_paths,
+        repo_root=repo_root,
     )
     code, out = _run_cmd(cmd, cwd=repo_root, timeout=timeout)
     parsed = _extract_stdout_json(out)

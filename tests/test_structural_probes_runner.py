@@ -63,8 +63,8 @@ def test_probe_ignore_skips_vendored_forge_next_snapshots(tmp_path: Path) -> Non
     snap.parent.mkdir(parents=True)
     snap.write_text("y = 2\n", encoding="utf-8")
 
-    assert sp._path_under_probe_ignore(snap, tmp_path) is True
-    assert sp._path_under_probe_ignore(live, tmp_path) is False
+    assert sp._should_prune_walk_path(snap, tmp_path) is True
+    assert sp._should_prune_walk_path(live, tmp_path) is False
 
 
 def test_detect_stack_finds_package_json_under_client(tmp_path: Path) -> None:
@@ -386,6 +386,112 @@ def test_resolve_effective_scope_paths_blocks_root_with_venv(tmp_path: Path) -> 
     )
     assert scope == []
     assert "large ignored dirs" in note
+
+
+def test_filter_python_scope_paths_skips_gitignored(
+    tmp_path: Path,
+) -> None:
+    import subprocess
+
+    subprocess.run(["git", "init"], cwd=tmp_path, capture_output=True, check=True)
+    subprocess.run(
+        ["git", "config", "user.email", "probe@test.local"],
+        cwd=tmp_path,
+        capture_output=True,
+    )
+    subprocess.run(
+        ["git", "config", "user.name", "probe"],
+        cwd=tmp_path,
+        capture_output=True,
+    )
+    (tmp_path / ".gitignore").write_text("ignored/\n", encoding="utf-8")
+    ignored = tmp_path / "ignored" / "secret.py"
+    ignored.parent.mkdir(parents=True)
+    ignored.write_text("x = 1\n", encoding="utf-8")
+    ok = tmp_path / "ok.py"
+    ok.write_text("x = 1\n", encoding="utf-8")
+
+    scope = sp.filter_python_scope_paths(
+        tmp_path,
+        ["ignored/secret.py", "ok.py"],
+    )
+    assert scope == ["ok.py"]
+
+
+def test_git_changed_paths_includes_untracked(tmp_path: Path) -> None:
+    import subprocess
+
+    subprocess.run(["git", "init"], cwd=tmp_path, capture_output=True, check=True)
+    subprocess.run(
+        ["git", "config", "user.email", "probe@test.local"],
+        cwd=tmp_path,
+        capture_output=True,
+    )
+    subprocess.run(
+        ["git", "config", "user.name", "probe"],
+        cwd=tmp_path,
+        capture_output=True,
+    )
+    (tmp_path / "tracked.py").write_text("x = 1\n", encoding="utf-8")
+    subprocess.run(["git", "add", "tracked.py"], cwd=tmp_path, capture_output=True, check=True)
+    subprocess.run(
+        ["git", "commit", "-m", "init"],
+        cwd=tmp_path,
+        capture_output=True,
+        check=True,
+    )
+    (tmp_path / "new_module.py").write_text("y = 2\n", encoding="utf-8")
+
+    paths = sp._git_changed_paths_for_review(tmp_path, [], mode="pr")
+    assert "new_module.py" in paths
+
+
+def test_run_pyscn_probe_runs_per_file(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    (tmp_path / "a.py").write_text("def a():\n    pass\n", encoding="utf-8")
+    (tmp_path / "b.py").write_text("def b():\n    pass\n", encoding="utf-8")
+    calls: list[list[str]] = []
+
+    def fake_run(cmd, *, cwd, timeout):
+        calls.append(cmd)
+        return 0, "{}"
+
+    monkeypatch.setattr(
+        "scripts.shared.structural_probe_runners._run_cmd",
+        fake_run,
+    )
+    monkeypatch.setattr(
+        "forge_next.structural_tools.resolve_pyscn_command",
+        lambda: ["pyscn"],
+    )
+    from scripts.shared.structural_probe_runners import run_pyscn_probe
+
+    result = run_pyscn_probe(
+        repo_root=tmp_path,
+        python_root=tmp_path,
+        effective_scope=["a.py", "b.py"],
+        timeout=300,
+    )
+    assert result["status"] == "pass"
+    assert len(calls) == 2
+    assert all("analyze" in cmd for cmd in calls)
+    assert calls[0][-1] == "a.py"
+    assert calls[1][-1] == "b.py"
+
+
+def test_filter_python_scope_paths_skips_graphifyignored(
+    tmp_path: Path,
+) -> None:
+    (tmp_path / ".graphifyignore").write_text("vendor/\n", encoding="utf-8")
+    vendor = tmp_path / "vendor" / "lib.py"
+    vendor.parent.mkdir(parents=True)
+    vendor.write_text("x = 1\n", encoding="utf-8")
+    ok = tmp_path / "ok.py"
+    ok.write_text("x = 1\n", encoding="utf-8")
+
+    scope = sp.filter_python_scope_paths(tmp_path, ["vendor/lib.py", "ok.py"])
+    assert scope == ["ok.py"]
 
 
 def test_ensure_primary_probe_plan_skips_python_without_safe_scope(

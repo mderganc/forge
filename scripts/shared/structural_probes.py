@@ -220,35 +220,31 @@ def is_broad_probe_scope(scope_paths: list[str] | None) -> bool:
     return False
 
 
-def _path_under_skip_parts(rel: str) -> bool:
-    for part in Path(rel).parts:
-        if part in _SKIP_PROBE_PARTS:
-            return True
-        if _is_vendored_forge_snapshot_dir(part):
-            return True
-    return False
+def _probe_ignore_policy(repo_root: Path):
+    from scripts.shared.probe_ignore import get_probe_ignore_policy
+
+    key = "\0".join(sorted(_SKIP_PROBE_PARTS))
+    return get_probe_ignore_policy(str(repo_root.resolve()), key)
 
 
 def filter_python_scope_paths(repo_root: Path, paths: list[str]) -> list[str]:
-    """Keep review-relevant Python paths; drop ignored trees and non-Python files."""
+    """Keep review-relevant Python paths; drop gitignored/graphifyignored trees."""
     root = repo_root.resolve()
+    policy = _probe_ignore_policy(root)
     out: list[str] = []
     seen: set[str] = set()
     for raw in paths:
         tok = _normalize_scope_token(str(raw))
         if not tok or tok in (".", "./"):
             continue
-        if _path_under_skip_parts(tok):
-            continue
         candidate = (root / tok).resolve()
         if not candidate.exists():
             continue
-        if candidate.is_file():
-            if candidate.suffix != ".py":
-                continue
-            rel = _rel_path(candidate, root).replace("\\", "/")
-        else:
-            rel = _rel_path(candidate, root).replace("\\", "/")
+        if policy.is_ignored(candidate, for_scope=True):
+            continue
+        if candidate.is_file() and candidate.suffix != ".py":
+            continue
+        rel = _rel_path(candidate, root).replace("\\", "/")
         if rel in seen:
             continue
         seen.add(rel)
@@ -324,7 +320,10 @@ def _git_changed_paths_for_review(
     if mode == "pr" and not paths:
         add_paths(_git_run_names(repo_root, ["diff", "--name-only", "HEAD~1..HEAD"]))
 
-    return paths
+    # Untracked and ignored-from-index paths (e.g. new modules not yet `git add`ed).
+    add_paths(_git_run_names(repo_root, ["ls-files", "--others", "--exclude-standard"]))
+
+    return _probe_ignore_policy(repo_root).filter_paths(paths, for_scope=True)
 
 
 def resolve_effective_scope_paths(
@@ -449,6 +448,7 @@ def ensure_primary_probe_plan(
         "(knip/madge when Node; pyscn/skylos when Python). "
         "Python probes prefer changed-file scope; repo-root scans are skipped when "
         "large ignored dirs exist (.venv, node_modules, graphify-out, .pyscn). "
+        "Gitignored and graphifyignored paths are never scanned. "
         "Skylos uses dead-code scan unless FORGE_SKYLOS_AUDIT=1."
     )
     if scope_note:
@@ -477,24 +477,10 @@ def should_run_probes(skill_name: str, step: int, mode: str | None = None) -> bo
     return False
 
 
-def _should_prune_dirname(name: str) -> bool:
-    """True if ``os.walk`` must not descend into this directory name."""
-    if name in _SKIP_PROBE_PARTS:
-        return True
-    return _is_vendored_forge_snapshot_dir(name)
-
-
-def _path_under_probe_ignore(path: Path, repo_root: Path) -> bool:
-    try:
-        rel = path.resolve().relative_to(repo_root.resolve())
-    except ValueError:
-        return True
-    for part in rel.parts:
-        if part in _SKIP_PROBE_PARTS:
-            return True
-        if _is_vendored_forge_snapshot_dir(part):
-            return True
-    return False
+def _should_prune_walk_path(path: Path, repo_root: Path) -> bool:
+    """True if ``os.walk`` must not descend into or yield this path."""
+    # Inventory walks use fast dir skips only (not per-path git check-ignore).
+    return _probe_ignore_policy(repo_root).is_ignored(path, for_scope=False)
 
 
 def _walk_repo_files(
@@ -503,25 +489,27 @@ def _walk_repo_files(
     suffix: str | None = None,
     basename: str | None = None,
 ) -> Iterator[Path]:
-    """Walk the repo without descending into venv/node_modules/etc.
+    """Walk the repo without descending into gitignored/graphifyignored trees.
 
     ``Path.rglob`` matches files inside ignored trees first (very slow on ``.venv``).
     This prunes directory names in ``os.walk`` before recursion.
     """
     root = repo_root.resolve()
     for dirpath, dirnames, filenames in os.walk(root, topdown=True, followlinks=False):
-        dirnames[:] = [d for d in dirnames if not _should_prune_dirname(d)]
         current = Path(dirpath)
-        if _path_under_probe_ignore(current, root):
+        if _should_prune_walk_path(current, root):
             dirnames.clear()
             continue
+        dirnames[:] = [
+            d for d in dirnames if not _should_prune_walk_path(current / d, root)
+        ]
         for name in filenames:
             if basename is not None and name != basename:
                 continue
             if suffix is not None and not name.endswith(suffix):
                 continue
             path = current / name
-            if _path_under_probe_ignore(path, root):
+            if _should_prune_walk_path(path, root):
                 continue
             yield path
 
@@ -891,13 +879,18 @@ def _skylos_scan_targets(
     python_root: Path,
     scope_paths: list[str] | None,
 ) -> list[str]:
+    policy = _probe_ignore_policy(repo_root)
     if scope_paths:
-        return [str(p) for p in scope_paths if str(p).strip()]
+        return policy.filter_paths(
+            [str(p) for p in scope_paths if str(p).strip()],
+            for_scope=True,
+        )
     if python_root != repo_root:
         try:
-            return [str(python_root.relative_to(repo_root))]
+            rel = str(python_root.relative_to(repo_root))
         except ValueError:
-            return [str(python_root)]
+            rel = str(python_root)
+        return [] if policy.rel_is_ignored(rel, for_scope=True) else [rel]
     return ["."]
 
 
@@ -913,6 +906,7 @@ def _skylos_scan_command(
     *,
     quick_scan: bool = True,
     exclude_folders: list[str] | None = None,
+    repo_root: Path | None = None,
 ) -> list[str]:
     """Dead-code JSON scan by default; full audit with ``-a`` when ``quick_scan`` is false."""
     base = [*resolved, *targets]
@@ -922,8 +916,12 @@ def _skylos_scan_command(
     else:
         extras.extend(["-a", "--json"])
     folders = list(exclude_folders or ())
-    if not folders and _skylos_needs_default_excludes(targets):
-        folders = list(_SKYLOS_DEFAULT_EXCLUDE_FOLDERS)
+    if _skylos_needs_default_excludes(targets):
+        base_defaults = tuple(folders) if folders else _SKYLOS_DEFAULT_EXCLUDE_FOLDERS
+        if repo_root is not None:
+            folders = _probe_ignore_policy(repo_root).skylos_exclude_folders(base_defaults)
+        elif not folders:
+            folders = list(_SKYLOS_DEFAULT_EXCLUDE_FOLDERS)
     for folder in folders:
         extras.extend(["--exclude-folder", folder])
     return [*base, *extras]
@@ -1034,12 +1032,17 @@ def _pyscn_probe_targets(
     effective_scope: list[str] | None,
 ) -> list[str]:
     """Resolve pyscn path arguments; never return repo root when unsafe."""
+    policy = _probe_ignore_policy(repo_root)
     if effective_scope:
         py_paths = filter_python_scope_paths(repo_root, effective_scope)
         if py_paths:
             return py_paths
-        scoped = [_normalize_scope_token(p) for p in effective_scope if str(p).strip()]
-        return [p for p in scoped if p and p not in (".", "./")]
+        scoped = [
+            p
+            for p in (_normalize_scope_token(x) for x in effective_scope if str(x).strip())
+            if p and p not in (".", "./") and not policy.rel_is_ignored(p, for_scope=True)
+        ]
+        return scoped
 
     if repo_has_large_ignored_dirs(repo_root):
         if python_root.resolve() != repo_root.resolve():

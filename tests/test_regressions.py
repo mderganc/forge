@@ -1526,12 +1526,14 @@ def test_skill_chain_default_for_each_skill():
         assert transition.default is not None or skill in ("diagnose", "iterate")
 
 
-def test_build_skill_handoff_menu_renders_numbered_options(capsys):
+def test_build_skill_handoff_menu_renders_numbered_options(capsys, monkeypatch):
     """Output contains numbered options 1-N and a (stop) last item."""
     from scripts.shared.orchestrator import build_skill_handoff_menu
 
+    monkeypatch.setenv("FORGE_WORKFLOW_INVOCATION", "dollar")
     menu = build_skill_handoff_menu("plan")
     assert "$forge:" in menu
+    assert "handoff-multiselect" in menu
     assert "(stop)" in menu
     assert "WORKFLOW HANDOFF — plan complete" in menu
 
@@ -1546,18 +1548,20 @@ def test_handoff_menu_documents_default_shortcuts(capsys):
     assert "default" in menu.lower()
 
 
-def test_test_skill_handoff_includes_flows_alternative_in_run_mode():
+def test_test_skill_handoff_includes_flows_alternative_in_run_mode(monkeypatch):
     """When current mode is run, alternative list contains test --mode flows."""
     from scripts.shared.orchestrator import build_skill_handoff_menu
 
+    monkeypatch.setenv("FORGE_WORKFLOW_INVOCATION", "dollar")
     menu = build_skill_handoff_menu("test")
     assert "$forge:test --mode flows" in menu
 
 
-def test_test_skill_handoff_swaps_to_run_in_flows_mode():
+def test_test_skill_handoff_swaps_to_run_in_flows_mode(monkeypatch):
     """When current_mode == flows, alternative is test --mode run, not flows."""
     from scripts.shared.orchestrator import build_skill_handoff_menu, SkillState
 
+    monkeypatch.setenv("FORGE_WORKFLOW_INVOCATION", "dollar")
     state = SkillState(skill_name="test")
     state.custom["mode"] = "flows"
     menu = build_skill_handoff_menu("test", state=state)
@@ -1586,18 +1590,19 @@ def test_diagnose_handoff_has_no_default():
     assert "WORKFLOW HANDOFF — diagnose complete" in menu
 
 
-def test_diagnose_handoff_large_defaults_design():
+def test_diagnose_handoff_large_defaults_design(monkeypatch):
     """Large / systemic fix_complexity promotes design as default next."""
     from scripts.shared.orchestrator import SkillState, build_skill_handoff_menu
 
+    monkeypatch.setenv("FORGE_WORKFLOW_INVOCATION", "dollar")
     state = SkillState(skill_name="diagnose")
     state.custom["fix_complexity"] = "large"
     menu = build_skill_handoff_menu("diagnose", state=state)
-    assert "Default" in menu
+    assert "(default)" in menu.lower()
     assert "$forge:design" in menu
 
 
-def test_no_skill_has_legacy_workflow_complete_marker():
+def test_no_skill_has_legacy_workflow_complete_marker(monkeypatch):
     """Verify that build_skill_handoff_menu is the canonical final-step footer."""
     # This is a documentation/specification test rather than a grep test.
     # The actual verification happens when we update each skill's final-step
@@ -1605,6 +1610,7 @@ def test_no_skill_has_legacy_workflow_complete_marker():
     # For now, just verify the helper exists and works.
     from scripts.shared.orchestrator import build_skill_handoff_menu
 
+    monkeypatch.setenv("FORGE_WORKFLOW_INVOCATION", "dollar")
     # Spot check: each skill should render a handoff menu when at MAX_STEP
     for skill in ["design", "plan", "evaluate", "implement", "code-review", "test", "diagnose"]:
         menu = build_skill_handoff_menu(skill)

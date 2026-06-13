@@ -45,10 +45,12 @@ def test_sketch_handoff_menu_defaults_to_design(tmp_path, monkeypatch):
     from scripts.shared.orchestrator import SkillState, build_skill_handoff_menu, runtime_state_path
 
     monkeypatch.setenv("FORGE_CODEX_ROOT", str(tmp_path / ".codex" / "forge-codex"))
+    monkeypatch.setenv("FORGE_WORKFLOW_INVOCATION", "dollar")
     sp = runtime_state_path("sketch", tmp_path)
     state = SkillState(skill_name="sketch", max_step=3)
     menu = build_skill_handoff_menu("sketch", state, sp)
     assert "$forge:design" in menu
+    assert "handoff-multiselect" in menu
     assert "WORKFLOW HANDOFF — sketch complete" in menu
 
 

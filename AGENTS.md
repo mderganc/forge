@@ -2,24 +2,32 @@
 
 ## Skill Handoff Menu
 
-When a skill completes its final step, instead of printing a single hardcoded next-skill recommendation, the footer now displays a numbered menu of available workflow options. Users can reply "yes", "1", "default", or a literal command to select their next action.
+When a skill completes its final step, the footer displays a **multiselect handoff** (machine-readable block + text fallback). Agents in Cursor/Claude should present options with **AskQuestion** (`allow_multiple: true`).
 
 **Menu format:**
 ```
 WORKFLOW HANDOFF — <skill> complete
 ==================================
-Default next: `$forge:<skill>` <optional-args>
 
-Reply "yes" or "1" to continue with the default. Or pick a number:
-  1. `$forge:<default>` <args>    (default — description)
-  2. `$forge:<alt>` <args>        (rationale)
-  3. ...
-  N. (stop)                         (exit the workflow here)
+**Agent (Cursor / Claude):** Present the `handoff-multiselect` block with AskQuestion (allow_multiple: true).
 
-State file: <path>  —  resume any time with `forge resume` (or `/forge:resume` / `$forge:resume`).
+```handoff-multiselect
+{ "type": "forge_handoff_multiselect", "options": [...], "default_option_ids": [...] }
 ```
 
-The canonical skill-chain mapping lives in `scripts/shared/skill_chain.py` as the `SKILL_CHAIN` dict, mapping current skill to `SkillTransition(default, alternatives)`. The renderer `build_skill_handoff_menu(current_skill, state)` in `scripts/shared/orchestrator.py` produces the numbered output. Per-skill context-aware injection is supported — e.g., when `forge:test` detects failures, `diagnose` can be prepended as the top alternative; when `forge:diagnose` finishes with `fix_complexity` **`large`**, the default next command is **`develop`** (with **`plan`** as default when **`complex`**).
+**Text fallback** (prefix `/forge:` in Cursor/Claude, `$forge:` in Codex):
+
+Reply "yes" or "1" for the default, or pick numbers:
+  1. `/forge:<default>` — description (default)
+  2. `/forge:<alt>` — description
+  N. `(stop)` — exit the workflow here
+
+State file: <path> — resume with `forge resume` (or `/forge:resume` / `$forge:resume`).
+```
+
+Invocation prefix: **`/forge:`** when `FORGE_WORKFLOW_INVOCATION=slash`, repo has `.cursor/`, or `CURSOR_*` env is set; otherwise **`$forge:`** (Codex). Override with `FORGE_WORKFLOW_INVOCATION=slash|dollar`.
+
+The canonical skill-chain mapping lives in `scripts/shared/skill_chain.py` as the `SKILL_CHAIN` dict, mapping current skill to `SkillTransition(default, alternatives)`. The renderer `build_skill_handoff_menu(current_skill, state)` in `scripts/shared/handoff_io.py` / `handoff_menu.py` produces the multiselect block and text fallback. Per-skill context-aware injection is supported — e.g., when `forge:test` detects failures, `diagnose` can be prepended as the top alternative; when `forge:diagnose` finishes with `fix_complexity` **`large`**, the default next command is **`develop`** (with **`plan`** as default when **`complex`**).
 
 The `(stop)` option is always last. The state file persists, and workflows can resume with `forge resume` at any time.
 

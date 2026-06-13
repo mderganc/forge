@@ -22,6 +22,9 @@ forge_next-0.14.*/
 # Skylos CLI local cache / scan output
 .skylos/
 
+# pyscn analyze report cache (written beside repo on each run)
+.pyscn/
+
 # PyPI upload secrets (never commit)
 .pypirc
 pypi-token.env

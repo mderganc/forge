@@ -44,6 +44,7 @@ See [structural-quality.md](structural-quality.md).
 
 | Variable | Effect |
 |----------|--------|
+| `FORGE_WORKFLOW_INVOCATION` | Agent handoff prefix: `slash` → `/forge:…` (Cursor/Claude); `dollar` → `$forge:…` (Codex). Auto: `CURSOR_*` / `CLAUDE_CODE` → slash; `CODEX_HOME` → dollar; repos with `.cursor/` → slash. Override when Codex runs inside a Cursor checkout. |
 | `FORGE_REPO` | Override detected writable git root (sandbox/WSL) |
 | `FORGE_USE_LAUNCHER` | Set by `forge` CLI (internal) |
 | `FORGE_ASCII` | ASCII-only banners (Windows consoles) |

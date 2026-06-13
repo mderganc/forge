@@ -649,8 +649,10 @@ def build_next_command(
     target_step = next_step if next_step is not None else step + 1
     if target_step > max_step:
         return ""
+    from scripts.shared.workflow_tokens import workflow_invocation_prefix
+
     token = skill_token_from_script(script_path)
-    parts: list[str] = [f"$forge:{token}", f"--step {target_step}"]
+    parts: list[str] = [f"{workflow_invocation_prefix()}{token}", f"--step {target_step}"]
     for flag in flags:
         parts.append(f"--{flag}")
     for key, val in extra_args.items():

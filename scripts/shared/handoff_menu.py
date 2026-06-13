@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import json
+from typing import Any
+
 from scripts.shared.skill_state import SkillState
 
 
@@ -38,42 +41,160 @@ def resolve_handoff_commands(
     return default_cmd, list(alternatives)
 
 
+def _handoff_option_rows(
+    *,
+    default_cmd: str | None,
+    alternatives: list[str],
+) -> list[tuple[str, str, bool]]:
+    """Return ``(chain_cmd, description, is_default)`` rows for menu + multiselect."""
+    from scripts.shared.skill_chain import COMMAND_DESCRIPTIONS
+
+    rows: list[tuple[str, str, bool]] = []
+    if default_cmd:
+        rows.append(
+            (default_cmd, COMMAND_DESCRIPTIONS.get(default_cmd, ""), True),
+        )
+    for alt_cmd in alternatives:
+        rows.append((alt_cmd, COMMAND_DESCRIPTIONS.get(alt_cmd, ""), False))
+    return rows
+
+
+def chain_command_slug(chain_cmd: str) -> str:
+    """Stable AskQuestion id (no spaces)."""
+    tokens = [t.lstrip("-").replace("_", "-") for t in chain_cmd.strip().split()]
+    return "-".join(tokens)
+
+
+def build_handoff_multiselect_payload(
+    skill_name: str,
+    *,
+    default_cmd: str | None,
+    alternatives: list[str],
+    state_path: object | None = None,
+) -> dict[str, Any]:
+    """Machine-readable handoff for agent AskQuestion (``allow_multiple: true``)."""
+    from scripts.shared.workflow_tokens import chain_command_to_agent_invocation
+
+    options: list[dict[str, str]] = []
+    default_ids: list[str] = []
+
+    for chain_cmd, desc, is_default in _handoff_option_rows(
+        default_cmd=default_cmd,
+        alternatives=alternatives,
+    ):
+        inv = chain_command_to_agent_invocation(chain_cmd)
+        label = inv if not desc else f"{inv} — {desc}"
+        if is_default:
+            label += " (default)"
+            default_ids.append(chain_command_slug(chain_cmd))
+        options.append(
+            {
+                "id": chain_command_slug(chain_cmd),
+                "chain_cmd": chain_cmd,
+                "label": label,
+            }
+        )
+
+    options.append({"id": "stop", "label": "(stop) — exit the workflow here"})
+
+    payload: dict[str, Any] = {
+        "type": "forge_handoff_multiselect",
+        "skill": skill_name,
+        "allow_multiple": True,
+        "title": f"Next after {skill_name}",
+        "prompt": "Which Forge workflow(s) should run next? (multiselect)",
+        "options": options,
+        "default_option_ids": default_ids,
+        "shortcuts": {
+            "default": 'Reply "yes" or "1" for the default only.',
+            "stop": 'Reply "stop" to exit without running another skill.',
+        },
+    }
+    if state_path:
+        payload["state_file"] = str(state_path)
+    return payload
+
+
+def format_handoff_multiselect_block(
+    skill_name: str,
+    *,
+    default_cmd: str | None,
+    alternatives: list[str],
+    state_path: object | None = None,
+) -> str:
+    payload = build_handoff_multiselect_payload(
+        skill_name,
+        default_cmd=default_cmd,
+        alternatives=alternatives,
+        state_path=state_path,
+    )
+    body = json.dumps(payload, indent=2, ensure_ascii=True)
+    return (
+        "**Agent (Cursor / Claude):** Present the block below with **AskQuestion** "
+        "(`allow_multiple: true`). Use the option labels verbatim (`/forge:…` or `$forge:…`).\n\n"
+        f"```handoff-multiselect\n{body}\n```"
+    )
+
+
 def format_handoff_menu_lines(
     skill_name: str,
     *,
-    default_cmd: str,
+    default_cmd: str | None,
     alternatives: list[str],
     state_path: object | None = None,
 ) -> list[str]:
-    from scripts.shared.skill_chain import COMMAND_DESCRIPTIONS
-    from scripts.shared.workflow_tokens import chain_command_to_agent_invocation
+    from scripts.shared.workflow_tokens import (
+        chain_command_to_agent_invocation,
+        workflow_invocation_prefix,
+    )
 
-    lines = ["", f"WORKFLOW HANDOFF — {skill_name} complete", ""]
+    prefix = workflow_invocation_prefix()
+    lines = [
+        "",
+        f"WORKFLOW HANDOFF — {skill_name} complete",
+        "=" * (len(skill_name) + 22),
+        "",
+        format_handoff_multiselect_block(
+            skill_name,
+            default_cmd=default_cmd or None,
+            alternatives=alternatives,
+            state_path=state_path,
+        ),
+        "",
+        f"**Text fallback** (same options; prefix `{prefix}`):",
+        "",
+    ]
+
     option_num = 1
+    rows = _handoff_option_rows(default_cmd=default_cmd or None, alternatives=alternatives)
 
     if default_cmd:
-        desc = COMMAND_DESCRIPTIONS.get(default_cmd, "")
-        desc_text = f" ({desc})" if desc else ""
         inv = chain_command_to_agent_invocation(default_cmd)
-        lines.append('**Default (reply "yes" or "1"):**')
-        lines.append(f"1. `{inv}`{desc_text}")
-        option_num = 2
+        desc = rows[0][1] if rows else ""
+        desc_text = f" — {desc}" if desc else ""
+        lines.append('Reply **"yes"** or **"1"** for the default, or pick numbers:')
+        lines.append(f"  {option_num}. `{inv}`{desc_text} **(default)**")
+        option_num += 1
+        for chain_cmd, desc, _ in rows[1:]:
+            inv = chain_command_to_agent_invocation(chain_cmd)
+            desc_text = f" — {desc}" if desc else ""
+            lines.append(f"  {option_num}. `{inv}`{desc_text}")
+            option_num += 1
     else:
         lines.append("**(none — workflow terminates here)**")
-
-    if alternatives:
-        lines.append("")
-        lines.append("**Alternatives:**")
-        for alt_cmd in alternatives:
-            desc = COMMAND_DESCRIPTIONS.get(alt_cmd, "")
-            desc_text = f" ({desc})" if desc else ""
-            lines.append(f"{option_num}. `{chain_command_to_agent_invocation(alt_cmd)}`{desc_text}")
+        for chain_cmd, desc, _ in rows:
+            inv = chain_command_to_agent_invocation(chain_cmd)
+            desc_text = f" — {desc}" if desc else ""
+            lines.append(f"  {option_num}. `{inv}`{desc_text}")
             option_num += 1
 
-    lines.append("")
-    lines.append("**To stop without transitioning:**")
-    lines.append("Reply 'stop' (stop) and the workflow will end here.")
+    lines.extend(
+        [
+            f"  {option_num}. `(stop)` — exit the workflow here",
+            "",
+            f"Resume any time: `forge resume` or `{chain_command_to_agent_invocation('resume')}`",
+        ]
+    )
     if state_path:
-        lines.append("")
         lines.append(f"**State file:** `{state_path}`")
     return lines

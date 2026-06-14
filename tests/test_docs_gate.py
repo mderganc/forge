@@ -106,8 +106,8 @@ def test_packaged_prompts_mirror_plan_phase(rel: str):
 
 def test_diagnose_report_prompt_lists_technique_matrix():
     text = (REPO_ROOT / "prompts" / "diagnose" / "report.md").read_text(encoding="utf-8")
-    assert "Technique Coverage Matrix" in text
-    assert "technique_catalog.md" in text
+    assert "activated" in text.lower()
+    assert "technique-coverage" in text.lower() or "technique coverage" in text.lower()
 
 
 @pytest.mark.parametrize(

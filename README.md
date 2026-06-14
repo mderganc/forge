@@ -208,7 +208,7 @@ When intent is fuzzy, run [sketch](#sketch) before [design](#design).
 |--|-----------------|-------|----------|
 | Invoke | `/forge:evaluate` | `$forge:evaluate` | `forge evaluate --step 1 --mode pre` |
 
-**What it does:** Structured review — **`--mode pre`** (before implementation), **`--mode post`** (after), or **`--mode review`**.
+**What it does:** Structured plan critique — **`--mode pre`** (before implementation) or **`--mode post`** (after). For full-team code review, use [code-review](#code-review) (`evaluate --mode review` is deprecated).
 
 **Artifacts:** `.evaluate-state.json` and `.evaluate-findings-step<N>.json` sidecars.
 

@@ -8,9 +8,8 @@
     {
       "id": "forge:evaluate",
       "cli_subcommand": "evaluate",
-      "description": "Plan review / implementation audit (pre/post/review modes).",
+      "description": "Plan review (pre) or implementation audit (post). Use code-review for full-team review.",
       "examples": [
-        "forge evaluate --step 1 --mode review",
         "forge evaluate --step 1 --mode pre --plan \"<plan keywords or path>\"",
         "forge evaluate --repo \"<path>\" --step 1 --mode post --plan \"<plan>\""
       ]

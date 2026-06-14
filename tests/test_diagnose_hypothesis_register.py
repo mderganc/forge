@@ -143,11 +143,22 @@ class TestOrchestratorGate:
     def test_step4_gate_short_register_retries_step3(self, tmp_path):
         from scripts.diagnose import diagnose_gates
         from scripts.diagnose.orchestrate import PHASE_NAMES
+        from scripts.diagnose.problem_spec_register import register_path as problem_spec_path
         from scripts.shared.orchestrator import SkillState, format_step_output
 
         state_dir = tmp_path / "state"
         state_dir.mkdir()
         state_file = state_dir / "diagnose.json"
+        problem_spec_path(state_dir).write_text(
+            json.dumps(
+                {
+                    "framing_entry": "evidence_snapshot",
+                    "problem_statement": "Flaky failure under load",
+                    "activated_techniques": ["Hypothesis-driven problem solving"],
+                }
+            ),
+            encoding="utf-8",
+        )
         state = SkillState(skill_name="diagnose")
         state.max_step = 7
         state.current_step = 3
@@ -186,11 +197,22 @@ class TestOrchestratorGate:
     def test_step4_gate_exhausted_retry_no_step3_redirect(self, tmp_path):
         from scripts.diagnose import diagnose_gates
         from scripts.diagnose.orchestrate import PHASE_NAMES
+        from scripts.diagnose.problem_spec_register import register_path as problem_spec_path
         from scripts.shared.orchestrator import SkillState
 
         state_dir = tmp_path / "state"
         state_dir.mkdir()
         state_file = state_dir / "diagnose.json"
+        problem_spec_path(state_dir).write_text(
+            json.dumps(
+                {
+                    "framing_entry": "evidence_snapshot",
+                    "problem_statement": "Flaky failure under load",
+                    "activated_techniques": ["Hypothesis-driven problem solving"],
+                }
+            ),
+            encoding="utf-8",
+        )
         state = SkillState(skill_name="diagnose")
         state.custom["hypothesis_min"] = 10
         state.custom["hypothesis_regen_attempts"] = 1

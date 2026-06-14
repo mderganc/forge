@@ -3,8 +3,6 @@
 from __future__ import annotations
 
 import json
-import os
-import subprocess
 import sys
 from pathlib import Path
 
@@ -77,6 +75,9 @@ def test_evaluate_post_step4_injects_structural_banner(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Orchestrator step 4 (post) must append STRUCTURAL PROBES when probes run."""
+    import io
+
+    import scripts.evaluate.evaluate as ev
     from scripts.evaluate.state import EvalState, save_state
     from scripts.shared import structural_probes as sp
 
@@ -95,36 +96,33 @@ def test_evaluate_post_step4_injects_structural_banner(
         "stack": {"python": True, "node": False},
         "probes": [],
     }
-    monkeypatch.setattr(sp, "run_probes", lambda *_a, **_k: fake)
+    sidecar = state_dir / ".structural-probes.json"
 
-    env = {**dict(os.environ), "FORGE_STRUCTURAL_PROBES_AUTO": "1"}
-    proc = subprocess.run(
-        [
-            sys.executable,
-            str(REPO_ROOT / "scripts" / "evaluate" / "evaluate.py"),
-            "--step",
-            "4",
-            "--mode",
-            "post",
-            "--state",
-            str(sp_file),
-        ],
-        cwd=str(REPO_ROOT),
-        capture_output=True,
-        text=True,
-        encoding="utf-8",
-        errors="replace",
-        timeout=120,
-        env=env,
-    )
-    assert proc.returncode == 0, proc.stderr
-    assert "STRUCTURAL PROBES" in proc.stdout
-    reloaded = json.loads(sp_file.read_text(encoding="utf-8"))
-    assert "custom" in reloaded
-    assert "structural_probes_sidecar" in reloaded.get("custom", {})
+    def fake_run(*_a, **_k):
+        sidecar.write_text(json.dumps(fake), encoding="utf-8")
+        return fake
+
+    monkeypatch.setattr(sp, "run_probes", fake_run)
+    monkeypatch.setenv("FORGE_STRUCTURAL_PROBES_AUTO", "1")
+    monkeypatch.setenv("FORGE_SKIP_GRAPHIFY", "1")
+    monkeypatch.setenv("FORGE_SKIP_SESSION_OPTIN", "1")
+
+    buf = io.StringIO()
+    monkeypatch.setattr(sys, "stdout", buf)
+    reloaded: dict = {}
     try:
+        ev.handle_step_n(4, state_file=str(sp_file))
+        out = buf.getvalue()
+        reloaded = json.loads(sp_file.read_text(encoding="utf-8"))
+    finally:
         sp_file.unlink(missing_ok=True)
         plan.unlink(missing_ok=True)
-        state_dir.rmdir()
-    except OSError:
-        pass
+        sidecar.unlink(missing_ok=True)
+        try:
+            state_dir.rmdir()
+        except OSError:
+            pass
+
+    assert "STRUCTURAL PROBES" in out
+    assert "custom" in reloaded
+    assert "structural_probes_sidecar" in reloaded.get("custom", {})

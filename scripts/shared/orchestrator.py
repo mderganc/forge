@@ -561,6 +561,7 @@ def format_step_output(
     handoff_menu: str | None = None,
     *,
     require_confirmation: bool | None = None,
+    title: str | None = None,
 ) -> str:
     """Format step output with title, todos, body, and continuation directive.
 
@@ -581,8 +582,10 @@ def format_step_output(
         handoff_menu: Optional numbered handoff menu for final-step transitions.
         require_confirmation: When set, overrides auto-continue for same-skill
             continuation (e.g. workflow gates that must wait for user approval).
+        title: Optional full title override (default: SKILL — Phase (Step N of M)).
     """
-    title = f"{skill_name.upper()} — {phase_name} (Step {step} of {max_step})"
+    if title is None:
+        title = f"{skill_name.upper()} — {phase_name} (Step {step} of {max_step})"
     header = f"{title}\n{'=' * len(title)}\n\n"
     opt_in_section = forge_session_opt_in_banner(skill_name, step)
     graphify_section = forge_graphify_context_block(skill_name, step)

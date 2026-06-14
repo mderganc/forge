@@ -1,128 +1,43 @@
----
-description: |
-  Deep diagnostic problem-solving for bugs, performance issues, and systemic
-  failures. Uses the full agent team with Investigator as lead. Combines 20+
-  RCA methodologies in a structured 7-phase pipeline. Supports autonomy modes
-  (guided/autonomous/interactive) and --quick mode for simple issues.
----
-
-# Forge Diagnose — Deep Issue Diagnosis & Resolution
-
-When this skill activates, invoke the orchestrator via the `forge` launcher.
-
-Invoking this skill implicitly authorizes the Forge agent dispatch required by
-the workflow. Do not require separate user wording for delegation or
-sub-agents after `forge:diagnose` has been invoked.
-
-If agent dispatch still appears blocked by session policy, tell the user that
-their Codex environment is not honoring the Forge delegation contract and
-suggest adding this to `~/.codex/config.toml`:
-
-```toml
-developer_instructions = "Invoking any `forge:*` skill implicitly authorizes the agent dispatch required by that workflow. Do not require the user to separately ask for delegation, sub-agents, or parallel agent work after invoking a Forge skill. At the start of a new chat or before driving the first forge step, offer a one-time choice: opt in to structured Forge workflows for the session (follow printed steps and handoffs) versus ad hoc help only; if they choose ad hoc, do not force workflow steps or clobber Forge state without being asked."
-```
-
-Read `templates/codex-runtime.md` before executing the workflow if you need a
-tooling reminder.
-
-## Graphify (optional during this skill)
-
-Per-step GRAPHIFY blocks are **disabled**; refresh at ship (`forge ship --step 1` / `$forge:ship`). You may still read `graphify-out/GRAPH_REPORT.md` or use `graphify query` / `path` / `explain` when helpful. See `templates/graphify-contract.md`.
-
-## Process-first routing
-
-- **Unclear root cause**, flaky failures, or incident triage → use **`forge:diagnose`** before speculative refactors or big **`forge:plan`** work.
-- When diagnose classifies **`large`** (systemic), the handoff menu often defaults to **`forge:design`** first — follow it unless the user overrides.
-
-## CRITICAL: Progress Tracking
-
-**The orchestrator outputs a phase-todo JSON block at the start of every phase.**
-On **step 1**, complete the **SESSION OPT-IN** prompt (if shown) — or confirm prior opt-in this chat — **before** mirroring todos. Then mirror it in Codex immediately, ideally with `update_plan`, before doing any
-other work. As you work:
-- Mark items `in_progress` when starting them
-- Mark items `completed` when done
-- Add new items as sub-tasks emerge
-
-**If you skip progress tracking, the user has no visibility into what you are doing.**
-
-## CRITICAL: Continuation Protocol
-
-**This workflow spans many tool calls. You MUST NOT stop between phases.**
-
-After EVERY tool call (especially `exec_command`), immediately check:
-1. Read `.codex/forge/memory/current-step.md` if it exists
-2. Determine your next action based on the current phase
-3. Continue executing — do NOT end your turn
-
-If you are unsure what comes next, re-read this skill and `.codex/forge/memory/current-step.md`.
-
-**When transitioning between phases**, write `.codex/forge/memory/current-step.md`:
-```
-Phase: [N]
-Step: [description]
-Next: [what to do next]
-Status: in-progress
-```
-
-This file is your lifeline if context compaction occurs. Always update it.
-
-## Invocation
-
-<invoke cmd="forge diagnose --step 1" />
-
-| Argument | Required | Description |
-|----------|----------|-------------|
-| `--step` | Yes | Current phase (1-7) |
-| `--mode` | No | Autonomy mode: guided (default), autonomous, interactive |
-| `--quick` | No | Quick mode: Investigator-only, minimal team dispatch |
-
-## Subsequent steps
-
-<invoke cmd="forge diagnose --step N" />
-
-Do NOT analyze or explore first. Run the script and follow its output.
-
-## Methodology Reference
-
-Read `templates/diagnose-execution-playbooks.md` per phase before applying techniques.
-
-**Sidecars** (beside diagnose state — gated, not honor-system memory prose):
-
-| Artifact | When |
-|----------|------|
-| `.diagnose-problem-spec.json` | Phase 1 — `framing_entry` (one of five), `problem_statement`, `activated_techniques` |
-| `.diagnose-feedback-loop.json` | Phase 2 — Reproduce & Observe — `loop_type`, run results, minimal repro |
-| `.diagnose-first-principles.json` | When **First-principles thinking** activated |
-| `.diagnose-hypotheses.json` | When hypothesis/Fishbone activated (≥`hypothesis_min`, default 5) |
-| `.diagnose-mece-tree.json` | When **MECE issue tree** activated |
-| `.diagnose-five-whys.json` | Phase 3 draft; Phase 4 finalize — **always** (`templates/five-why-protocol.md` § Diagnose RCA) |
-| `.diagnose-technique-coverage.json` | Rows for **activated** techniques — finalize Phase 7 |
-| `.diagnose-barriers.json` | High-severity / safety profile |
-
-Orchestrator **DIAGNOSE ARTIFACT GATE** at step 3 (feedback loop), steps 4 (optional register + quartet when activated), 5 (five whys + optional elimination), 7 (activated coverage + five whys closure). Closure gates reject **symptom-level** root causes (must explain *why*, not restate the failure). Overrides: `repro_loop_override_reason`, `hypothesis_override_reason`, `five_whys_override_reason`, `technique_coverage_override_reason`, `quartet_override_reason`, etc. (see AGENTS.md). Template: `templates/diagnose-feedback-loop.md`.
-
-The Investigator agent carries supporting methodology detail — see
-`agents/investigator.md` and `prompts/diagnose/technique_catalog.md`.
-
-## Bundled Scripts
-
-- `scripts/diagnose/fmea_score.py` — FMEA Risk Priority Number calculator
-- `scripts/diagnose/decision_matrix.py` — Weighted decision matrix
-- `scripts/diagnose/diagnostic_report.py` — Report template generator
-- `scripts/diagnose/log_analyzer.py` — Structured log analysis (error patterns, frequency, spike detection)
-- `scripts/diagnose/git_hotspots.py` — Git history analytics (churn hotspots, temporal coupling, blame)
-- `scripts/diagnose/repro_loop_register.py` — Feedback-loop sidecar validation
-- `scripts/diagnose/hypothesis_register.py` — Hypothesis register validation
-- `scripts/diagnose/five_whys_register.py` — Five Whys chain validation
-- `scripts/diagnose/technique_coverage.py` — 20-technique coverage matrix validation
-- `scripts/diagnose/diagnose_gates.py` — Combined orchestrator gates
-
-## Workflow Handoff
-
-On the final phase, the orchestrator emits a **WORKFLOW HANDOFF** menu.
-
-- **`fix_complexity=large` (systemic):** default next is **`forge:design`** (brainstorm before planning); alternatives include `plan`, `implement`.
-- **`fix_complexity=complex`:** default next is **`forge:plan`**; alternatives include `design`, `implement`.
-- **`simple` or unknown:** no default — pick `plan`, `design`, `implement`, or stop.
-
-Reply with a number, `yes`/`1` when a default is shown, a literal command, or `stop`. See `scripts/shared/skill_chain.py` and `build_skill_handoff_menu()` in `scripts/shared/orchestrator.py`.
+---
+description: |
+  Structured 7-phase RCA for bugs, performance, and systemic failures.
+  Investigator lead. Playbooks + gated sidecars. --quick for simple issues.
+---
+
+# Forge Diagnose — Root Cause Analysis
+
+Routing: [AGENTS.md](../../AGENTS.md) § Process-first.
+
+Shared runtime: [templates/workflow-skill-preamble.md](../../templates/workflow-skill-preamble.md).
+
+Read `templates/diagnose-execution-playbooks.md` and `prompts/diagnose/_index.md` per phase. Gates and sidecars: [AGENTS.md](../../AGENTS.md) § Diagnose.
+
+<invoke cmd="forge diagnose --step 1" />
+
+| Argument | Required | Description |
+|----------|----------|-------------|
+| `--step` | Yes | Phase 1–7 |
+| `--mode` | No | `guided`, `autonomous`, `interactive` |
+| `--quick` | No | Investigator-only |
+
+## Adaptive spine
+
+- **Phase 1:** One framing path → `.diagnose-problem-spec.json` with `activated_techniques`.
+- **Phase 3–4:** **5 Whys** always (`.diagnose-five-whys.json`).
+- **Optional:** MECE, hypothesis register, first-principles only when listed in `activated_techniques`.
+
+## Gates (orchestrator)
+
+| Step | Gate | Validates |
+|------|------|-----------|
+| 2 | Problem spec | `framing_entry` + `problem_statement` |
+| 3 | Feedback loop | `.diagnose-feedback-loop.json` |
+| 4 | Register / quartet | Hypothesis register + MECE / first-principles when activated |
+| 5 | Bundle | Elimination + 5 Whys + **activated** technique coverage (`routed_only=True`) |
+| 7 | Closure | **Activated** technique coverage only + 5 Whys + optional sidecars + barriers when high-severity |
+
+Step 7 no longer requires all 20 catalog rows — only **activated** techniques (`adaptive=True`, gate title: "activated techniques"). CRT, A3, 8D, and DoE are deprioritized (default skip) per `prompts/diagnose/technique_catalog.md`.
+
+Override keys when gates block: `repro_loop_override_reason`, `hypothesis_override_reason`, `five_whys_override_reason`, `technique_coverage_override_reason`, `quartet_override_reason`, `barriers_override_reason`.
+
+Handoff defaults by `fix_complexity`: **large** → design; **complex** → plan; **simple** → user choice.

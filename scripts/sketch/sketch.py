@@ -61,10 +61,12 @@ PHASE_TODOS = {
          "activeForm": "Initializing sketch session"},
     ],
     2: [
-        {"content": "Run sketch protocol (one question at a time)",
-         "activeForm": "Running sketch session"},
-        {"content": "Write sketch-decisions.md with resolved branches",
-         "activeForm": "Recording sketch decisions"},
+        {"content": "Run conversation loop (reflect, confirm, ask)",
+         "activeForm": "Running sketch dialogue"},
+        {"content": "Synthesis checkpoint every 2–3 exchanges",
+         "activeForm": "Synthesizing with user"},
+        {"content": "Update sketch-decisions.md (loop-back when revising)",
+         "activeForm": "Recording decisions"},
     ],
     3: [
         {"content": "Write handoff-sketch.md for design",
@@ -347,6 +349,14 @@ def handle_step_n(
         handoff_menu = build_skill_handoff_menu(SKILL_NAME, state, sp)
         clear_state_file(sp)
         run_summary = "Completed sketch workflow and wrote handoff."
+    elif step == 2:
+        # Re-entrant: do not mark step 2 complete — user re-runs until ready for handoff
+        state.custom["session_visits"] = int(state.custom.get("session_visits") or 0) + 1
+        save_state(state, sp)
+        body += (
+            "\n\n---\n\n**Continue:** Re-run `forge sketch --step 2` to keep talking.\n"
+            "**Handoff:** When the user confirms synthesis, run `forge sketch --step 3`."
+        )
     else:
         state.mark_step_complete(step)
         save_state(state, sp)
@@ -361,15 +371,19 @@ def handle_step_n(
         handoff_path=handoff_path,
     )
 
-    next_cmd = (
-        _next_command(
+    next_cmd = None
+    if step == 2:
+        next_cmd = _next_command(
+            2,
+            state_path=str(sp),
+            with_domain_docs=bool(state.custom.get("with_domain_docs")),
+        )
+    elif step < MAX_STEP:
+        next_cmd = _next_command(
             step,
             state_path=str(sp),
             with_domain_docs=bool(state.custom.get("with_domain_docs")),
         )
-        if step < MAX_STEP
-        else None
-    )
     print(_format(step, body, next_cmd, handoff_menu=handoff_menu))
 
 

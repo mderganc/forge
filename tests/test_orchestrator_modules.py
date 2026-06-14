@@ -46,6 +46,6 @@ def test_runtime_state_roundtrip(tmp_path: Path, monkeypatch) -> None:
 
 def test_build_skill_handoff_menu_has_default(monkeypatch) -> None:
     monkeypatch.setenv("FORGE_WORKFLOW_INVOCATION", "dollar")
-    menu = build_skill_handoff_menu("develop")
+    menu = build_skill_handoff_menu("design")
     assert "WORKFLOW HANDOFF" in menu
     assert "$forge:" in menu

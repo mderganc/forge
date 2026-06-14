@@ -1,4 +1,5 @@
 ---
+name: forge:ship
 description: Ship — refresh Graphify, then commit, push, PR, merge, publish.
 ---
 

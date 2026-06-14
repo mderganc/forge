@@ -68,6 +68,7 @@ from scripts.develop.spec_gate import (
     validate_spec_gate,
 )
 from scripts.evaluate.template_engine import load_template, render_template
+from scripts.shared.studio_status import studio_status_block
 
 SKILL_NAME = "design"
 MAX_STEP = 7
@@ -247,7 +248,7 @@ def _build_variables(state: SkillState) -> dict[str, str]:
 
     tier = str(state.custom.get("scope_tier", "unknown"))
     spec_req = bool(state.custom.get("spec_required"))
-    studio_status = _studio_status_block(state)
+    studio_status = studio_status_block(state, context="develop")
     from forge_next.studio.context import orchestrator_studio_variables
 
     studio_vars = orchestrator_studio_variables()
@@ -266,16 +267,6 @@ def _build_variables(state: SkillState) -> dict[str, str]:
         "STUDIO_APPROVED": studio_vars["STUDIO_APPROVED"],
         "STATE_DIR": "(directory containing your develop --state file)",
     }
-
-
-def _studio_status_block(state: SkillState) -> str:
-    if state.custom.get("studio_declined"):
-        return "Studio: declined — use chat/AskQuestion gates only."
-    if state.custom.get("studio_enabled"):
-        sid = state.custom.get("studio_session_id", "")
-        extra = f" Session: `{sid}`." if sid else " Start session per `templates/studio.md` when entering visual gates."
-        return f"Studio: enabled (agent-internal transport).{extra} User sees URL only — do not ask them to run `forge studio`."
-    return "Studio: not enabled — offer opt-in at scope (step 2) per `templates/studio.md`, or use text gates."
 
 
 def _next_command(step: int, state_path: str = "") -> str:

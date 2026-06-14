@@ -56,24 +56,17 @@ from scripts.evaluate.template_engine import (
     load_template,
     render_template,
 )
-from scripts.test.test_layout import detect_test_layout  # pyright: ignore[reportMissingImports]
+from scripts.test.test_flows import (
+    FLOWS_MAX_STEP,
+    FLOWS_PHASE_NAMES,
+    handle_flow_step,
+    initialize_flow_custom,
+    prepare_flow_step_1,
+    required_flow_prompts,
+)
 
 SKILL_NAME = "test"
 MAX_STEP = 6
-
-# Flow phase names — used when mode == "flows"
-FLOWS_PHASE_NAMES = {
-    1: "Flow Context Detection",
-    2: "Flow-Type Recommendation",
-    3: "Scope Definition",
-    4: "Scaffolding",
-    5: "Mock Authoring",
-    6: "Execution + Iteration",
-    7: "Report + Handoff",
-}
-
-# Max steps for flows mode
-FLOWS_MAX_STEP = 7
 
 PHASE_NAMES = {
     1: "Context Detection",
@@ -297,207 +290,6 @@ def _next_command(step: int, state_path: str = "") -> str:
 
 
 # ---------------------------------------------------------------------------
-# Flow-mode step handlers (stubs for Fix 3)
-# ---------------------------------------------------------------------------
-
-def _check_scaffold_gate(state: SkillState) -> list[str]:
-    """Check if scaffold is complete per criteria 2/3/4.
-
-    Returns list of missing-item strings; empty list = gate passes.
-    """
-    flow_files = state.custom.get("flow_files", [])
-    missing = []
-
-    if not flow_files:
-        missing.append("flow_files list is empty — scaffold not created")
-        return missing
-
-    # Check for data-pack directories
-    has_data_packs = any("data-packs" in f for f in flow_files)
-    if not has_data_packs:
-        missing.append("data-pack directories (clean/, messy/, edge-cases/, duplicates/) missing")
-
-    # Check for role harness (conftest.py or steps file)
-    has_harness = any("conftest.py" in f or "steps" in f for f in flow_files)
-    if not has_harness:
-        missing.append("role-parameterization harness file (conftest.py or steps/) missing")
-
-    # Check for entry-point invocation in primary test file
-    has_entry_point_call = any(
-        "test_" in f and (".py" in f)
-        for f in flow_files
-    )
-    if not has_entry_point_call:
-        missing.append("primary test file missing or entry-point invocation not found")
-
-    return missing
-
-
-def _check_authoring_gate(state: SkillState) -> list[str]:
-    """Check if authoring is complete per criteria 5/6/7.
-
-    Returns list of missing-item strings; empty list = gate passes.
-    """
-    flow_scope = state.custom.get("flow_scope", {})
-    authoring_results = state.custom.get("authoring_results", {})
-
-    missing = []
-
-    # Check for failure paths
-    failure_paths = flow_scope.get("failure_paths", [])
-    if not failure_paths or len(failure_paths) == 0:
-        missing.append("no failure-path assertions (criterion 7) — at least 1 required")
-
-    # Check for outcome surfaces (criterion 5)
-    outcome_surfaces = authoring_results.get("outcome_surfaces", [])
-    if len(outcome_surfaces) < 2:
-        missing.append(f"outcome validation touches only {len(outcome_surfaces)} surface(s) (criterion 5) — at least 2 required")
-
-    # Check for external mocks (criterion 6)
-    external_mocks = authoring_results.get("external_mocks", [])
-    allowed_externals = flow_scope.get("external_services_to_mock", [])
-    for mock in external_mocks:
-        if mock not in allowed_externals:
-            missing.append(f"mock '{mock}' not in allowed externals (criterion 6)")
-
-    return missing
-
-
-def _run_double_check(state: SkillState) -> tuple[bool, str]:
-    """Run flow twice and check for determinism (criterion 8).
-
-    Returns (is_deterministic, message).
-
-    Stub: full implementation runs pytest twice against the scaffolded scope
-    and diffs outputs. Currently passes through unconditionally; the gate is
-    enforced by the LLM via the prompt's instructions until this is wired up.
-    """
-    return True, "Double-run determinism check passed (stub)"
-
-
-def _handle_flow_step(step: int, state: SkillState, sp: Path) -> None:
-    """Dispatcher for flow-mode steps 1-7 with progressive gating.
-
-    Each step loads the corresponding flow_<phase>.md template,
-    renders it with _build_variables, applies gates where applicable,
-    and saves state.
-    """
-    flow_phase_map = {
-        1: ("flow_context", "Flow Context Detection"),
-        2: ("flow_recommendation", "Flow-Type Recommendation"),
-        3: ("flow_scope", "Scope Definition"),
-        4: ("flow_scaffold", "Scaffolding"),
-        5: ("flow_author", "Mock Authoring"),
-        6: ("flow_execute", "Execution + Iteration"),
-        7: ("flow_report", "Report + Handoff"),
-    }
-
-    if step not in flow_phase_map:
-        print(f"ERROR: Invalid flow step {step}", file=sys.stderr)
-        sys.exit(1)
-
-    template_base, phase_name = flow_phase_map[step]
-
-    # Apply gates before rendering template
-    gate_failures = []
-
-    if step == 4:
-        # Scaffold gate: check criteria 2/3/4
-        gate_failures = _check_scaffold_gate(state)
-        if gate_failures:
-            # Re-prompt with gate failures
-            state.custom.setdefault("scaffold_attempts", 0)
-            state.custom["scaffold_attempts"] += 1
-            state.custom["scaffold_gate_failures"] = gate_failures
-            save_state(state, sp)
-
-    elif step == 5:
-        # Authoring gate: check criteria 5/6/7
-        gate_failures = _check_authoring_gate(state)
-        if gate_failures:
-            # Re-prompt with gate failures
-            state.custom.setdefault("authoring_attempts", 0)
-            state.custom["authoring_attempts"] += 1
-            state.custom["authoring_gate_failures"] = gate_failures
-            save_state(state, sp)
-
-    elif step == 6:
-        # Execution gate: check criterion 8 (determinism)
-        is_deterministic, msg = _run_double_check(state)
-        if not is_deterministic:
-            gate_failures = [msg]
-            state.custom.setdefault("execution_attempts", 0)
-            state.custom["execution_attempts"] += 1
-            state.custom["execution_gate_failures"] = gate_failures
-            save_state(state, sp)
-
-    # Render template with current variables
-    template = load_template(f"test/{template_base}")
-    variables = _build_variables(state)
-
-    # Populate gate failure variables
-    if gate_failures:
-        variables["SCAFFOLD_GATE_FAILURES"] = "\n".join(f"- {f}" for f in gate_failures) if step == 4 else ""
-        variables["AUTHORING_GATE_FAILURES"] = "\n".join(f"- {f}" for f in gate_failures) if step == 5 else ""
-        variables["EXECUTION_GATE_FAILURES"] = "\n".join(f"- {f}" for f in gate_failures) if step == 6 else ""
-
-    body = render_template(template, variables)
-
-    state.current_step = step
-    save_state(state, sp)
-
-    # Step 7: mark completion and write handoff
-    handoff_menu = None
-    handoff_path: Path | None = None
-    run_summary = f"Completed flow-mode step {step} ({phase_name})."
-    if step == FLOWS_MAX_STEP:
-        state.mark_step_complete(step)
-        state.completed_at = now_iso()
-        save_state(state, sp)
-
-        # Write handoff
-        handoff_path = write_handoff(
-            skill_name=SKILL_NAME,
-            state=state,
-            context={
-                "Mode": "flows",
-                "Flow type": state.custom.get("flow_type", ""),
-                "Scope": state.custom.get("flow_scope", {}),
-            },
-            suggested_next="(end of flow)",
-        )
-
-        body += f"\n\nHandoff written to: {handoff_path}"
-        clear_state_file(sp)
-        handoff_menu = build_skill_handoff_menu(SKILL_NAME, state, sp)
-        run_summary = "Completed test (flows mode), wrote handoff, and closed session state."
-
-    if step != FLOWS_MAX_STEP:
-        state.mark_step_complete(step)
-        save_state(state, sp)
-
-    append_skill_run_memory(
-        SKILL_NAME,
-        step,
-        phase_name,
-        run_summary,
-        state=state,
-        state_path=sp,
-        handoff_path=handoff_path,
-    )
-
-    next_cmd = _next_command(step, state_path=str(sp)) if step < FLOWS_MAX_STEP else None
-    print(format_step_output(
-        SKILL_NAME, step, FLOWS_MAX_STEP, phase_name, body,
-        next_cmd=next_cmd,
-        phase_todos=PHASE_TODOS.get(step, []),
-        handoff_menu=handoff_menu,
-        all_phase_names=FLOWS_PHASE_NAMES,
-        all_phase_todos=PHASE_TODOS,
-    ))
-
-
-# ---------------------------------------------------------------------------
 # Step handlers
 # ---------------------------------------------------------------------------
 
@@ -558,55 +350,17 @@ def handle_step_1(args) -> None:
     }
     state.custom["test_suites"] = []
 
-    # Flow-mode state initialization
     if mode == "flows":
-        state.custom["flow_type"] = getattr(args, "flow_type", None)
-        state.custom["flow_files"] = []
-        state.custom["flow_scope"] = {}
-        state.custom["criteria_audit"] = {}
-
-        # Detect test layout and persist
-        layout = detect_test_layout(REPO_ROOT)
-        state.custom["framework"] = getattr(args, "framework", None) or layout.framework
-        state.custom["framework_confidence"] = layout.framework_confidence
-        state.custom["entry_point"] = getattr(args, "entry_point", None) or layout.entry_point
-        state.custom["entry_point_confidence"] = layout.entry_point_confidence
-        test_db_override = "none" if getattr(args, "no_db", False) else layout.test_db
-        state.custom["test_db"] = test_db_override
-        state.custom["has_orchestrator_pattern"] = layout.has_orchestrator_pattern
-        roles_override = getattr(args, "roles", None)
-        if roles_override:
-            state.custom["roles"] = [r.strip() for r in roles_override.split(",")]
-        else:
-            state.custom["roles"] = layout.roles or ["anonymous"]
-
-        # Compute confidence warning
-        warnings = []
-        if layout.framework_confidence < 0.7:
-            warnings.append(f"framework detection confidence: {layout.framework_confidence:.1%}")
-        if layout.entry_point_confidence < 0.7:
-            warnings.append(f"entry-point detection confidence: {layout.entry_point_confidence:.1%}")
-        if warnings:
-            state.custom["layout_confidence_warning"] = (
-                "⚠ Low confidence on: " + ", ".join(warnings) +
-                " — override with --framework / --entry-point / --no-db / --roles"
-            )
-        else:
-            state.custom["layout_confidence_warning"] = ""
+        initialize_flow_custom(state, args)
 
     save_state(state, sp)
 
     # Print state path so Codex knows where it is
     print(f"STATE FILE: {sp}\n", file=sys.stderr)
 
-    # For flows mode, dispatch to _handle_flow_step
     if mode == "flows":
-        # If --flow-type was passed, write override sidecar now (before step 2 prompt)
-        if getattr(args, "flow_type", None):
-            from scripts.test._sidecar import write_recommendation_override, log_override_to_stderr
-            write_recommendation_override(sp.parent, getattr(args, "flow_type"))
-            log_override_to_stderr(getattr(args, "flow_type"))
-        _handle_flow_step(1, state, sp)
+        prepare_flow_step_1(sp, getattr(args, "flow_type", None))
+        handle_flow_step(1, state, sp)
     else:
         # Run mode: original flow
         template = load_template("test/context")
@@ -673,7 +427,7 @@ def handle_step_n(
     # Dispatch based on mode
     mode = state.custom.get("mode", "run")
     if mode == "flows":
-        _handle_flow_step(step, state, sp)
+        handle_flow_step(step, state, sp)
         return
 
     # Run-mode path (unchanged)
@@ -867,12 +621,8 @@ def main():
 
     # Atomic-delivery feature-check: if flows mode, verify all 7 prompts exist
     if args.mode == "flows":
-        required_prompts = [
-            "flow_context", "flow_recommendation", "flow_scope",
-            "flow_scaffold", "flow_author", "flow_execute", "flow_report",
-        ]
         missing = []
-        for p in required_prompts:
+        for p in required_flow_prompts():
             try:
                 load_template(f"test/{p}")
             except FileNotFoundError:

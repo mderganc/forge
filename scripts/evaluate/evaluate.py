@@ -33,19 +33,14 @@ from scripts.shared.orchestrator import (
     append_skill_run_memory,
     build_next_command,
     build_skill_handoff_menu,
-    build_skill_todos,
     _detect_repo_root,
     detect_active_sessions,
     format_active_session_warning,
-    forge_graphify_context_block,
-    forge_session_opt_in_banner,
-    format_phase_todos,
-    format_same_skill_continuation,
     get_conflicting_sessions,
     is_evaluate_state_stale,
-    parse_continuation_command,
     validate_step_or_complete,
 )
+from scripts.shared.workflow_step import run_workflow_step
 
 PROMPTS_DIR = PLUGIN_ROOT / "prompts"
 
@@ -302,38 +297,26 @@ def _format_output(
     handoff_menu: str | None = None,
 ) -> str:
     """Format step output with title, todos, and continuation directive."""
-    header = f"{title}\n{'=' * len(title)}\n\n"
-    opt_in_step = 1 if step == 1 else 0
-    opt_in = forge_session_opt_in_banner("evaluate", opt_in_step)
-    graphify = forge_graphify_context_block("evaluate", step or 1)
-
-    # Build full skill-level todos when mode info is available
-    if mode and step and mode in PHASE_NAMES:
-        mode_names = PHASE_NAMES[mode]
-        mode_todos = _mode_phase_todos(mode)
-        skill_todos = build_skill_todos(
-            mode_names, mode_todos,
-            current_step=step,
-            last_completed_step=step - 1,
-        )
-        todos_section = format_phase_todos(skill_todos)
-    elif phase_todos:
-        todos_section = format_phase_todos(phase_todos)
-    else:
-        todos_section = ""
-    output = header + opt_in + graphify + todos_section + body
-
-    if handoff_menu:
-        return output + handoff_menu
-    elif next_cmd:
-        ns, sp_ = parse_continuation_command(next_cmd)
-        if ns is None and step is not None:
-            ns = step + 1
-        elif ns is None:
-            ns = 2
-        return output + format_same_skill_continuation(ns, sp_)
-    else:
-        return output + "\n\nWORKFLOW COMPLETE — return the report location to the user."
+    max_step = _max_step_for_mode(mode) if mode else 1
+    step_num = step if step is not None else 0
+    phase_name = (
+        PHASE_NAMES.get(mode, {}).get(step, f"Step {step}")
+        if mode and step
+        else (f"Step {step}" if step else "Step")
+    )
+    return run_workflow_step(
+        "evaluate",
+        step_num,
+        max_step,
+        phase_name,
+        body,
+        next_cmd=next_cmd or None,
+        phase_todos=phase_todos,
+        all_phase_names=PHASE_NAMES.get(mode) if mode else None,
+        all_phase_todos=_mode_phase_todos(mode) if mode else None,
+        handoff_menu=handoff_menu,
+        title=title,
+    )
 
 
 def handle_step_1(args: argparse.Namespace) -> None:
@@ -347,10 +330,14 @@ def handle_step_1(args: argparse.Namespace) -> None:
         if conflicting_sessions:
             print(format_active_session_warning(conflicting_sessions, "evaluate"), file=sys.stderr)
 
-    # Review mode: skip plan resolution entirely
+    # Review mode deprecated — use code-review
     if getattr(args, "mode", None) == "review":
-        handle_step_1_review(args)
-        return
+        print(
+            "ERROR: evaluate --mode review is deprecated. Use `forge code-review --step 1` "
+            "for full-team review.",
+            file=sys.stderr,
+        )
+        sys.exit(1)
 
     if not args.plan:
         print("ERROR: --plan is required for step 1. Provide a file path or keywords.")
@@ -655,7 +642,7 @@ def main():
         action="store_true",
         help="Start a parallel evaluate session using a suffixed .evaluate-state file.",
     )
-    parser.add_argument("--mode", choices=["pre", "post", "review"], help="Force evaluation mode")
+    parser.add_argument("--mode", choices=["pre", "post"], help="Force evaluation mode (pre or post)")
     parser.add_argument("--team", action="store_true", help="Enable team dispatch in pre/post modes")
 
     args = parser.parse_args()

@@ -1510,7 +1510,6 @@ def test_skill_chain_default_for_each_skill():
     required_skills = {
         "sketch",
         "design",
-        "develop",
         "plan",
         "evaluate",
         "implement",
@@ -1542,7 +1541,7 @@ def test_handoff_menu_documents_default_shortcuts(capsys):
     """The rendered string contains yes and 1 as documented shortcuts."""
     from scripts.shared.orchestrator import build_skill_handoff_menu
 
-    menu = build_skill_handoff_menu("develop")
+    menu = build_skill_handoff_menu("design")
     assert '"yes"' in menu
     assert '"1"' in menu
     assert "default" in menu.lower()
@@ -1625,7 +1624,7 @@ def test_no_skill_has_legacy_workflow_complete_marker(monkeypatch):
 
 def test_flows_scaffold_gate_blocks_when_data_packs_missing():
     """Step 4 scaffold gate refuses to advance when data-packs missing (criteria 2/3/4)."""
-    from scripts.test.test import _check_scaffold_gate
+    from scripts.test.test_flows import _check_scaffold_gate
     from scripts.shared.orchestrator import SkillState
 
     state = SkillState(skill_name="test")
@@ -1638,7 +1637,7 @@ def test_flows_scaffold_gate_blocks_when_data_packs_missing():
 
 def test_flows_scaffold_gate_passes_with_full_layout():
     """Step 4 scaffold gate passes when all required files present."""
-    from scripts.test.test import _check_scaffold_gate
+    from scripts.test.test_flows import _check_scaffold_gate
     from scripts.shared.orchestrator import SkillState
 
     state = SkillState(skill_name="test")
@@ -1657,7 +1656,7 @@ def test_flows_scaffold_gate_passes_with_full_layout():
 
 def test_flows_authoring_gate_blocks_without_failure_path():
     """Step 5 authoring gate refuses to advance without failure-path assertion (criterion 7)."""
-    from scripts.test.test import _check_authoring_gate
+    from scripts.test.test_flows import _check_authoring_gate
     from scripts.shared.orchestrator import SkillState
 
     state = SkillState(skill_name="test")
@@ -1677,7 +1676,7 @@ def test_flows_authoring_gate_blocks_without_failure_path():
 
 def test_flows_authoring_gate_passes_with_failure_path_and_2_surfaces():
     """Step 5 authoring gate passes when failure-path and ≥2 surfaces present."""
-    from scripts.test.test import _check_authoring_gate
+    from scripts.test.test_flows import _check_authoring_gate
     from scripts.shared.orchestrator import SkillState
 
     state = SkillState(skill_name="test")
@@ -1696,7 +1695,7 @@ def test_flows_authoring_gate_passes_with_failure_path_and_2_surfaces():
 
 def test_flows_authoring_gate_blocks_without_2_outcome_surfaces():
     """Step 5 authoring gate refuses to advance if only 1 outcome surface asserted."""
-    from scripts.test.test import _check_authoring_gate
+    from scripts.test.test_flows import _check_authoring_gate
     from scripts.shared.orchestrator import SkillState
 
     state = SkillState(skill_name="test")
@@ -1712,20 +1711,6 @@ def test_flows_authoring_gate_blocks_without_2_outcome_surfaces():
     failures = _check_authoring_gate(state)
     assert len(failures) > 0
     assert any("outcome" in f.lower() for f in failures)
-
-
-def test_flows_double_run_check_returns_deterministic():
-    """Step 6 double-run check stub returns success (deterministic)."""
-    from scripts.test.test import _run_double_check
-    from scripts.shared.orchestrator import SkillState
-
-    state = SkillState(skill_name="test")
-    state.custom["flow_type"] = "scenario"
-    state.custom["flow_scope"] = {"journey": "upload", "roles": ["admin"]}
-
-    is_deterministic, msg = _run_double_check(state)
-    assert is_deterministic is True
-    assert "passed" in msg.lower() or "stub" in msg.lower()
 
 
 def test_flows_step_1_initializes_flow_mode_state():
@@ -1780,7 +1765,7 @@ def test_flows_atomic_delivery_check_exists():
 
 def test_flows_phase_names_dict_complete():
     """Verify FLOWS_PHASE_NAMES has all 7 steps."""
-    from scripts.test.test import FLOWS_PHASE_NAMES
+    from scripts.test.test_flows import FLOWS_PHASE_NAMES
 
     assert len(FLOWS_PHASE_NAMES) == 7
     for step in range(1, 8):

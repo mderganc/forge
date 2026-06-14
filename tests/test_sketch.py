@@ -70,6 +70,37 @@ def test_sketch_prompt_templates_exist(prompt: str):
     assert packaged.is_file(), packaged
 
 
+def test_sketch_step2_reentrant_hint(tmp_path, monkeypatch):
+    monkeypatch.setenv("FORGE_CODEX_ROOT", str(tmp_path / ".codex" / "forge"))
+    (tmp_path / ".codex" / "forge").mkdir(parents=True)
+    monkeypatch.chdir(tmp_path)
+    r1 = _run_sketch(1)
+    assert r1.returncode == 0, r1.stderr
+    import re
+
+    m = re.search(r"STATE FILE:\s*(.+)", r1.stderr)
+    assert m, r1.stderr
+    state_path = m.group(1).strip()
+    cmd = [sys.executable, str(SKETCH_SCRIPT), "--step", "2", "--state", state_path]
+    r2 = subprocess.run(
+        cmd,
+        cwd=REPO_ROOT,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+    )
+    assert r2.returncode == 0, r2.stderr
+    assert "forge sketch --step 2" in r2.stdout or "step 2" in r2.stdout.lower()
+    assert "synthesis" in r2.stdout.lower() or "reflect" in r2.stdout.lower()
+
+
+def test_sketch_session_prompt_in_repo():
+    text = (REPO_ROOT / "prompts" / "sketch" / "session.md").read_text(encoding="utf-8")
+    assert "synthesis" in text.lower()
+    assert "loop-back" in text.lower() or "loop back" in text.lower()
+
+
 def test_integration_spec_includes_sketch():
     spec = json.loads(
         (REPO_ROOT / "integrations" / "spec" / "commands.json").read_text(encoding="utf-8")

@@ -1,23 +1,25 @@
 ---
 name: forge:test
-description: Run or author tests (including flows mode).
+description: Run tests or author mock flows (run/flows modes).
 ---
 
 ## Hard rule — what the user sees
 
 **Never show terminal commands** for this workflow.
 
+**Never edit the repository** unless the phase allows it. Follow the active skill's orchestrator output for what may be written.
+
+
 ## Graphify
 
-Runs at **ship** only (forge ship --step 1 / $forge:ship). This workflow does not print GRAPHIFY per step.
+Runs at **ship** only (`forge ship --step 1`). This workflow does not print GRAPHIFY per step.
 
 
 ## What to tell the user first
 
-- **Test** supports default suite runs or flows-style authoring—confirm which they need and what’s failing or risky.
+- Run the **test** workflow from the repo root.
+- Follow orchestrator phase output.
 
 ## What you run (agent)
 
-Run **test** from the repo root at step one; select flows mode only when requested through the launcher. Report results in ordinary language.
-
----
+Run **test** at step one. Summarize phases without quoting invocation lines.

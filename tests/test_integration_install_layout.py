@@ -85,6 +85,26 @@ def test_slash_command_markdown_files_have_valid_frontmatter(cmd_dir: Path):
         assert body.strip(), f"{path} must have non-empty markdown body after frontmatter"
 
 
+def test_generate_integrations_check_passes():
+    import subprocess
+    import sys
+
+    proc = subprocess.run(
+        [sys.executable, str(REPO_ROOT / "scripts" / "generate_integrations.py"), "--check"],
+        cwd=REPO_ROOT,
+        capture_output=True,
+        text=True,
+    )
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+
+
+def test_workflow_skill_preamble_exists():
+    path = REPO_ROOT / "templates" / "workflow-skill-preamble.md"
+    assert path.is_file()
+    packaged = REPO_ROOT / "forge_next" / "assets" / "templates" / "workflow-skill-preamble.md"
+    assert packaged.is_file(), "Run scripts/release/sync_template_assets.py"
+
+
 def test_codex_skills_use_skill_md_layout():
     skills_root = REPO_ROOT / "integrations" / "codex" / "skills"
     dirs = [p for p in skills_root.iterdir() if p.is_dir()]

@@ -13,7 +13,7 @@ forge status
 ```bash
 forge status --json
 forge doctor --json
-forge evaluate --step 1 --mode review --json
+forge code-review --step 1 --mode pr --json
 ```
 
 Expected:

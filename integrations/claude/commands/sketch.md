@@ -1,25 +1,25 @@
 ---
 name: forge:sketch
-description: Organize thoughts and open decisions before design.
+description: Organize intent and open decisions before design (optional CONTEXT.md/ADRs).
 ---
 
 ## Hard rule — what the user sees
 
 **Never show terminal commands** for this workflow.
 
-**Never edit the repository** unless the phase allows it (session memory always; `CONTEXT.md` / `docs/adr/` only when domain-docs mode is on). **Do not** write `docs/forge/specs/` design specs — design does that.
+**Never edit the repository** unless the phase allows it (session memory always; `CONTEXT.md` / `docs/adr/` only when domain-docs mode is on). **Do not** write `docs/forge/specs/` design specs.
+
 
 ## Graphify
 
-Runs at **ship** only. This workflow does not print GRAPHIFY per step.
+Runs at **ship** only (`forge ship --step 1`). This workflow does not print GRAPHIFY per step.
+
 
 ## What to tell the user first
 
-- **Sketch** clarifies what they want before design investigates and proposes solutions.
-- Optional: domain glossary (`CONTEXT.md`) and ADRs when they need shared language captured in-repo.
+- **Sketch** is an **iterative conversation** — reflect, confirm, revise — before design investigates solutions.
+- Optional: domain glossary (`CONTEXT.md`) and ADRs when domain-docs mode is on.
 
 ## What you run (agent)
 
-Run **sketch** from the repo root at step one. One question at a time with a recommended answer each turn. Summarize phases without quoting invocation lines.
-
-Default next after sketch: **design** (which produces the design spec for medium/large scope).
+Run **sketch** at step one. Synthesis every few exchanges; re-run step 2 to continue; step 3 only after the user confirms ready for design.

@@ -21,14 +21,16 @@ SKILL_CHAIN: dict[str, SkillTransition] = {
     "iterate":     SkillTransition(None,                   ["diagnose", "plan", "evaluate --mode pre", "implement"]),
     "sketch":      SkillTransition("design",               ["plan", "diagnose"]),
     "design":      SkillTransition("plan",                 ["sketch", "evaluate --mode pre", "implement", "diagnose"]),
-    "develop":     SkillTransition("plan",                 ["sketch", "evaluate --mode pre", "implement", "diagnose"]),
     "plan":        SkillTransition("evaluate --mode pre",  ["implement", "design", "code-review"]),
-    "evaluate":    SkillTransition("implement",            ["plan", "evaluate --mode review", "test"]),
+    "evaluate":    SkillTransition("implement",            ["plan", "code-review", "test"]),
     "implement":   SkillTransition("code-review",          ["ship", "test", "evaluate --mode post", "diagnose"]),
-    "code-review": SkillTransition("test",                 ["ship", "implement", "diagnose", "evaluate --mode review"]),
+    "code-review": SkillTransition("test",                 ["ship", "implement", "diagnose"]),
     "test":        SkillTransition("diagnose",             ["ship", "test --mode flows", "code-review", "implement"]),
     "diagnose":    SkillTransition(None,                   ["plan", "implement", "design", "sketch"]),
 }
+
+# Deprecated CLI alias — handoff menus use "design" only
+DEVELOP_ALIAS_OF = "design"
 
 
 # Optional descriptions for each command, rendered as "(why)" inline in the menu
@@ -37,14 +39,12 @@ COMMAND_DESCRIPTIONS: dict[str, str] = {
     "plan":                  "create the implementation plan",
     "evaluate --mode pre":   "review the plan before implementing",
     "evaluate --mode post":  "review what was implemented against the plan",
-    "evaluate --mode review": "full team review of the implementation",
     "implement":             "execute the plan",
     "code-review":           "deep code review of the changes",
     "test":                  "run tests + coverage",
     "test --mode flows":     "author end-to-end mock flows",
     "sketch":                "organize intent and open decisions before design (not solution brainstorming)",
     "design":                "investigate, brainstorm solutions, write named design spec (medium/large), then plan",
-    "develop":               "deprecated alias for design",
     "diagnose":              "root-cause analysis on observed issues",
     "ship":                  "commit, push, PR, merge, and/or publish release artifacts",
 }

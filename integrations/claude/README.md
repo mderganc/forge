@@ -92,7 +92,7 @@ After `pipx upgrade forge-next`, re-run `forge claude-graphify` and restart Clau
 
 
 
-Workflow slash commands include **Hard rule — Graphify**. Forge step output prints a **GRAPHIFY** block on every `--step` when an index is present.
+Workflow slash commands include **Hard rule — Graphify**. Graphify refresh runs at **ship** (`forge ship --step 1`); workflow steps do not print per-step GRAPHIFY banners. See `docs/graphify.md`.
 
 
 

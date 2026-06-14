@@ -62,12 +62,12 @@ def test_handoff_multiselect_slug_ids_for_spaced_commands(
 ) -> None:
     monkeypatch.setenv("FORGE_WORKFLOW_INVOCATION", "slash")
     payload = build_handoff_multiselect_payload(
-        "evaluate",
-        default_cmd="evaluate --mode review",
-        alternatives=[],
+        "code-review",
+        default_cmd="test",
+        alternatives=["ship"],
     )
-    assert payload["default_option_ids"] == ["evaluate-mode-review"]
-    assert payload["options"][0]["chain_cmd"] == "evaluate --mode review"
+    assert payload["default_option_ids"] == ["test"]
+    assert payload["options"][0]["chain_cmd"] == "test"
 
 
 def test_build_next_command_respects_workflow_prefix(monkeypatch: pytest.MonkeyPatch) -> None:

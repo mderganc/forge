@@ -298,7 +298,7 @@ def check_step7_closure_gate(state: SkillState, sp: Path, step: int) -> Diagnose
         ok, issues, policy = validate_coverage(
             cov_data,
             path=coverage_path(sd),
-            routed_only=False,
+            routed_only=True,
             allow_override_skips=False,
             adaptive=True,
             activated=activated,
@@ -306,7 +306,12 @@ def check_step7_closure_gate(state: SkillState, sp: Path, step: int) -> Diagnose
         non_overridable.extend(policy)
         if not ok:
             sections.append(
-                _section("Technique coverage (20 techniques)", issues, state, "technique_coverage_override_reason")
+                _section(
+                    "Technique coverage (activated techniques)",
+                    issues,
+                    state,
+                    "technique_coverage_override_reason",
+                )
             )
 
     if not has_override(state.custom, "five_whys_override_reason"):

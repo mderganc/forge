@@ -1,15 +1,10 @@
 ---
 name: forge:evaluate
-description: Run Forge evaluate (pre/post/review) via the global forge CLI. When graphify-out/ exists, read GRAPH_REPORT.md before codebase search; Graphify refresh runs at ship, not per workflow step.
+description: Plan review (pre) or implementation audit (post). Use code-review for full-team review.
 ---
 
-When `graphify-out/` exists, read `graphify-out/GRAPH_REPORT.md` before grep/glob/search; refresh at ship (`forge ship --step 1` / `$forge:ship`). Workflow `forge … --step` skills do not print per-step GRAPHIFY banners. After code edits run `graphify update .`.
+<invoke cmd="forge evaluate --step 1 --mode pre --plan '<plan path>'" />
+<invoke cmd="forge evaluate --step 1 --mode post --plan '<plan path>'" />
 
-Invoke:
+When `graphify-out/` exists, read `graphify-out/GRAPH_REPORT.md` before search; refresh at ship (`forge ship --step 1`).
 
-<invoke cmd="forge evaluate --step 1 --mode review" />
-
-Or pre/post mode:
-
-<invoke cmd="forge evaluate --step 1 --mode pre --plan '<plan path or keywords>'" />
-<invoke cmd="forge evaluate --step 1 --mode post --plan '<plan path or keywords>'" />

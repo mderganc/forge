@@ -258,7 +258,7 @@ Ask the user:
 
 ## Fallback
 
-If the environment lacks any structured question UI, degrade to the plain-text numbered-prompt pattern used by `templates/stage-approval.md`. The gate semantics are identical; only the presentation changes.
+If the environment lacks Studio (`templates/studio.md`) or structured question UI, degrade to the plain-text numbered-prompt patterns in the **Fallback** section below. Gate semantics are identical; only presentation changes.
 
 ### Gate 1 fallback
 

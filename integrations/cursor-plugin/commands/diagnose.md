@@ -1,24 +1,24 @@
 ---
 name: forge:diagnose
-description: Structured root-cause analysis for bugs and incidents.
+description: Deep diagnosis workflow for bugs/regressions.
 ---
 
 ## Hard rule — what the user sees
 
-**Never show terminal commands** for this workflow. Speak in outcomes and phase names only.
+**Never show terminal commands** for this workflow.
+
+**Never edit the repository** unless the phase allows it. Follow the active skill's orchestrator output for what may be written.
+
 
 ## Graphify
 
-Runs at **ship** only (forge ship --step 1 / $forge:ship). This workflow does not print GRAPHIFY per step.
+Runs at **ship** only (`forge ship --step 1`). This workflow does not print GRAPHIFY per step.
 
 
 ## What to tell the user first
 
-- **Diagnose** phases through definition, evidence, decomposition (10-candidate register), elimination/analysis, solutions for confirmed causes, optional validation, report.
-- Capture the **symptom** and pacing preference (guided / autonomous / interactive when available).
+- **Diagnose** runs structured RCA when root cause is unclear.
 
 ## What you run (agent)
 
-Run **diagnose** from the repo root at step one; carry pacing flags only through the launcher. Summarize orchestrator content—never forward raw launcher command lines to the user.
-
----
+Run **diagnose** at step one. Follow playbook sidecars and gates.

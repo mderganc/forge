@@ -9,7 +9,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from scripts.diagnose.five_whys_linkage import is_symptom_level, restates_symptom
+from scripts.diagnose.five_whys_validate import is_symptom_level, restates_symptom
 from scripts.diagnose.text_similarity import jaccard, normalize_statement, word_set
 
 REGISTER_FILENAME = ".diagnose-hypotheses.json"

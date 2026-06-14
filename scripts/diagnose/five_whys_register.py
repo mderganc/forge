@@ -5,11 +5,11 @@ from __future__ import annotations
 from pathlib import Path
 
 from scripts.diagnose.diagnose_registers import load_sidecar
-from scripts.diagnose.five_whys_closure import (
+from scripts.diagnose.five_whys_validate import (
     validate_chain_closure,
+    validate_chain_layers,
     validate_confirmed_hypothesis_link,
 )
-from scripts.diagnose.five_whys_layers import validate_chain_layers
 
 FILENAME = ".diagnose-five-whys.json"
 MIN_LAYERS_DEFAULT = 3

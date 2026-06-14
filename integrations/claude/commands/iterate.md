@@ -1,12 +1,25 @@
 ---
 name: forge:iterate
-description: Run the Forge iterate meta-workflow via the global forge CLI.
+description: Meta-workflow: chained diagnose, plan, evaluate, implement, review, test with loops.
 ---
 
-Use when the user wants a **multi-skill delivery loop**: diagnose, plan, evaluate, implement, code review, and tests with repeated quality passes until targets are met.
+## Hard rule — what the user sees
 
-If `graphify-out/` exists: read `graphify-out/GRAPH_REPORT.md` before grep/glob/semantic search; refresh at ship (`forge ship --step 1`); workflow `--step` does not print per-step GRAPHIFY banners. After code edits run `graphify update .`.
+**Never show terminal commands** for this workflow.
 
-Run **iterate** from the repo root starting at step one. Follow each phase prompt; gate files under `.iterate-gates/` record progress.
+**Never edit the repository** unless the phase allows it. Follow the active skill's orchestrator output for what may be written.
 
----
+
+## Graphify
+
+Runs at **ship** only (`forge ship --step 1`). This workflow does not print GRAPHIFY per step.
+
+
+## What to tell the user first
+
+- Run the **iterate** workflow from the repo root.
+- Follow orchestrator phase output.
+
+## What you run (agent)
+
+Run **iterate** at step one. Summarize phases without quoting invocation lines.

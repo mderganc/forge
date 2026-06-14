@@ -25,6 +25,13 @@ def main() -> int:
         shutil.copy2(path, out)
         copied += 1
 
+    # Remove packaged templates removed from source (sync is mirror, not append-only).
+    for path in sorted(DST.rglob("*.md")):
+        rel = path.relative_to(DST)
+        if not (SRC / rel).is_file():
+            path.unlink()
+            print(f"Removed stale packaged template: {rel}")
+
     print(f"Synced {copied} template file(s) to {DST}")
     return 0
 

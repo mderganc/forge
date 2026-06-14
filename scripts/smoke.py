@@ -36,7 +36,7 @@ SCRIPTS = {
 }
 
 MAX_STEPS = {
-    "plan": 6, "develop": 7, "implement": 8, "code-review": 6,
+    "plan": 7, "develop": 7, "implement": 8, "code-review": 6,
     "test": 6, "diagnose": 7, "evaluate": 7,  # pre mode default
 }
 
@@ -248,7 +248,8 @@ def smoke_skill(name, script):
                 fails[0] += 1
             else:
                 state = json.loads(state_path.read_text())
-                assert_eq(state.get("skill_name"), name, "state.skill_name", fails)
+                expected_skill = "design" if name == "develop" else name
+                assert_eq(state.get("skill_name"), expected_skill, "state.skill_name", fails)
                 assert_eq(state.get("failure_count"), 0,
                           "state.failure_count == 0", fails)
                 assert_eq(state.get("current_step"), 1,

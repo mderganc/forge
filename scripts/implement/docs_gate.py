@@ -7,9 +7,14 @@ validates the plan file Documentation section has no skeleton markers.
 from __future__ import annotations
 
 import json
-import sys
 from pathlib import Path
 from typing import Any
+
+from scripts.shared.workflow_gate import (
+    exit_if_gate_fails as _exit_if_gate_fails,
+    gate_sidecar_path as _gate_sidecar_path,
+    load_gate_json,
+)
 
 DOCUMENTATION_GATE_FILE = ".implement-documentation-gate.json"
 DOCUMENTATION_MARKER_ID = "DOCUMENTATION"
@@ -39,16 +44,7 @@ def plan_documentation_section_complete(plan_path: Path | None) -> tuple[bool, s
 
 
 def gate_sidecar_path(state_path: Path) -> Path:
-    return state_path.parent / DOCUMENTATION_GATE_FILE
-
-
-def load_gate_json(path: Path) -> dict[str, Any] | None:
-    if not path.is_file():
-        return None
-    try:
-        return json.loads(path.read_text(encoding="utf-8"))
-    except (json.JSONDecodeError, OSError):
-        return None
+    return _gate_sidecar_path(state_path, DOCUMENTATION_GATE_FILE)
 
 
 def _normalize_audience_level(raw: str) -> str:
@@ -222,9 +218,9 @@ def validate_documentation_gate(
 
 
 def exit_if_gate_fails(ok: bool, msg: str) -> None:
-    if ok:
-        if msg and "OVERRIDDEN" in msg:
-            print(msg, file=sys.stderr)
-        return
-    print(msg, file=sys.stderr)
-    sys.exit(1)
+    _exit_if_gate_fails(
+        ok,
+        msg,
+        error_prefix="",
+        echo_msg_on_success=True,
+    )

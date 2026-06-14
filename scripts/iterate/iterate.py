@@ -32,8 +32,6 @@ from scripts.shared.orchestrator import (
     build_skill_handoff_menu,
     clear_state_file,
     find_state_file,
-    forge_graphify_context_block,
-    forge_session_opt_in_banner,
     load_state,
     now_iso,
     resolve_step1_state_path,
@@ -43,10 +41,30 @@ from scripts.shared.orchestrator import (
     validate_state_path,
     validate_step_or_complete,
 )
+from scripts.shared.workflow_step import run_workflow_step
 
 SKILL_NAME = "iterate"
 MAX_STEP = 9
 DEFAULT_MAX_INNER = 50
+
+ITERATE_PHASE_NAMES = {
+    1: "Initialize",
+    2: "Diagnose",
+    3: "Plan",
+    4: "Evaluate (pre)",
+    5: "Implement",
+    6: "Evaluate (post)",
+    7: "Code review",
+    8: "Test + metric",
+    9: "Report",
+}
+
+ITERATE_PHASE_TODOS = {
+    1: [
+        {"content": "Confirm goal and target metric", "activeForm": "Confirming goal"},
+        {"content": "Initialize iterate gate directory", "activeForm": "Initializing gates"},
+    ],
+}
 
 GATE_SUBDIR = ".iterate-gates"
 
@@ -292,12 +310,16 @@ def _init_state() -> SkillState:
 
 
 def _format_out(title: str, body: str, next_cmd: str | None, *, step: int = 1) -> str:
-    bar = "=" * len(title)
-    graphify = forge_graphify_context_block(SKILL_NAME, step)
-    out = f"{title}\n{bar}\n\n{graphify}{body}"
-    if next_cmd:
-        out += "\n\n---\n**Continuation token (for tooling):** next step is indicated by your forge launcher."
-    return out
+    phase_name = ITERATE_PHASE_NAMES.get(step, f"Step {step}")
+    return run_workflow_step(
+        SKILL_NAME,
+        step,
+        MAX_STEP,
+        phase_name,
+        body,
+        next_cmd=next_cmd,
+        title=title,
+    )
 
 
 def _gate_snapshot(gd: Path) -> dict[str, Any]:
@@ -431,8 +453,19 @@ def handle_step_1(args: argparse.Namespace, sp: Path) -> None:
 
     next_cmd = build_next_command(SCRIPT_DIR / "iterate.py", 1, MAX_STEP)
     title = f"{SKILL_NAME.upper()} — Initialize (Step 1 of {MAX_STEP})"
-    body = forge_session_opt_in_banner(SKILL_NAME, 1) + "\n".join(body_parts)
-    print(_format_out(title, body, next_cmd, step=1))
+    print(
+        run_workflow_step(
+            SKILL_NAME,
+            1,
+            MAX_STEP,
+            "Initialize",
+            "\n".join(body_parts),
+            next_cmd=next_cmd,
+            all_phase_names=ITERATE_PHASE_NAMES,
+            all_phase_todos=ITERATE_PHASE_TODOS,
+            title=title,
+        )
+    )
 
 
 def handle_step_n(step: int, sp: Path, _args: argparse.Namespace) -> None:

@@ -1,28 +1,24 @@
 ---
 name: forge:plan
-description: Turn direction into a detailed implementation plan.
+description: Create an implementation plan.
 ---
 
 ## Hard rule — what the user sees
 
-**Never show terminal commands** for this workflow. No argv, no flag dumps—only plain-English progress and choices.
+**Never show terminal commands** for this workflow.
+
+**Never edit the repository** unless the phase allows it. Follow the active skill's orchestrator output for what may be written.
+
 
 ## Graphify
 
-Runs at **ship** only (forge ship --step 1 / $forge:ship). This workflow does not print GRAPHIFY per step.
+Runs at **ship** only (`forge ship --step 1`). This workflow does not print GRAPHIFY per step.
 
 
 ## What to tell the user first
 
-- **Plan** produces architecture, tasks, waves, risks, rollback, and documentation scope.
-- **Modes:** `default` (full governance) or `lite` (concise, same task rigor). If they did not pick a mode, step 1 will recommend one and ask them to confirm.
-- Confirm starting a **new** planning session or send them to **forge:resume** if state already exists.
-- Offer normal-language recap between phases.
+- **Plan** turns an approved direction into tasks — no code edits during planning.
 
 ## What you run (agent)
 
-Run the **plan** workflow from the repo root starting at step one; use abbreviated pacing only when they ask. Advance stepwise via the launcher; never paste subsequent launcher lines into chat—summarize the next phase name and intent.
-
-Optional: `--mode default|lite` when scope is already clear. `--quick` abbreviates review loops only; it does not relax task verification requirements.
-
----
+Run **plan** at step one. Planning-only — no git mutations.

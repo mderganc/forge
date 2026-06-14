@@ -57,13 +57,22 @@ When unsure which workflow to drive, prefer **investigation / diagnosis** before
 
 | Signal | Suggested direction |
 |--------|---------------------|
-| Intent fuzzy (problem, constraints, terminology) | **`sketch`** then **`develop`** |
-| Multiple approaches, unclear requirements, greenfield shape | **`develop`** |
+| Intent fuzzy (problem, constraints, terminology) | **`sketch`** then **`design`** |
+| Multiple approaches, unclear requirements, greenfield shape | **`design`** |
 | Root cause unknown, incident, flaky failures | **`diagnose`** |
-| Single approved direction or develop handoff — need tasks and waves | **`plan`** |
+| Single approved direction or design handoff — need tasks and waves | **`plan`** |
 | Regression in test suite | **`test`** then **`diagnose`** if cause unclear |
 
-Skill-specific tables also live in `skills/develop/SKILL.md`, `skills/diagnose/SKILL.md`, and `skills/plan/SKILL.md`.
+Skill-specific tables also live in `skills/design/SKILL.md`, `skills/diagnose/SKILL.md`, and `skills/plan/SKILL.md`.
+
+## Sketch vs design
+
+| Skill | Purpose | Writes |
+|-------|---------|--------|
+| **`sketch`** | Iterative conversational intent — synthesis checkpoints, loop-back on revised decisions | `sketch-decisions.md` in session memory; optional `CONTEXT.md` / ADRs with `--with-domain-docs` |
+| **`design`** | Evidence, solution brainstorming, approved direction | `docs/forge/specs/YYYY-MM-DD-<slug>-design.md` when scope is medium/large |
+
+Sketch does **not** investigate the codebase for solutions or author design specs. Design reads `sketch-decisions.md` when present.
 
 ## Forge Skill Delegation Contract
 

@@ -32,16 +32,13 @@ Layout for Cursor/Claude slash commands and Codex skills is enforced by `pytest 
 
 ### Graphify (optional codebase map)
 
-When a repo has `graphify-out/`, Forge enforces Graphify during workflow skills:
+See [`docs/graphify.md`](../docs/graphify.md). Refresh at **ship** (`forge ship --step 1`); workflow steps do not print per-step GRAPHIFY banners.
 
 | Environment | Setup |
 |-------------|--------|
-| **All** | Debounced background `forge graphify refresh` on workflow `--step` when `graphify-out/` exists; **GRAPHIFY** orchestrator banner on **`forge ship --step 1`** only — see [`docs/graphify.md`](../docs/graphify.md) |
-| **Claude** | `forge install --claude` or `forge claude-graphify` → `~/.claude/settings.json` hooks |
-| **Codex** | `forge install --codex` or `forge codex-agents --force` → `~/.codex/config.toml` |
-| **Cursor** | Command bodies + repo `.cursor/rules/graphify.mdc`; no global hook installer |
-
-After upgrading **forge-next**: `pipx upgrade forge-next`, then re-run `forge claude-graphify` and `forge codex-agents --force`.
+| **Claude** | `forge install --claude` or `forge claude-graphify` |
+| **Codex** | `forge install --codex` or `forge codex-agents --force` |
+| **Cursor** | Repo `.cursor/rules/graphify.mdc` + command bodies |
 
 ### Structural quality probes (optional)
 

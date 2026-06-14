@@ -10,10 +10,6 @@
 
 At each continuation gate, welcome refinements: “Does this match what you’re trying to achieve?” “What are we missing?” “What would make this exciting vs merely adequate?”
 
-**Phase todos:** When the orchestrator prints **Create Phase Todos** JSON, if a **SESSION OPT-IN** block appears above it on step 1, resolve opt-in with the user **before** mirroring todos (`update_plan` / plan steps). Then mirror the JSON before other work, same as other forge skills.
-
-**Graphify:** If a **GRAPHIFY** block appears in step output, follow `templates/graphify-contract.md` **before** search tools or bulk file reads.
-
 ## Dependency Detection
 
 **Check beads:**

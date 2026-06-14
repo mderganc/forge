@@ -7,32 +7,36 @@ spec and explicit user approval recorded in the sidecar.
 
 from __future__ import annotations
 
-import json
-import sys
 from pathlib import Path
 from typing import Any
+
+from scripts.shared.workflow_gate import (
+    exit_if_gate_fails as _exit_if_gate_fails,
+    gate_sidecar_path as _gate_sidecar_path,
+    load_gate_json,
+    validate_override_bypass,
+)
 
 SPEC_GATE_FILE = ".design-spec-gate.json"
 LEGACY_SPEC_GATE_FILE = ".develop-spec-gate.json"
 
+__all__ = [
+    "SPEC_GATE_FILE",
+    "LEGACY_SPEC_GATE_FILE",
+    "gate_sidecar_path",
+    "load_gate_json",
+    "validate_spec_gate",
+    "exit_if_gate_fails",
+    "handoff_spec_summary",
+]
+
 
 def gate_sidecar_path(state_path: Path) -> Path:
-    primary = state_path.parent / SPEC_GATE_FILE
-    if primary.is_file():
-        return primary
-    legacy = state_path.parent / LEGACY_SPEC_GATE_FILE
-    if legacy.is_file():
-        return legacy
-    return primary
-
-
-def load_gate_json(path: Path) -> dict[str, Any] | None:
-    if not path.is_file():
-        return None
-    try:
-        return json.loads(path.read_text(encoding="utf-8"))
-    except (json.JSONDecodeError, OSError):
-        return None
+    return _gate_sidecar_path(
+        state_path,
+        SPEC_GATE_FILE,
+        legacy_filename=LEGACY_SPEC_GATE_FILE,
+    )
 
 
 def _repo_root_from_state(state_path: Path) -> Path:
@@ -73,20 +77,17 @@ def validate_spec_gate(
     if not spec_required:
         return True, ""
 
+    ok, msg = validate_override_bypass(
+        allow_incomplete,
+        override_reason,
+        override_follow_up,
+        reason_field_label="--spec-override-reason (non-empty)",
+        follow_up_field_label="--spec-override-follow-up (non-empty)",
+        success_message=f"Spec gate overridden — reason recorded (timestamp={override_timestamp}).",
+        override_timestamp=override_timestamp,
+    )
     if allow_incomplete:
-        reason = (override_reason or "").strip()
-        if not reason:
-            return (
-                False,
-                "Spec gate bypass requires --spec-override-reason (non-empty).",
-            )
-        follow = (override_follow_up or "").strip()
-        if not follow:
-            return (
-                False,
-                "Spec gate bypass requires --spec-override-follow-up (non-empty).",
-            )
-        return True, f"Spec gate overridden — reason recorded (timestamp={override_timestamp})."
+        return ok, msg
 
     side = gate_sidecar_path(state_path)
     data = load_gate_json(side)
@@ -118,10 +119,7 @@ def validate_spec_gate(
 
 
 def exit_if_gate_fails(ok: bool, msg: str) -> None:
-    if ok:
-        return
-    print(f"ERROR: Design spec gate failed — {msg}", file=sys.stderr)
-    sys.exit(1)
+    _exit_if_gate_fails(ok, msg, error_label="Design spec gate failed — ")
 
 
 def handoff_spec_summary(gate_data: dict[str, Any] | None) -> dict[str, str]:

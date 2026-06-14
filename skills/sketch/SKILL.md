@@ -1,41 +1,26 @@
 ---
 description: |
-  Organize intent and open decisions before design. One question at a time with
-  recommended answers; optional CONTEXT.md/ADRs with --with-domain-docs. Design
-  (not sketch) writes docs/forge/specs design specs.
+  Iterative conversational intent dialogue before design. Synthesis checkpoints,
+  loop-back on revised decisions; optional CONTEXT.md/ADRs with --with-domain-docs.
+  Design (not sketch) writes docs/forge/specs design specs.
 ---
 
 # forge sketch — Pre-design intent
 
-When this skill activates, invoke the orchestrator via the `forge` launcher.
+Iterative pair-thinking: reflect, confirm, revise — not a checklist. See `templates/sketch-protocol.md`.
 
-Invoking this skill authorizes running the sketch dialogue. Do not require separate
-wording for delegation after `forge:sketch` has been invoked.
+Routing and sketch vs design boundary: [AGENTS.md](../../AGENTS.md) § Process-first.
 
-## When to use
-
-| Situation | Prefer |
-|-----------|--------|
-| Fuzzy idea, pitch, or half-plan before investigation | **`forge:sketch`** |
-| Ready for evidence + solution brainstorming + design spec | **`forge:design`** |
-| Direction fully locked; skip design | **`forge:plan`** (rare from sketch) |
-
-**Sketch** = intent organization. **Design** = investigation, solution brainstorming, and **`docs/forge/specs/...-design.md`** for medium/large scope.
-
-## Graphify
-
-Optional: read `graphify-out/GRAPH_REPORT.md` before broad search. Refresh at ship (`forge ship --step 1`).
-
-## Invocation
+Shared runtime: [templates/workflow-skill-preamble.md](../../templates/workflow-skill-preamble.md).
 
 <invoke cmd="forge sketch --step 1" />
 
 | Argument | When | Description |
 |----------|------|-------------|
-| `--step` | Always | Phase 1–3 |
+| `--step` | Always | 1 startup, 2 session (re-invokable), 3 handoff |
 | `--with-domain-docs` | Step 1+ | Allow `CONTEXT.md` glossary and sparse `docs/adr/` |
 | `--state` | Resume | Path to sketch state file |
 
-## Handoff
+Re-run **`forge sketch --step 2`** to continue the conversation until ready for handoff.
 
-Default next: **`forge:design`**. Design reads `sketch-decisions.md` when present and authors the named design spec — not sketch.
+Default next: **`forge:design`**.

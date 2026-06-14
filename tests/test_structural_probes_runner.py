@@ -664,41 +664,46 @@ def test_run_probes_respects_plan_tools(tmp_path: Path, monkeypatch: pytest.Monk
 
 def test_code_review_step3_mentions_sidecar(monkeypatch: pytest.MonkeyPatch) -> None:
     """Smoke: step 3 output includes structural-probes when injection runs."""
-    import subprocess
+    import io
     import sys
 
+    import scripts.code_review.code_review as cr
     from scripts.shared.orchestrator import SkillState, save_state
 
     repo = Path(__file__).resolve().parents[1]
     state = repo / ".codex" / "forge" / "state" / "code-review-structural-smoke.json"
+    state.parent.mkdir(parents=True, exist_ok=True)
     st = SkillState(skill_name="code-review", max_step=6, current_step=2)
     st.custom = {"mode": "pr", "target": ".", "target_tokens": ["."]}
     save_state(st, state)
-    env = os.environ.copy()
-    env.pop("FORGE_STRUCTURAL_PROBES_AUTO", None)
-    env.pop("FORGE_STRUCTURAL_PROBES_MANUAL", None)
-    proc = subprocess.run(
-        [
-            sys.executable,
-            str(repo / "scripts" / "code_review" / "code_review.py"),
-            "--step",
-            "3",
-            "--state",
-            str(state),
-        ],
-        cwd=str(repo),
-        env=env,
-        capture_output=True,
-        text=True,
-        encoding="utf-8",
-        errors="replace",
-        timeout=120,
-    )
+
+    fake_payload = {
+        "generated_at": "2026-01-01T00:00:00+00:00",
+        "stack": {"python": True, "node": False},
+        "probes": [],
+    }
+    sidecar = state.parent / ".structural-probes.json"
+
+    from scripts.shared.structural_eight_agents import format_eight_agents_dispatch_banner
+
+    def fake_inject(body, **kwargs):
+        banner = sp.format_probe_results_banner(fake_payload, sidecar)
+        eight = format_eight_agents_dispatch_banner(quick_mode=True)
+        return body + "\n\n" + banner + "\n\n" + eight, sidecar, fake_payload
+
+    monkeypatch.setattr(sp, "inject_structural_probes_section", fake_inject)
+    monkeypatch.setattr(cr, "load_template", lambda _name: "{{body}}")
+    monkeypatch.setattr(cr, "render_template", lambda template, _vars: template)
+
+    buf = io.StringIO()
+    monkeypatch.setattr(sys, "stdout", buf)
     try:
+        cr.handle_step_n(3, state_file=str(state))
+        out = buf.getvalue()
+    finally:
         state.unlink(missing_ok=True)
-    except OSError:
-        pass
-    assert proc.returncode == 0, proc.stderr
-    assert "structural-probes" in proc.stdout.lower() or "STRUCTURAL PROBES" in proc.stdout
-    assert "eight parallel subagents" in proc.stdout.lower()
-    assert "8 subagents" in proc.stdout
+        sidecar.unlink(missing_ok=True)
+
+    assert "structural-probes" in out.lower() or "STRUCTURAL PROBES" in out
+    assert "eight parallel subagents" in out.lower()
+    assert "8 subagents" in out

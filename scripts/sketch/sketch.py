@@ -23,6 +23,7 @@ from scripts.evaluate.template_engine import load_template, render_template
 from scripts.shared.orchestrator import (
     SkillState,
     append_skill_run_memory,
+    apply_resolved_workflow_step,
     build_base_parser,
     build_next_command,
     build_skill_handoff_menu,
@@ -395,6 +396,8 @@ def main() -> None:
         help="Allow inline CONTEXT.md glossary and sparse docs/adr/ updates",
     )
     args = parser.parse_args()
+    apply_resolved_workflow_step(args, SKILL_NAME, MAX_STEP)
+
     if validate_step_or_complete(args.step, MAX_STEP, SKILL_NAME):
         return
     if args.step == 1:

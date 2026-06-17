@@ -464,29 +464,47 @@ def build_skill_todos(
 
 
 def parse_continuation_command(cmd: str) -> tuple[int | None, str | None]:
-    """Extract ``--step`` and ``--state`` from a line emitted by ``build_next_command``."""
+    """Extract step (from ``--step`` or ``--phase``) and ``--state`` from a continuation line."""
     if not cmd.strip():
         return None, None
     try:
         parts = shlex.split(cmd)
     except ValueError:
         return None, None
+    from scripts.shared.skill_phases import step_for_phase
+
     next_step: int | None = None
     state_path: str | None = None
+    phase_raw: str | None = None
+    skill_token: str | None = None
     i = 0
     while i < len(parts):
-        if parts[i] == "--step" and i + 1 < len(parts):
+        token = parts[i]
+        if token.startswith("/forge:") or token.startswith("$forge:"):
+            skill_token = token.split(":", 1)[1]
+            i += 1
+            continue
+        if token == "--step" and i + 1 < len(parts):
             try:
                 next_step = int(parts[i + 1])
             except ValueError:
                 pass
             i += 2
             continue
-        if parts[i] == "--state" and i + 1 < len(parts):
+        if token == "--phase" and i + 1 < len(parts):
+            phase_raw = parts[i + 1]
+            i += 2
+            continue
+        if token == "--state" and i + 1 < len(parts):
             state_path = parts[i + 1]
             i += 2
             continue
         i += 1
+    if next_step is None and phase_raw and skill_token:
+        try:
+            next_step = step_for_phase(skill_token, phase_raw)
+        except SystemExit:
+            pass
     return next_step, state_path
 
 
@@ -495,6 +513,7 @@ def format_same_skill_continuation(
     state_path: str | None = None,
     *,
     require_confirmation: bool = False,
+    phase_label: str | None = None,
 ) -> str:
     """Render same-skill continuation guidance.
 
@@ -502,6 +521,7 @@ def format_same_skill_continuation(
     confirmation prompt. Ask for confirmation only when the continuation target
     could not be parsed unambiguously.
     """
+    target = phase_label or f"step {next_step}"
     bar = ("-" * 60) if os.environ.get("FORGE_ASCII") == "1" else ("━" * 60)
     if require_confirmation:
         lines = [
@@ -509,7 +529,7 @@ def format_same_skill_continuation(
             "CONTINUATION",
             bar,
             "",
-            f"This phase is complete. **Should I continue into step {next_step}?**",
+            f"This phase is complete. **Should I continue into {target}?**",
             "",
             "Reply yes to move on, or say no / pause if you want to stop here.",
         ]
@@ -519,7 +539,7 @@ def format_same_skill_continuation(
             "CONTINUATION",
             bar,
             "",
-            f"Next step is clear: continue directly to **step {next_step}**.",
+            f"Next step is clear: continue directly to **{target}**.",
             "",
             "Only pause if the user asked to stop or change direction.",
         ]
@@ -619,10 +639,27 @@ def format_step_output(
         confirm = require_confirmation if require_confirmation is not None else (ns is None)
         if ns is None:
             ns = step + 1
+        phase_label: str | None = None
+        try:
+            parts = shlex.split(next_cmd)
+        except ValueError:
+            parts = []
+        for i, token in enumerate(parts):
+            if token == "--phase" and i + 1 < len(parts):
+                phase_label = f"phase `{parts[i + 1]}`"
+                break
+        if phase_label is None and ns is not None:
+            from scripts.shared.skill_phases import phase_for_step
+
+            try:
+                phase_label = f"phase `{phase_for_step(skill_name, ns)}`"
+            except Exception:
+                phase_label = None
         output += format_same_skill_continuation(
             ns,
             sp_,
             require_confirmation=confirm,
+            phase_label=phase_label,
         )
     elif cross_skill_next:
         output += "\n\nWORKFLOW COMPLETE — this skill has finished."
@@ -640,9 +677,10 @@ def build_next_command(
     *,
     next_step: int | None = None,
     flags: tuple[str, ...] = (),
+    phase_variant: str | None = None,
     **extra_args: str,
 ) -> str:
-    """Build a compact continuation token line (``$forge:<skill> --step N …``).
+    """Build a compact continuation token line (``$forge:<skill> --phase …``).
 
     Shown to tooling parsers; same-step prompts use plain language via
     ``format_same_skill_continuation`` instead of echoing this string to users.
@@ -652,13 +690,26 @@ def build_next_command(
     target_step = next_step if next_step is not None else step + 1
     if target_step > max_step:
         return ""
+    from scripts.shared.skill_phases import agent_skill_token, phase_for_step
     from scripts.shared.workflow_tokens import workflow_invocation_prefix
 
-    token = skill_token_from_script(script_path)
-    parts: list[str] = [f"{workflow_invocation_prefix()}{token}", f"--step {target_step}"]
+    script_token = skill_token_from_script(script_path)
+    skill = agent_skill_token(script_token)
+    phase = phase_for_step(skill, target_step, variant=phase_variant)
+    parts: list[str] = [
+        f"{workflow_invocation_prefix()}{skill}",
+        f"--phase {phase}",
+    ]
     for flag in flags:
         parts.append(f"--{flag}")
     for key, val in extra_args.items():
+        if key == "state":
+            from scripts.shared.session_store import session_id_from_state_path
+
+            sid = session_id_from_state_path(Path(val))
+            if sid:
+                parts.append(f"--session {shlex.quote(sid)}")
+                continue
         parts.append(f"--{key} {shlex.quote(val)}")
     return " ".join(parts)
 
@@ -696,12 +747,20 @@ def render_dashboard(state: SkillState) -> str:
 
 def build_base_parser(skill_name: str, max_step: int) -> argparse.ArgumentParser:
     """Build the base argument parser for a skill orchestrator."""
+    from scripts.shared.skill_phases import format_phase_list
+
     parser = argparse.ArgumentParser(
         description=f"forge {skill_name} skill orchestrator"
     )
-    parser.add_argument(
-        "--step", type=int, required=True,
-        help=f"Phase number (1-{max_step})"
+    phase_help = format_phase_list(skill_name)
+    step_group = parser.add_mutually_exclusive_group(required=False)
+    step_group.add_argument(
+        "--step", type=int, default=None,
+        help=f"Phase number (1-{max_step}); optional when --session or --state resumes a session",
+    )
+    step_group.add_argument(
+        "--phase", type=str, default=None, metavar="NAME",
+        help=f"Named phase ({phase_help}); optional when resuming with --session or --state",
     )
     parser.add_argument(
         "--state", type=str, default=None,
@@ -724,6 +783,29 @@ def build_base_parser(skill_name: str, max_step: int) -> argparse.ArgumentParser
         help="Quick mode: minimal review loops, lead agents only"
     )
     return parser
+
+
+def apply_resolved_workflow_step(
+    args: Any,
+    skill_name: str,
+    max_step: int,
+    *,
+    variant: str | None = None,
+) -> int:
+    """Resolve ``--step`` / ``--phase`` / session inference and set ``args.step``."""
+    from scripts.shared.skill_phases import resolve_workflow_step
+
+    resolved = resolve_workflow_step(
+        skill_name=skill_name,
+        max_step=max_step,
+        step=getattr(args, "step", None),
+        phase=getattr(args, "phase", None),
+        state_file=getattr(args, "state", None),
+        session_id=getattr(args, "session", None),
+        variant=variant,
+    )
+    args.step = resolved
+    return resolved
 
 
 def validate_step(step: int, max_step: int) -> None:

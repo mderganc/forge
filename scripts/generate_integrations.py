@@ -64,8 +64,8 @@ COMMAND_OVERRIDES: dict[str, dict[str, str]] = {
         ),
         "agent_run": "Run **evaluate** with `--mode pre` or `--mode post` and `--plan` on step 1.",
         "codex_extra": (
-            "<invoke cmd=\"forge evaluate --step 1 --mode pre --plan '<plan path>'\" />\n"
-            "<invoke cmd=\"forge evaluate --step 1 --mode post --plan '<plan path>'\" />"
+            "<invoke cmd=\"forge evaluate --mode pre --plan '<plan path>'\" />\n"
+            "<invoke cmd=\"forge evaluate --mode post --plan '<plan path>'\" />"
         ),
     },
     "diagnose": {
@@ -139,7 +139,7 @@ def _codex_skill_md(cmd: dict) -> str:
     )
     body = f"{extra}\n\n{graphify}\n\n" if extra else f"{graphify}\n\n"
     if sub not in ("evaluate",):
-        body += f'<invoke cmd="forge {sub} --step 1" />\n'
+        body += f'<invoke cmd="forge {sub}" />\n'
     return f"""---
 name: {cmd['id']}
 description: {cmd['description']}
@@ -171,7 +171,7 @@ def generate(*, check_only: bool = False) -> list[str]:
         codex_text = _codex_skill_md(cmd)
         if codex_path.is_file():
             existing = codex_path.read_text(encoding="utf-8")
-            if sub in COMMAND_OVERRIDES and existing != codex_text:
+            if existing != codex_text:
                 changed.append(str(codex_path.relative_to(REPO_ROOT)))
                 if not check_only:
                     codex_path.parent.mkdir(parents=True, exist_ok=True)

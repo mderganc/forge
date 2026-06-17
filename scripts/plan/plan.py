@@ -34,6 +34,7 @@ if str(REPO_ROOT) not in sys.path:
 from scripts.shared.orchestrator import (
     SkillState,
     append_skill_run_memory,
+    apply_resolved_workflow_step,
     build_base_parser,
     build_next_command,
     build_skill_handoff_menu,
@@ -636,6 +637,7 @@ def main():
         help="When used with --mode, persist that mode as the default for future plan sessions.",
     )
     args = parser.parse_args()
+    apply_resolved_workflow_step(args, SKILL_NAME, MAX_STEP)
 
     if validate_step_or_complete(args.step, MAX_STEP, SKILL_NAME):
         return

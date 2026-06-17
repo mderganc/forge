@@ -275,7 +275,15 @@ def _next_command(step: int, state_path: str = "", mode: str | None = None) -> s
     extra = {}
     if state_path:
         extra["state"] = state_path
-    return build_next_command(SCRIPT_DIR / "evaluate.py", step, max_step, **extra)
+    if mode:
+        extra["mode"] = mode
+    return build_next_command(
+        SCRIPT_DIR / "evaluate.py",
+        step,
+        max_step,
+        phase_variant=mode,
+        **extra,
+    )
 
 
 def _mode_phase_todos(mode: str) -> dict[int, list[dict]]:
@@ -633,7 +641,15 @@ def handle_step_n(
 
 def main():
     parser = argparse.ArgumentParser(description="Evaluate skill orchestrator")
-    parser.add_argument("--step", type=int, required=True, help="Phase number (1-7 for pre, 1-8 for post, 1-5 for review)")
+    step_group = parser.add_mutually_exclusive_group(required=False)
+    step_group.add_argument(
+        "--step", type=int, default=None,
+        help="Phase number (1-7 pre, 1-8 post, 1-5 review); optional when resuming",
+    )
+    step_group.add_argument(
+        "--phase", type=str, default=None, metavar="NAME",
+        help="Named phase (e.g. pre-feasibility, post-correctness); optional when resuming",
+    )
     parser.add_argument("--plan", type=str, help="Plan file path or keywords (step 1 only, pre/post modes)")
     parser.add_argument("--state", type=str, help="Path to .evaluate-state.json (auto-detected if omitted)")
     parser.add_argument("--session", type=str, default=None, help="Session id to continue")
@@ -642,26 +658,38 @@ def main():
         action="store_true",
         help="Start a parallel evaluate session using a suffixed .evaluate-state file.",
     )
-    parser.add_argument("--mode", choices=["pre", "post"], help="Force evaluation mode (pre or post)")
+    parser.add_argument("--mode", choices=["pre", "post", "review"], help="Force evaluation mode (pre or post)")
     parser.add_argument("--team", action="store_true", help="Enable team dispatch in pre/post modes")
 
     args = parser.parse_args()
 
-    # Resolve mode for max_step: prefer args.mode, but if resuming (step > 1
-    # with no --mode passed), fall back to the saved state's mode so the cap
-    # matches what the workflow is actually running. Without this, a post-mode
-    # session resumed without --mode would advertise "of 8" in the title but
-    # validate_step_or_complete would say "ends at step 7" using pre's default.
     effective_mode = args.mode
-    if effective_mode is None and args.step > 1:
-        sp = Path(args.state).resolve() if args.state else _find_state_file()
+    if effective_mode is None and (args.state or args.session):
+        sp = Path(args.state).resolve() if args.state else None
+        if sp is None and args.session:
+            from scripts.shared.session_store import session_json_path
+            from scripts.shared.orchestrator import _detect_repo_root
+
+            sp = session_json_path(args.session, _detect_repo_root())
         if sp is not None and sp.exists():
             try:
                 effective_mode = load_state(sp).mode
             except (json.JSONDecodeError, KeyError, FileNotFoundError):
-                pass  # fall through to None → default
+                pass
 
     max_step = _max_step_for_mode(effective_mode)
+    from scripts.shared.skill_phases import resolve_workflow_step
+
+    args.step = resolve_workflow_step(
+        skill_name="evaluate",
+        max_step=max_step,
+        step=args.step,
+        phase=getattr(args, "phase", None),
+        state_file=args.state,
+        session_id=getattr(args, "session", None),
+        variant=effective_mode,
+    )
+
     if validate_step_or_complete(args.step, max_step, "evaluate"):
         return
 

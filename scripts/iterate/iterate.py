@@ -28,6 +28,7 @@ from scripts.shared.orchestrator import (
     SkillState,
     append_skill_run_memory,
     build_base_parser,
+    apply_resolved_workflow_step,
     build_next_command,
     build_skill_handoff_menu,
     clear_state_file,
@@ -728,6 +729,7 @@ def main() -> None:
     )
     args = parser.parse_args()
     args.natural_text = ""
+    apply_resolved_workflow_step(args, SKILL_NAME, MAX_STEP)
 
     if validate_step_or_complete(args.step, MAX_STEP, SKILL_NAME):
         return

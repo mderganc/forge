@@ -19,6 +19,7 @@ if str(REPO_ROOT) not in sys.path:
 
 from scripts.shared.orchestrator import (
     _detect_repo_root,
+    apply_resolved_workflow_step,
     build_base_parser,
     format_step_output,
     validate_step_or_complete,
@@ -105,6 +106,8 @@ def handle_step_1() -> None:
 def main() -> None:
     parser = build_base_parser(SKILL_NAME, MAX_STEP)
     args = parser.parse_args()
+    apply_resolved_workflow_step(args, SKILL_NAME, MAX_STEP)
+
     if validate_step_or_complete(args.step, MAX_STEP, SKILL_NAME):
         return
     if args.step != 1:

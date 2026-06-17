@@ -14,7 +14,7 @@ Shared runtime: [templates/workflow-skill-preamble.md](../../templates/workflow-
 
 Planning-only: no product source edits. No git mutation commands (`git add`, `commit`, `push`, `reset`, `rebase`, `checkout`, `restore`, `merge`, `stash`, `tag`). Never `--no-verify`.
 
-<invoke cmd="forge plan --step 1" />
+<invoke cmd="forge plan" />
 
 | Argument | Required | Description |
 |----------|----------|-------------|

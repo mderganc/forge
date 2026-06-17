@@ -86,11 +86,21 @@ def _build_variables(state: SkillState, state_path: Path | None = None, *, promp
     return _build_variables(state, state_path, prompts_style=prompts_style)
 
 
-def _next_command(step: int, state_path: str = "") -> str:
+def _next_command(step: int, state_path: str = "", mode: str | None = None) -> str:
     extra = {}
     if state_path:
         extra["state"] = state_path
-    return build_next_command(SCRIPT_DIR / "test.py", step, FLOWS_MAX_STEP, **extra)
+    if mode and mode != "run":
+        extra["mode"] = mode
+    variant = mode if mode in ("run", "flows") else "run"
+    max_s = FLOWS_MAX_STEP if variant == "flows" else 6
+    return build_next_command(
+        SCRIPT_DIR / "test.py",
+        step,
+        max_s,
+        phase_variant=variant,
+        **extra,
+    )
 
 
 def _check_scaffold_gate(state: SkillState) -> list[str]:
@@ -231,7 +241,7 @@ def handle_flow_step(step: int, state: SkillState, sp: Path) -> None:
         handoff_path=handoff_path,
     )
 
-    next_cmd = _next_command(step, state_path=str(sp)) if step < FLOWS_MAX_STEP else None
+    next_cmd = _next_command(step, state_path=str(sp), mode="flows") if step < FLOWS_MAX_STEP else None
     print(
         format_step_output(
             SKILL_NAME,

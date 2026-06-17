@@ -8,7 +8,7 @@ description: |
 
 Shared runtime: [templates/workflow-skill-preamble.md](../../templates/workflow-skill-preamble.md).
 
-<invoke cmd="forge implement --step 1" />
+<invoke cmd="forge implement" />
 
 | Argument | Required | Description |
 |----------|----------|-------------|

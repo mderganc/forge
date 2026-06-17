@@ -12,7 +12,7 @@ Shared runtime: [templates/workflow-skill-preamble.md](../../templates/workflow-
 
 In **post** step 4, read `.structural-probes.json` when a structural-probes banner is shown.
 
-<invoke cmd="forge evaluate --step 1 --plan '<plan path or keywords>'" />
+<invoke cmd="forge evaluate --plan '<plan path or keywords>'" />
 
 | Argument | Required | Description |
 |----------|----------|-------------|

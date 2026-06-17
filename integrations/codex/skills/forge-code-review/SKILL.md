@@ -1,8 +1,8 @@
 ---
 name: forge:code-review
-description: Run the Forge code-review workflow via the global forge CLI. When graphify-out/ exists, read GRAPH_REPORT.md before codebase search; Graphify refresh runs at ship, not per workflow step.
+description: Run structured code review workflows.
 ---
 
-When `graphify-out/` exists, read `graphify-out/GRAPH_REPORT.md` before grep/glob/search; refresh at ship (`forge ship --step 1` / `$forge:ship`). Workflow `forge … --step` skills do not print per-step GRAPHIFY banners. After code edits run `graphify update .`.
+When `graphify-out/` exists, read `graphify-out/GRAPH_REPORT.md` before search; refresh at ship (`forge ship --step 1`).
 
-<invoke cmd="forge code-review --step 1" />
+<invoke cmd="forge code-review" />

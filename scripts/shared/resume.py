@@ -111,17 +111,29 @@ def _session_is_complete(session: dict) -> bool:
 
 def _resume_command(session: dict) -> str:
     """Build the command to resume a session."""
-    skill = session["skill"]
-    script = _script_for(skill)
+    from scripts.shared.skill_phases import (
+        agent_skill_token,
+        phase_for_step,
+        variant_from_session,
+    )
+
+    skill = agent_skill_token(session["skill"])
     step = _resume_step(session)
     state_path = session["path"]
     session_id = session.get("session_id")
+    variant = variant_from_session(session, skill)
+    phase = phase_for_step(skill, step, variant=variant)
+    extra_flags = ""
+    if skill == "evaluate" and variant:
+        extra_flags = f" --mode {variant}"
+    elif skill == "test" and variant and variant != "run":
+        extra_flags = f" --mode {variant}"
     if os.environ.get("FORGE_USE_LAUNCHER") == "1":
-        cmd = f"forge {skill} --step {step} --state '{state_path}'"
         if session_id:
-            cmd = f"forge {skill} --step {step} --session {session_id}"
-        return cmd
-    base = f"python3 {script} --step {step}"
+            return f"forge {skill} --phase {phase}{extra_flags} --session {session_id}"
+        return f"forge {skill} --phase {phase}{extra_flags} --state '{state_path}'"
+    script = _script_for(session["skill"])
+    base = f"python3 {script} --phase {phase}{extra_flags}"
     if session_id:
         return f"{base} --session {session_id}"
     return f"{base} --state '{state_path}'"

@@ -34,12 +34,28 @@ def build_parser() -> argparse.ArgumentParser:
             help="Deprecated: step 1 always creates a new session",
         )
 
+    def add_workflow_phase_flags(sp: argparse.ArgumentParser) -> None:
+        step_group = sp.add_mutually_exclusive_group(required=False)
+        step_group.add_argument(
+            "--step",
+            type=int,
+            default=None,
+            help="Phase number (optional when --session or --state resumes a session)",
+        )
+        step_group.add_argument(
+            "--phase",
+            type=str,
+            default=None,
+            metavar="NAME",
+            help="Named workflow phase (optional when resuming with --session or --state)",
+        )
+
     # evaluate
     ev = sub.add_parser("evaluate", help="Run the evaluate orchestrator")
     add_common_repo_flag(ev)
     add_common_output_flags(ev)
     add_session_flags(ev)
-    ev.add_argument("--step", type=int, required=True)
+    add_workflow_phase_flags(ev)
     ev.add_argument("--plan", type=str)
     ev.add_argument("--state", type=str)
     ev.add_argument("--mode", choices=["pre", "post", "review"])
@@ -53,7 +69,7 @@ def build_parser() -> argparse.ArgumentParser:
     add_common_repo_flag(sk)
     add_common_output_flags(sk)
     add_session_flags(sk)
-    sk.add_argument("--step", type=int, required=True)
+    add_workflow_phase_flags(sk)
     sk.add_argument("--state", type=str)
     sk.add_argument(
         "--with-domain-docs",
@@ -69,7 +85,7 @@ def build_parser() -> argparse.ArgumentParser:
     add_common_repo_flag(dn)
     add_common_output_flags(dn)
     add_session_flags(dn)
-    dn.add_argument("--step", type=int, required=True)
+    add_workflow_phase_flags(dn)
     dn.add_argument("--state", type=str)
     dn.add_argument("--quick", action="store_true")
     dn.add_argument("--auto1", action="store_true")
@@ -81,7 +97,7 @@ def build_parser() -> argparse.ArgumentParser:
     add_common_repo_flag(dv)
     add_common_output_flags(dv)
     add_session_flags(dv)
-    dv.add_argument("--step", type=int, required=True)
+    add_workflow_phase_flags(dv)
     dv.add_argument("--state", type=str)
     dv.add_argument("--quick", action="store_true")
     dv.add_argument("--auto1", action="store_true")
@@ -93,7 +109,7 @@ def build_parser() -> argparse.ArgumentParser:
     add_common_repo_flag(pl)
     add_common_output_flags(pl)
     add_session_flags(pl)
-    pl.add_argument("--step", type=int, required=True)
+    add_workflow_phase_flags(pl)
     pl.add_argument("--state", type=str)
     pl.add_argument("--quick", action="store_true")
     pl.add_argument("--force", action="store_true")
@@ -114,7 +130,7 @@ def build_parser() -> argparse.ArgumentParser:
     add_common_repo_flag(im)
     add_common_output_flags(im)
     add_session_flags(im)
-    im.add_argument("--step", type=int, required=True)
+    add_workflow_phase_flags(im)
     im.add_argument("--state", type=str)
     im.add_argument("--quick", action="store_true")
     im.add_argument("--plan", type=str, default=None, help="Path to plan file (implement step 1)")
@@ -133,14 +149,14 @@ def build_parser() -> argparse.ArgumentParser:
     )
     add_common_repo_flag(sh)
     add_common_output_flags(sh)
-    sh.add_argument("--step", type=int, required=True)
+    add_workflow_phase_flags(sh)
 
     # code-review
     cr = sub.add_parser("code-review", help="Run the code-review orchestrator")
     add_common_repo_flag(cr)
     add_common_output_flags(cr)
     add_session_flags(cr)
-    cr.add_argument("--step", type=int, required=True)
+    add_workflow_phase_flags(cr)
     cr.add_argument("--state", type=str)
     cr.add_argument("--quick", action="store_true")
     cr.add_argument(
@@ -165,7 +181,7 @@ def build_parser() -> argparse.ArgumentParser:
     add_common_repo_flag(ts)
     add_common_output_flags(ts)
     add_session_flags(ts)
-    ts.add_argument("--step", type=int, required=True)
+    add_workflow_phase_flags(ts)
     ts.add_argument("--state", type=str)
     ts.add_argument("--quick", action="store_true")
     ts.add_argument("--mode", choices=["run", "flows"])
@@ -181,7 +197,7 @@ def build_parser() -> argparse.ArgumentParser:
     add_common_repo_flag(dg)
     add_common_output_flags(dg)
     add_session_flags(dg)
-    dg.add_argument("--step", type=int, required=True)
+    add_workflow_phase_flags(dg)
     dg.add_argument("--state", type=str)
     dg.add_argument("--quick", action="store_true")
 
@@ -190,7 +206,7 @@ def build_parser() -> argparse.ArgumentParser:
     add_common_repo_flag(it)
     add_common_output_flags(it)
     add_session_flags(it)
-    it.add_argument("--step", type=int, required=True)
+    add_workflow_phase_flags(it)
     it.add_argument("--state", type=str)
     it.add_argument("--goal", type=str)
     it.add_argument("--target", type=str)

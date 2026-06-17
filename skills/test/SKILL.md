@@ -13,7 +13,7 @@ Shared runtime: [templates/workflow-skill-preamble.md](../../templates/workflow-
 - **`run`** (default): 6-step detect → execute → analyze → report
 - **`flows`**: 7-step mock-flow authoring — see `templates/mock-flow-types.md` and `templates/test-flow-criteria.md`
 
-<invoke cmd="forge test --step 1" />
+<invoke cmd="forge test" />
 
 | Argument | Required | Description |
 |----------|----------|-------------|

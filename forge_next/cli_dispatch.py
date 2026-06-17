@@ -214,6 +214,7 @@ def _add_flag(out: list[str], flag: str, value: object) -> None:
 def _passthrough_argv(args: Any) -> list[str]:
     passthrough: list[str] = []
     _add_flag(passthrough, "--step", getattr(args, "step", None))
+    _add_flag(passthrough, "--phase", getattr(args, "phase", None))
     _add_flag(passthrough, "--plan", getattr(args, "plan", None))
     _add_flag(passthrough, "--branch-prefix", getattr(args, "branch_prefix", None))
     _add_flag(passthrough, "--state", getattr(args, "state", None))

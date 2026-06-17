@@ -10,7 +10,7 @@ Shared runtime: [templates/workflow-skill-preamble.md](../../templates/workflow-
 
 At **step 3**, read `.structural-probes.json` and `templates/structural-quality-probes.md` when a structural-probes banner is shown.
 
-<invoke cmd="forge code-review --step 1" />
+<invoke cmd="forge code-review" />
 
 | Argument | Required | Description |
 |----------|----------|-------------|

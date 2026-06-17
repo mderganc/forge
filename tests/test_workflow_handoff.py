@@ -77,11 +77,11 @@ def test_build_next_command_respects_workflow_prefix(monkeypatch: pytest.MonkeyP
 
     monkeypatch.setenv("FORGE_WORKFLOW_INVOCATION", "slash")
     cmd = build_next_command(Path("scripts/plan/plan.py"), 1, 7)
-    assert cmd == "/forge:plan --step 2"
+    assert cmd == "/forge:plan --phase architecture-dispatch"
 
     monkeypatch.setenv("FORGE_WORKFLOW_INVOCATION", "dollar")
     cmd = build_next_command(Path("scripts/plan/plan.py"), 1, 7)
-    assert cmd == "$forge:plan --step 2"
+    assert cmd == "$forge:plan --phase architecture-dispatch"
 
 
 def test_handoff_menu_lines_slash_prefix(monkeypatch: pytest.MonkeyPatch) -> None:

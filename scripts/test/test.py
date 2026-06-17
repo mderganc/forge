@@ -30,6 +30,7 @@ if str(REPO_ROOT) not in sys.path:
 from scripts.shared.orchestrator import (
     SkillState,
     append_skill_run_memory,
+    apply_resolved_workflow_step,
     build_base_parser,
     build_next_command,
     build_skill_handoff_menu,
@@ -281,12 +282,22 @@ def _build_variables(
     }
 
 
-def _next_command(step: int, state_path: str = "") -> str:
+def _next_command(step: int, state_path: str = "", mode: str | None = "run") -> str:
     """Build the command for the next step."""
     extra = {}
     if state_path:
         extra["state"] = state_path
-    return build_next_command(SCRIPT_DIR / "test.py", step, MAX_STEP, **extra)
+    if mode and mode != "run":
+        extra["mode"] = mode
+    variant = mode or "run"
+    max_s = 7 if variant == "flows" else MAX_STEP
+    return build_next_command(
+        SCRIPT_DIR / "test.py",
+        step,
+        max_s,
+        phase_variant=variant,
+        **extra,
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -563,7 +574,9 @@ def handle_step_n(
     )
 
     phase_name = PHASE_NAMES.get(step, f"Step {step}")
-    next_cmd = _next_command(step, state_path=str(sp)) if step < MAX_STEP else None
+    mode = state.custom.get("mode", "run")
+    effective_max = FLOWS_MAX_STEP if mode == "flows" else MAX_STEP
+    next_cmd = _next_command(step, state_path=str(sp), mode=mode) if step < effective_max else None
     print(format_step_output(
         SKILL_NAME, step, MAX_STEP, phase_name, body,
         next_cmd=next_cmd,
@@ -634,6 +647,8 @@ def main():
                 file=sys.stderr
             )
             sys.exit(1)
+
+    apply_resolved_workflow_step(args, SKILL_NAME, MAX_STEP, variant=args.mode)
 
     # Resume-conflict guard: if state exists and mode differs, abort
     if args.step > 1 and args.state:

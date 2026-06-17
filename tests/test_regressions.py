@@ -834,7 +834,7 @@ def test_implement_next_command_supports_target_step():
     from scripts.implement.implement import _next_command
 
     cmd = _next_command(5, target_step=3)
-    assert "--step 3" in cmd
+    assert "--phase wave-dispatch" in cmd
 
     # target_step beyond MAX is rejected.
     assert _next_command(5, target_step=99) == ""
@@ -2283,6 +2283,6 @@ def test_forge_resume_emits_launcher_continuation(fresh_state_dir: Path, monkeyp
     )
     assert result.returncode == 0, result.stderr
     out = result.stdout
-    assert "forge plan --step 3" in out
+    assert "forge plan --phase plan-creation-dispatch" in out
     assert "scripts/shared/resume.py" not in out
     assert "python3" not in out.split("Execute this command")[1] if "Execute this command" in out else True

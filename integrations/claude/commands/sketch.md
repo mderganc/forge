@@ -22,4 +22,4 @@ Runs at **ship** only (`forge ship --step 1`). This workflow does not print GRAP
 
 ## What you run (agent)
 
-Run **sketch** at step one. Synthesis every few exchanges; re-run step 2 to continue; step 3 only after the user confirms ready for design.
+Run **sketch** at step one. **Dialogue only** — do not spawn Forge agents or Task sub-agents. Synthesis every few exchanges; re-run step 2 to continue; step 3 only after the user confirms ready for design.

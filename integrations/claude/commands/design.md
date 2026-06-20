@@ -22,4 +22,4 @@ Runs at **ship** only (`forge ship --step 1`). This workflow does not print GRAP
 
 ## What you run (agent)
 
-Run **design** at step one. Summarize phases without quoting invocation lines.
+Run **design** at step one. Summarize phases without quoting invocation lines. When dispatching, use only roles in **`templates/forge-agent-roster.md`** — never invent names like `backend-architect`.

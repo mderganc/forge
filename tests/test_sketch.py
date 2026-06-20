@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -13,7 +14,13 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 SKETCH_SCRIPT = REPO_ROOT / "scripts" / "sketch" / "sketch.py"
 
 
-def _run_sketch(step: int, *, state_dir: Path | None = None, with_domain_docs: bool = False) -> subprocess.CompletedProcess[str]:
+def _run_sketch(
+    step: int,
+    *,
+    state_dir: Path | None = None,
+    with_domain_docs: bool = False,
+    cwd: Path | None = None,
+) -> subprocess.CompletedProcess[str]:
     cmd = [sys.executable, str(SKETCH_SCRIPT), "--step", str(step)]
     if state_dir is not None:
         state = state_dir / "sketch.json"
@@ -23,7 +30,7 @@ def _run_sketch(step: int, *, state_dir: Path | None = None, with_domain_docs: b
         cmd.append("--with-domain-docs")
     return subprocess.run(
         cmd,
-        cwd=REPO_ROOT,
+        cwd=cwd or REPO_ROOT,
         capture_output=True,
         text=True,
         encoding="utf-8",
@@ -39,6 +46,34 @@ def test_sketch_step1_outputs_startup(tmp_path, monkeypatch):
     assert "forge sketch" in proc.stdout.lower() or "Sketch" in proc.stdout
     assert "sketch-decisions" in proc.stdout or "sketch" in proc.stdout.lower()
     assert "design spec" in proc.stdout.lower() or "docs/forge/specs" in proc.stdout
+    assert ".codex/forge/memory/sketch-decisions.md" in proc.stdout
+    assert not re.search(r"[A-Za-z]:\\.*memory", proc.stdout)
+
+
+def test_sketch_paths_use_repo_relative_memory_dir(tmp_path, monkeypatch):
+    from scripts.shared import repo_paths as rp
+    from scripts.sketch import sketch as sketch_mod
+
+    (tmp_path / ".git").mkdir()
+    (tmp_path / ".codex").mkdir()
+    codex = (tmp_path / ".codex").resolve()
+
+    real_is_writable = rp.is_writable_dir
+
+    def selective_writable(path: Path) -> bool:
+        if path.resolve() == codex:
+            return False
+        return real_is_writable(path)
+
+    monkeypatch.setattr("scripts.shared.repo_paths.is_writable_dir", selective_writable)
+
+    from scripts.shared.orchestrator import SkillState
+
+    state = SkillState(skill_name="sketch", max_step=3)
+    vars_ = sketch_mod._build_variables(state, tmp_path)
+    assert vars_["SKETCH_DECISIONS_PATH"] == ".forge/memory/sketch-decisions.md"
+    assert vars_["SKETCH_DECISIONS_REL"] == ".forge/memory/sketch-decisions.md"
+    assert ".codex/forge/memory" not in vars_["SKETCH_NO_EDIT_POLICY"]
 
 
 def test_sketch_handoff_menu_defaults_to_design(tmp_path, monkeypatch):

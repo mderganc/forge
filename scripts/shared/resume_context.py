@@ -1,4 +1,4 @@
-"""Continuity snapshot and Graphify status helpers for `forge resume`.
+"""Continuity snapshot and Graphify status helpers for `forge takeover`.
 
 Persists a single `resume-context.json` under the runtime state directory on
 every skill state save, and reads optional `graphify-status.json` written by

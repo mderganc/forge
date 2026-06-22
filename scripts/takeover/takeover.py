@@ -80,6 +80,69 @@ def _read_gate(path: Path) -> dict[str, Any] | None:
         return None
 
 
+def _metric_gate_open(
+    gd: Path,
+    gate_file: str,
+    metric_key: str,
+    *,
+    missing_is_open: bool = True,
+    fail_above: int = 0,
+) -> bool:
+    """True when the gate file is absent or the metric is still above the pass threshold."""
+    gate = _read_gate(gd / gate_file)
+    if not gate:
+        return missing_is_open
+    return int(gate.get(metric_key, fail_above + 1)) > fail_above
+
+
+def _metric_gate_not_equal(
+    gd: Path,
+    gate_file: str,
+    metric_key: str,
+    required: int,
+) -> bool:
+    """True when the gate is missing or the metric does not equal ``required``."""
+    gate = _read_gate(gd / gate_file)
+    if not gate:
+        return True
+    return int(gate.get(metric_key, required + 1)) != required
+
+
+def _handle_primary_then_metric_stage(
+    gd: Path,
+    state: SkillState,
+    *,
+    primary_gate: str,
+    primary_body: str,
+    secondary_gate: str,
+    metric_key: str,
+    inner_key: str,
+    inner: int,
+    max_inner: int,
+    cap_body: str,
+    pending_body: str,
+    pass_body: str,
+    complete_step: int,
+    await_primary_log: str,
+    pending_log: str,
+    pass_log: str,
+) -> tuple[str, str]:
+    if not _read_gate(gd / primary_gate):
+        return primary_body, await_primary_log
+
+    if _metric_gate_open(gd, secondary_gate, metric_key):
+        inner += 1
+        state.custom[inner_key] = inner
+        if inner > max_inner:
+            state.mark_step_complete(complete_step)
+            return cap_body, pending_log
+        return pending_body, pending_log
+
+    state.mark_step_complete(complete_step)
+    state.custom[inner_key] = 0
+    return pass_body, pass_log
+
+
 def _init_state() -> SkillState:
     st = SkillState(skill_name=SKILL_NAME, max_step=MAX_STEP)
     st.started_at = now_iso()
@@ -292,66 +355,58 @@ def handle_step_n(step: int, sp: Path, _args: argparse.Namespace) -> None:
             _log("Upstream skipped")
 
     elif step == 3:
-        pg = _read_gate(gd / "plan.json")
-        eg = _read_gate(gd / "evaluate-pre.json")
-        inner = int(state.custom.get("inner_eval_pre", 0))
-        if not pg:
-            body = "## Plan\n\nComplete **plan**. Write `plan.json` with `status: pass`."
-            _save()
-            _log("Await plan gate")
-        elif not eg or int(eg.get("open_findings_total", 1)) > 0:
-            inner += 1
-            state.custom["inner_eval_pre"] = inner
-            if inner > max_inner:
-                body = f"## Evaluate (pre) — inner cap ({max_inner})"
-                state.mark_step_complete(3)
-            else:
-                body = (
-                    "## Evaluate (pre)\n\nRun **evaluate** pre mode. "
-                    "Write `evaluate-pre.json` with `open_findings_total: 0`."
-                )
-            _save()
-            _log("Evaluate pre pending")
-        else:
-            state.mark_step_complete(3)
-            state.custom["inner_eval_pre"] = 0
-            body = "## Plan + evaluate (pre) clean\n\nRun **step 4** for implement."
-            _save()
-            _log("Plan + eval pre pass")
+        body, log_msg = _handle_primary_then_metric_stage(
+            gd,
+            state,
+            primary_gate="plan.json",
+            primary_body="## Plan\n\nComplete **plan**. Write `plan.json` with `status: pass`.",
+            secondary_gate="evaluate-pre.json",
+            metric_key="open_findings_total",
+            inner_key="inner_eval_pre",
+            inner=int(state.custom.get("inner_eval_pre", 0)),
+            max_inner=max_inner,
+            cap_body=f"## Evaluate (pre) — inner cap ({max_inner})",
+            pending_body=(
+                "## Evaluate (pre)\n\nRun **evaluate** pre mode. "
+                "Write `evaluate-pre.json` with `open_findings_total: 0`."
+            ),
+            pass_body="## Plan + evaluate (pre) clean\n\nRun **step 4** for implement.",
+            complete_step=3,
+            await_primary_log="Await plan gate",
+            pending_log="Evaluate pre pending",
+            pass_log="Plan + eval pre pass",
+        )
+        _save()
+        _log(log_msg)
 
     elif step == 4:
-        ig = _read_gate(gd / "implement.json")
-        eg = _read_gate(gd / "evaluate-post.json")
-        inner = int(state.custom.get("inner_eval_post", 0))
-        if not ig:
-            body = "## Implement\n\nComplete **implement**. Write `implement.json` with `status: pass`."
-            _save()
-            _log("Await implement gate")
-        elif not eg or int(eg.get("open_findings_total", 1)) > 0:
-            inner += 1
-            state.custom["inner_eval_post"] = inner
-            if inner > max_inner:
-                body = "## Evaluate (post) — inner cap"
-                state.mark_step_complete(4)
-            else:
-                body = (
-                    "## Evaluate (post)\n\nRun **evaluate** post mode. "
-                    "Write `evaluate-post.json` with `open_findings_total: 0`."
-                )
-            _save()
-            _log("Evaluate post pending")
-        else:
-            state.mark_step_complete(4)
-            state.custom["inner_eval_post"] = 0
-            body = "## Implement + evaluate (post) clean\n\nRun **step 5**."
-            _save()
-            _log("Implement stage pass")
+        body, log_msg = _handle_primary_then_metric_stage(
+            gd,
+            state,
+            primary_gate="implement.json",
+            primary_body="## Implement\n\nComplete **implement**. Write `implement.json` with `status: pass`.",
+            secondary_gate="evaluate-post.json",
+            metric_key="open_findings_total",
+            inner_key="inner_eval_post",
+            inner=int(state.custom.get("inner_eval_post", 0)),
+            max_inner=max_inner,
+            cap_body="## Evaluate (post) — inner cap",
+            pending_body=(
+                "## Evaluate (post)\n\nRun **evaluate** post mode. "
+                "Write `evaluate-post.json` with `open_findings_total: 0`."
+            ),
+            pass_body="## Implement + evaluate (post) clean\n\nRun **step 5**.",
+            complete_step=4,
+            await_primary_log="Await implement gate",
+            pending_log="Evaluate post pending",
+            pass_log="Implement stage pass",
+        )
+        _save()
+        _log(log_msg)
 
     elif step == 5:
-        cr = _read_gate(gd / "code-review.json")
-        tg = _read_gate(gd / "test.json")
         inner = int(state.custom.get("inner_cr", 0))
-        if not cr or int(cr.get("open_findings_total", 1)) > 0:
+        if _metric_gate_open(gd, "code-review.json", "open_findings_total"):
             inner += 1
             state.custom["inner_cr"] = inner
             if inner > max_inner:
@@ -363,7 +418,7 @@ def handle_step_n(step: int, sp: Path, _args: argparse.Namespace) -> None:
                 )
             _save()
             _log("CR pending")
-        elif not tg or int(tg.get("failed", 1)) != 0:
+        elif _metric_gate_not_equal(gd, "test.json", "failed", 0):
             body = "## Test\n\nRun **test** (run mode). Write `test.json` with `failed: 0`."
             _save()
             _log("Await test gate")

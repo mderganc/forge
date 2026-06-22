@@ -73,6 +73,13 @@ COMMAND_OVERRIDES: dict[str, dict[str, str]] = {
         "agent_run": "Run **diagnose** at step one. Follow playbook sidecars and gates.",
         "codex_extra": "Read `templates/diagnose-execution-playbooks.md` per phase.",
     },
+    "graphify": {
+        "tell_user": (
+            "- **Graphify** feeds codebase structure into `forge takeover` (optional).\n"
+            "- Refresh at ship (`forge ship --step 1`); install/uninstall post-commit hook from this command."
+        ),
+        "agent_run": "Run `forge graphify refresh` or hook install/uninstall per user request.",
+    },
 }
 
 UTILITY_COMMANDS = frozenset({"takeover", "status", "doctor", "graphify", "ship"})

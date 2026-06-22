@@ -10,7 +10,7 @@ from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent
 ORCH = REPO / "scripts" / "diagnose" / "orchestrate.py"
-RESUME = REPO / "scripts" / "shared" / "resume.py"
+TAKEOVER_CLEANUP = REPO / "scripts" / "takeover" / "takeover.py"
 FORGE = "forge"
 
 FISHBONE = [
@@ -34,7 +34,17 @@ def run(args: list[str], cwd: Path = REPO) -> subprocess.CompletedProcess[str]:
 
 
 def cleanup() -> None:
-    run([sys.executable, str(RESUME), "--cleanup", "--all-stale", "--force"])
+    run(
+        [
+            sys.executable,
+            str(TAKEOVER_CLEANUP),
+            "--step",
+            "1",
+            "--cleanup",
+            "--all-stale",
+            "--force",
+        ]
+    )
 
 
 def ok(cond: bool, msg: str, fails: list[int]) -> None:
@@ -122,11 +132,12 @@ def scenario_gate_blocks_completion(fails: list[int]) -> None:
     )
     ok(s4.get("custom", {}).get("hypothesis_regen_attempts") == 1, "regen attempt incremented", fails)
 
-    # resume.py must NOT advance to step 5
-    rr = run([sys.executable, str(RESUME)])
-    resume_out = rr.stdout + rr.stderr
-    ok("--step 4" in resume_out or "step 4" in resume_out.lower(), "resume targets step 4 retry", fails)
-    ok("--step 5" not in resume_out, "resume does not suggest step 5 yet", fails)
+    # infer_resume_step must NOT advance past a failed gate
+    from scripts.shared.skill_phases import infer_resume_step
+
+    retry_step = infer_resume_step(s4)
+    ok(retry_step == 4, f"inference targets step 4 retry (got {retry_step})", fails)
+    ok(retry_step != 5, "inference does not suggest step 5 yet", fails)
 
 
 def scenario_valid_register_passes(fails: list[int]) -> None:

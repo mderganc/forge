@@ -21,10 +21,9 @@ _WORKFLOW_MODULES = {
     "code-review": "scripts.code_review.code_review",
     "test": "scripts.test.test",
     "diagnose": "scripts.diagnose.orchestrate",
-    "iterate": "scripts.iterate.iterate",
+    "takeover": "scripts.takeover.takeover",
     "ship": "scripts.ship.ship",
     "sketch": "scripts.sketch.sketch",
-    "resume": "scripts.shared.resume",
 }
 
 

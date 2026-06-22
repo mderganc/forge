@@ -5,7 +5,7 @@ description: Organize intent and open decisions before design (optional CONTEXT.
 
 Do **not** write `docs/forge/specs/*-design.md` in sketch.
 
-**Iterative dialogue:** re-run step 2 to continue; step 3 only after user confirms.
+**No agent team** — 1:1 dialogue only. Re-run step 2 to continue; step 3 only after user confirms.
 
 When `graphify-out/` exists, read `graphify-out/GRAPH_REPORT.md` before search; refresh at ship (`forge ship --step 1`).
 

@@ -10,6 +10,8 @@ If `sketch-decisions.md` exists in memory, pass its **Resolved** and **Handoff n
 
 Dispatch agents for deep investigation.
 
+**Roster:** Follow **`templates/forge-agent-roster.md`**. This step dispatches **Investigator** and **Architect** only — use those exact role names and `agents/investigator.md` / `agents/architect.md` briefs. Never invent `backend-architect` or other layer-prefixed agents.
+
 ## Agent Dispatch
 
 ### Investigator (evidence gathering)

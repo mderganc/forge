@@ -39,7 +39,7 @@ KNOWN_SKILLS = [
     "test",
     "diagnose",
     "evaluate",
-    "iterate",
+    "takeover",
 ]
 
 PIPELINE_SKILLS = {
@@ -255,7 +255,7 @@ def _iter_skill_state_paths(search_dir: Path | None = None) -> list[Path]:
             seen.add(resolved)
             paths.append(candidate)
     for skill in KNOWN_SKILLS:
-        if skill in ("evaluate", "iterate"):
+        if skill in ("evaluate", "takeover"):
             continue
         for candidate in state_path_candidates(skill, cwd):
             resolved = candidate.resolve()
@@ -315,20 +315,25 @@ def print_auto_closed_audit(closed: list[tuple[Path, str]]) -> None:
         print(f"AUTO-CLOSED: {path} — {reason}", file=sys.stderr)
 
 
-def resume_invocation_hint(*, cleanup: bool = False, force: bool = False) -> str:
+def takeover_invocation_hint(*, cleanup: bool = False, force: bool = False) -> str:
     if os.environ.get("FORGE_USE_LAUNCHER") == "1":
-        cmd = "forge resume"
+        cmd = "forge takeover"
         if cleanup:
             cmd += " --cleanup"
             if force:
                 cmd += " --force"
         return cmd
-    cmd = "python3 scripts/shared/resume.py"
+    cmd = "python3 scripts/takeover/takeover.py"
     if cleanup:
         cmd += " --cleanup"
         if force:
             cmd += " --force"
     return cmd
+
+
+def resume_invocation_hint(*, cleanup: bool = False, force: bool = False) -> str:
+    """Deprecated alias — use takeover_invocation_hint."""
+    return takeover_invocation_hint(cleanup=cleanup, force=force)
 
 
 def hint_cleanup_if_still_active(search_dir: Path | None = None) -> None:
@@ -382,12 +387,12 @@ def collect_session_leak_hints(search_dir: Path | None = None) -> list[str]:
             if sid and session_handoff_path(sid, cwd).is_file():
                 hints.append(
                     f"{skill}: active session with handoff present — {path} "
-                    f"(run `forge session close {sid}` or `forge resume --cleanup --force`)"
+                    f"(run `forge session close {sid}` or `forge takeover --cleanup --force`)"
                 )
         elif has_matching_handoff(skill, cwd):
             hints.append(
                 f"{skill}: active state with handoff present — {path} "
-                f"(run `forge resume --cleanup --force`)"
+                f"(run `forge takeover --cleanup --force`)"
             )
         if skill == "evaluate":
             try:

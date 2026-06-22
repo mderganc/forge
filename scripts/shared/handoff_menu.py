@@ -192,7 +192,7 @@ def format_handoff_menu_lines(
         [
             f"  {option_num}. `(stop)` — exit the workflow here",
             "",
-            f"Resume any time: `forge resume` or `{chain_command_to_agent_invocation('resume')}`",
+            f"Resume any time: `forge takeover` or `{chain_command_to_agent_invocation('takeover')}`",
         ]
     )
     if state_path:

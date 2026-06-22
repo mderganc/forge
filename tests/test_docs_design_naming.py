@@ -38,7 +38,7 @@ def test_user_facing_paths_use_design_not_develop(path: Path):
 
 def test_readme_utility_commands_have_own_tables():
     readme = (REPO_ROOT / "README.md").read_text(encoding="utf-8")
-    for heading in ("### Resume", "### Status", "### Doctor", "### Ship", "### Graphify"):
+    for heading in ("### Takeover", "### Status", "### Doctor", "### Ship", "### Graphify"):
         assert heading in readme, f"README missing {heading}"
     assert "### Core commands" not in readme
     assert "### Helper commands" not in readme

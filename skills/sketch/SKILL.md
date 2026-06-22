@@ -9,6 +9,8 @@ description: |
 
 Iterative pair-thinking: reflect, confirm, revise — not a checklist. See `templates/sketch-protocol.md`.
 
+**No agent team:** Sketch is 1:1 dialogue only. Do **not** spawn Task sub-agents or Forge roster roles (`templates/forge-agent-roster.md`).
+
 Routing and sketch vs design boundary: [AGENTS.md](../../AGENTS.md) § Process-first.
 
 Shared runtime: [templates/workflow-skill-preamble.md](../../templates/workflow-skill-preamble.md).

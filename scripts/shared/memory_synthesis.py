@@ -1,6 +1,6 @@
 """Rewrite `forge-memory-synthesis.md` as an explicit merge of existing memory files.
 
-Called after skill state saves so `forge resume` and humans have a single
+Called after skill state saves so `forge takeover` and humans have a single
 curated rollup under `memory/` without replacing hand-written `current-step.md`
 or handoffs.
 """

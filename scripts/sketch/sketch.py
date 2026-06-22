@@ -78,12 +78,17 @@ PHASE_TODOS = {
 }
 
 
-def _memory_dir() -> Path:
-    return runtime_memory_dir()
+def _memory_dir(repo_root: Path | None = None) -> Path:
+    return runtime_memory_dir(repo_root)
 
 
-def _sketch_decisions_path() -> Path:
-    return _memory_dir() / "sketch-decisions.md"
+def _sketch_decisions_rel(repo_root: Path | None = None) -> str:
+    mem_rel = runtime_memory_dir_relative(repo_root)
+    return f"{mem_rel}/sketch-decisions.md"
+
+
+def _sketch_decisions_path(repo_root: Path | None = None) -> Path:
+    return _memory_dir(repo_root) / "sketch-decisions.md"
 
 
 def _detect_domain_docs(repo_root: Path) -> str:
@@ -104,12 +109,13 @@ def _detect_domain_docs(repo_root: Path) -> str:
     return "\n".join(lines)
 
 
-def _no_edit_policy(with_domain_docs: bool) -> str:
+def _no_edit_policy(with_domain_docs: bool, repo_root: Path) -> str:
+    mem_rel = runtime_memory_dir_relative(repo_root)
     base = (
         "## Permission to modify files\n\n"
         "**Default:** Read-only on the codebase unless exploring answers a question.\n\n"
-        f"**Session memory (always allowed):** `{runtime_memory_dir_relative()}/` — "
-        "especially `sketch-decisions.md` and `project.md`.\n\n"
+        f"**Session memory (always allowed):** `{mem_rel}/` — "
+        f"especially `{mem_rel}/sketch-decisions.md` and `{mem_rel}/project.md`.\n\n"
         "**Do not write** `docs/forge/specs/*-design.md` — that is **design's** named spec.\n"
     )
     if with_domain_docs:
@@ -137,13 +143,11 @@ def _ensure_sketch_custom(state: SkillState) -> None:
 
 def _build_variables(state: SkillState, repo_root: Path) -> dict[str, str]:
     with_docs = bool(state.custom.get("with_domain_docs"))
-    mem = _memory_dir()
-    decisions_rel = "sketch-decisions.md"
+    decisions_rel = _sketch_decisions_rel(repo_root)
     return {
-        "SKETCH_NO_EDIT_POLICY": _no_edit_policy(with_docs),
+        "SKETCH_NO_EDIT_POLICY": _no_edit_policy(with_docs, repo_root),
         "WITH_DOMAIN_DOCS": "yes" if with_docs else "no",
-        "MEMORY_DIR": str(mem),
-        "SKETCH_DECISIONS_PATH": str(mem / decisions_rel),
+        "SKETCH_DECISIONS_PATH": decisions_rel,
         "SKETCH_DECISIONS_REL": decisions_rel,
         "DOMAIN_DOCS_STATUS": _detect_domain_docs(repo_root),
         "TOPIC": str(state.custom.get("topic", "")).strip() or "(set during startup dialogue)",
@@ -241,11 +245,16 @@ def handle_step_1(args: argparse.Namespace) -> None:
     print_remaining_session_warning(SKILL_NAME)
     print(f"STATE FILE: {sp}\n", file=sys.stderr)
 
-    mem = _memory_dir()
+    repo_root = _repo_root()
+    mem = _memory_dir(repo_root)
     mem.mkdir(parents=True, exist_ok=True)
 
     template = load_template("sketch/startup")
-    body = render_template(template, _build_variables(state, _repo_root()))
+    body = render_template(
+        template,
+        _build_variables(state, repo_root),
+        search_dir=repo_root,
+    )
 
     state.mark_step_complete(1)
     save_state(state, sp)
@@ -311,8 +320,13 @@ def handle_step_n(
         print(f"ERROR: Invalid step {step}")
         sys.exit(1)
 
+    repo_root = _repo_root()
     template = load_template(template_name)
-    body = render_template(template, _build_variables(state, _repo_root()))
+    body = render_template(
+        template,
+        _build_variables(state, repo_root),
+        search_dir=repo_root,
+    )
 
     handoff_menu = None
     handoff_path: Path | None = None
@@ -323,10 +337,11 @@ def handle_step_n(
         state.completed_at = now_iso()
         save_state(state, sp)
 
+        decisions_path = _sketch_decisions_path(repo_root)
         decisions_note = (
-            str(_sketch_decisions_path())
-            if _sketch_decisions_path().is_file()
-            else "(sketch-decisions.md not found — create before handoff)"
+            _sketch_decisions_rel(repo_root)
+            if decisions_path.is_file()
+            else f"({_sketch_decisions_rel(repo_root)} not found — create before handoff)"
         )
         handoff_path = write_handoff(
             skill_name=SKILL_NAME,

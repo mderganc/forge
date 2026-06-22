@@ -78,22 +78,14 @@
       ]
     },
     {
-      "id": "forge:iterate",
-      "cli_subcommand": "iterate",
-      "description": "Meta-workflow: chained diagnose, plan, evaluate, implement, review, test with loops.",
+      "id": "forge:takeover",
+      "cli_subcommand": "takeover",
+      "description": "Infer work and drive Forge skills until ship-ready (replaces resume/iterate).",
       "examples": [
-        "forge iterate --step 1 --goal \"Improve X\" --target \"score >= 0.9\" --max-loops 5",
-        "forge iterate --step 1 --text \"improve pipeline until accuracy > 90%, max loops 10\""
-      ]
-    },
-    {
-      "id": "forge:resume",
-      "cli_subcommand": "resume",
-      "description": "Resume in-progress workflows and manage state cleanup.",
-      "examples": [
-        "forge resume",
-        "forge resume --cleanup",
-        "forge resume --cleanup --force"
+        "forge takeover",
+        "forge takeover --design docs/forge/specs/2026-06-20-feature-design.md",
+        "forge takeover --issue 42",
+        "forge takeover --cleanup --force"
       ]
     },
     {
@@ -117,7 +109,7 @@
     {
       "id": "forge:graphify",
       "cli_subcommand": "graphify",
-      "description": "Optional Graphify index: refresh status for forge resume; install or remove a fail-soft post-commit hook.",
+      "description": "Optional Graphify index: refresh status for forge takeover; install or remove a fail-soft post-commit hook.",
       "examples": [
         "forge graphify refresh",
         "forge graphify refresh --repo \"<path>\"",

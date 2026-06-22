@@ -1,6 +1,6 @@
 ---
 name: forge:graphify
-description: Optional Graphify setup — refresh index metadata for forge resume or manage the post-commit hook.
+description: Optional Graphify setup — refresh index metadata for forge takeover or manage the post-commit hook.
 ---
 
 ## Hard rule — what the user sees
@@ -9,7 +9,7 @@ description: Optional Graphify setup — refresh index metadata for forge resume
 
 ## What to tell the user first
 
-- **Graphify** is optional: it feeds **codebase structure** into `forge resume`. When `graphify-out/` exists, workflow `--step` may refresh in the background; the orchestrator **GRAPHIFY** banner prints on **`forge ship --step 1`** only.
+- **Graphify** is optional: it feeds **codebase structure** into `forge takeover`. When `graphify-out/` exists, workflow `--step` may refresh in the background; the orchestrator **GRAPHIFY** banner prints on **`forge ship --step 1`** only.
 - Default flow: **refresh** metadata once per clone; optionally **install-hook** so each commit re-refreshes in the background (fail-soft).
 - **Claude hooks:** `forge claude-graphify` (also run by `forge install --claude`). Re-run after `pipx upgrade forge-next`.
 - They need Graphify installed **or** **`FORGE_GRAPHIFY_COMMAND`**. Full guide: **`docs/graphify.md`** in the Forge repo.

@@ -17,7 +17,7 @@ Runs at **ship** only (`forge ship --step 1`). This workflow does not print GRAP
 
 ## What to tell the user first
 
-- **Sketch** is an **iterative conversation** — reflect, confirm, revise — before design investigates solutions.
+- **Sketch** is a **1:1 iterative conversation** — reflect, confirm, revise — before design investigates solutions (no agent team dispatch).
 - Optional: domain glossary (`CONTEXT.md`) and ADRs when domain-docs mode is on.
 
 ## What you run (agent)

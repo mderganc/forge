@@ -46,7 +46,7 @@ CLOBBER_SKILLS = {"plan", "code-review", "test", "diagnose"}
 
 PASS = "\033[32mPASS\033[0m"
 FAIL = "\033[31mFAIL\033[0m"
-RESUME = REPO / "scripts/shared/resume.py"
+TAKEOVER_CLEANUP = REPO / "scripts/takeover/takeover.py"
 
 
 def run(args, cwd=REPO):
@@ -58,7 +58,7 @@ def run(args, cwd=REPO):
 
 def cleanup_repo():
     """Wipe every forge-codex state file in REPO."""
-    run([str(RESUME), "--cleanup", "--all-stale", "--force"])
+    run([str(TAKEOVER_CLEANUP), "--cleanup", "--all-stale", "--force", "--step", "1"])
     # Also nuke the evaluate sidecar/state file if it lingered
     for f in REPO.rglob(".evaluate-state.json"):
         f.unlink(missing_ok=True)

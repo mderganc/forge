@@ -22,14 +22,14 @@ Reply "yes" or "1" for the default, or pick numbers:
   2. `/forge:<alt>` — description
   N. `(stop)` — exit the workflow here
 
-State file: <path> — resume with `forge resume` (or `/forge:resume` / `$forge:resume`).
+State file: <path> — resume with `forge takeover` (or `/forge:takeover` / `$forge:takeover`).
 ```
 
 Invocation prefix: **`/forge:`** when `FORGE_WORKFLOW_INVOCATION=slash`, repo has `.cursor/`, or `CURSOR_*` env is set; otherwise **`$forge:`** (Codex). Override with `FORGE_WORKFLOW_INVOCATION=slash|dollar`.
 
 The canonical skill-chain mapping lives in `scripts/shared/skill_chain.py` as the `SKILL_CHAIN` dict, mapping current skill to `SkillTransition(default, alternatives)`. The renderer `build_skill_handoff_menu(current_skill, state)` in `scripts/shared/handoff_io.py` / `handoff_menu.py` produces the multiselect block and text fallback. Per-skill context-aware injection is supported — e.g., when `forge:test` detects failures, `diagnose` can be prepended as the top alternative; when `forge:diagnose` finishes with `fix_complexity` **`large`**, the default next command is **`develop`** (with **`plan`** as default when **`complex`**).
 
-The `(stop)` option is always last. The state file persists, and workflows can resume with `forge resume` at any time.
+The `(stop)` option is always last. The state file persists, and workflows can resume with `forge takeover` at any time.
 
 **Ship (finalize coding):** not a pipeline orchestrator — use **`$forge:ship`** / **`/forge:ship`** or the **`ship`** Cursor skill (`.cursor/skills/ship/SKILL.md`) for commit, push, PR, merge, and publish. Handoff menus after **implement**, **code-review**, and **test** list **`ship`** as an alternative.
 
@@ -78,7 +78,7 @@ Sketch does **not** investigate the codebase for solutions or author design spec
 
 Invoking a Forge workflow skill is itself permission to dispatch the Forge agent team required by that workflow.
 
-- `forge:sketch` is a lightweight 1:1 dialogue skill (no agent-team requirement); `forge:design`, `forge:plan`, `forge:implement`, `forge:code-review`, `forge:test`, `forge:diagnose`, and `forge:iterate` imply automatic delegation to the relevant Forge agents (`forge:develop` is a deprecated alias for `forge:design`).
+- `forge:sketch` is a lightweight 1:1 dialogue skill (no agent-team requirement); `forge:design`, `forge:plan`, `forge:implement`, `forge:code-review`, `forge:test`, `forge:diagnose`, and `forge:takeover` imply automatic delegation to the relevant Forge agents (`forge:develop` is a deprecated alias for `forge:design`).
 - `forge:evaluate` implies automatic delegation when team/review mode is active.
 - The user should not have to separately say "use sub-agents", "delegate", or "parallelize" after invoking a Forge skill.
 - If the active Codex session policy still blocks `spawn_agent`, surface that as an environment-policy limitation rather than silently falling back to single-agent execution.
@@ -128,12 +128,12 @@ When editing this repo's user-facing documentation, keep the role names aligned 
 
 The skill orchestrators handle state-file lifecycle so workflows are interruptible and resumable:
 
-- **Step 1 of any skill** refuses to silently overwrite an in-progress same-skill session. To intentionally restart, delete the state file or pass `--force` (where supported, e.g., `plan.py`). To continue, use `forge resume` or invoke the skill with `forge <skill> --step N --state <path>`.
+- **Step 1 of any skill** refuses to silently overwrite an in-progress same-skill session. To intentionally restart, delete the state file or pass `--force` (where supported, e.g., `plan.py`). To continue, use `forge takeover` or invoke the skill with `forge <skill> --step N --state <path>`.
 - **Step-1 auto-close** (pipeline skills: design, plan, implement, code-review, test, diagnose): starting a skill at step 1 automatically removes superseded JSON state when (1) `handoff-{skill}.md` exists, (2) the session is **upstream** in the pipeline relative to the skill being started, or (3) the session is **step-1-only** and idle longer than `FORGE_STEP1_ABANDON_HOURS` (default `1`). The new step-1 target path is never deleted. Suppress with `FORGE_SKIP_AUTO_CLOSE=1`. Look for `AUTO-CLOSED:` lines on stderr.
 - **Canonical completion** remains the final orchestrator step (`forge <skill> --step N` at max step): sets `completed_at`, writes handoff via `write_handoff`, then `clear_state_file`.
 - **Cross-skill conflicts** that survive auto-close still emit a stderr warning but do not block.
 - **Session directories (primary):** New runs allocate `.codex/forge/sessions/{id}/session.json` with optional `handoff.md` and `sidecars/`; `index.json` lists actives; `sessions/_archive/` holds completed or auto-closed sessions. See [`docs/sessions.md`](docs/sessions.md) and `scripts/shared/session_store.py`.
-- **`forge resume --cleanup`** removes stale session directories and legacy flat state files (including parallel `skill-*.json` variants). Defaults to dry-run; pass `--force` to delete. Pass `--all-stale --force` to clear every state file regardless of age. From a Forge source checkout without the launcher, `python3 scripts/shared/resume.py --cleanup` is equivalent.
+- **`forge takeover --cleanup`** removes stale session directories and legacy flat state files (including parallel `skill-*.json` variants). Defaults to dry-run; pass `--force` to delete. Pass `--all-stale --force` to clear every state file regardless of age. From a Forge source checkout without the launcher, `python3 scripts/takeover/takeover.py --cleanup` is equivalent.
 - **`forge status`** and **`forge doctor`** surface leak hints (handoff present but JSON active, misplaced state paths, step-1 abandoned).
 - **Plan files** are now created by `scripts/plan/plan.py` itself with section-marker placeholders; agents replace markers rather than create the file. The step-6 completion gate refuses to mark the workflow complete while any markers remain.
 - **Evaluate findings** persist between phases via per-step sidecar files at `<state-dir>/.evaluate-findings-step<N>.json`. Each phase's prompt instructs the LLM to write findings there; the orchestrator ingests them on the next step.
@@ -181,7 +181,7 @@ The scenario-index update at `<scenarios_dir>/README.md` is parser-gated; on par
 - **5 Whys:** Follow `templates/five-why-protocol.md` § Diagnose RCA — causal linkage between layers; stop checklist + `but_for`. Gates reject **symptom-level** proposed root causes (must explain *why*, not restate the failure).
 - **Gates:** **DIAGNOSE ARTIFACT GATE** at step 3 (feedback loop), steps 5 and 7 (bundle/closure), step 4 optional register + quartet when activated. One retry per gate type; `require_confirmation` on failure.
 - **Overrides:** `repro_loop_override_reason`, `hypothesis_override_reason`, `five_whys_override_reason`, `technique_coverage_override_reason`, `quartet_override_reason`, `problem_spec_override_reason`, `barriers_override_reason` — high-severity mandatory techniques cannot be skipped at step 7.
-- **Resume:** `forge resume` warns on missing sidecars when resuming diagnose at step ≥3; use `repro_loop_override_reason` only after user provides access/artifacts when no automated loop is possible.
+- **Resume:** `forge takeover` warns on missing sidecars when continuing diagnose at step ≥3; use `repro_loop_override_reason` only after user provides access/artifacts when no automated loop is possible.
 
 ## graphify
 

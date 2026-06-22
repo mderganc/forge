@@ -17,6 +17,8 @@
 
 **Guards:** No implementation in Stage 2. One question at a time during PM gates. YAGNI on speculative scope. Evidence from Stage 1 or explicit user statements.
 
+**Roster:** All dispatches in this stage use **Architect** only (`agents/architect.md`). See **`templates/forge-agent-roster.md`** — never spawn invented names like `backend-architect`.
+
 **Artifacts** (`{{MEMORY_DIR}}/`): `solution-requirements.md` → `divergent-ideas.md` → `solutions.md` (draft then final).
 
 ## Loop checklist

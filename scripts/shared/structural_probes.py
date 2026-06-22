@@ -411,17 +411,20 @@ def ensure_primary_probe_plan(
         normalize_probe_tools(merged.get("tools")),
         inventory,
     )
+    if node_capable:
+        for required in ("knip", "madge"):
+            if required not in tools:
+                tools.append(required)
+
     if python_capable:
-        if effective_scope:
-            for required in ("pyscn", "skylos"):
-                if required not in tools:
-                    tools.append(required)
-        elif repo_has_large_ignored_dirs(repo_root):
-            tools = [t for t in tools if t not in PYTHON_PROBE_TOOLS]
-        else:
-            for required in ("pyscn", "skylos"):
-                if required not in tools:
-                    tools.append(required)
+        for required in ("pyscn", "skylos"):
+            if required not in tools:
+                tools.append(required)
+        if not effective_scope and repo_has_large_ignored_dirs(repo_root):
+            roots = inventory.get("suggested_probe_roots") or {}
+            py_root = roots.get("python")
+            if py_root and not merged.get("python_root"):
+                merged["python_root"] = py_root
 
     merged["tools"] = tools
     roots = inventory.get("suggested_probe_roots") or {}

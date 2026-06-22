@@ -8,7 +8,9 @@ description: |
 
 Shared runtime: [templates/workflow-skill-preamble.md](../../templates/workflow-skill-preamble.md).
 
-At **step 3**, read `.structural-probes.json` and `templates/structural-quality-probes.md` when a structural-probes banner is shown.
+At **step 3**, the orchestrator runs **pyscn** (Python) and **knip** (Node) when applicable and writes `.structural-probes.json`.
+
+**Steps 4–6 are blocked** until required probes have run (`pass` or `fail`, not `skip`). Re-run step 3 or use `--allow-structural-probes-incomplete` with override reason/follow-up to bypass.
 
 <invoke cmd="forge code-review" />
 

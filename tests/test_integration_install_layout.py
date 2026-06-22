@@ -34,7 +34,7 @@ def spec_commands() -> dict:
 def test_spec_commands_include_ship(spec_commands: dict):
     ids = [c["id"] for c in spec_commands["commands"]]
     assert "forge:ship" in ids
-    assert len(spec_commands["commands"]) == 14
+    assert len(spec_commands["commands"]) == 13
 
 
 def test_spec_cli_package_is_forge_next(spec_commands: dict):

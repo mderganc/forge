@@ -96,7 +96,11 @@ Estimate breadth (does **not** override risk-based tiering):
 
 ## Team Composition
 
-Base roles for every task: **Architect, Investigator, QA, Critic, Doc-writer.**
+Read **`templates/forge-agent-roster.md`** before recording or dispatching roles.
+
+**Layers (scope only — not agent names):** `Frontend`, `Backend`, `Infra` describe which parts of the stack are touched. Do **not** spawn `backend-architect`, `frontend-architect`, or any `{layer}-{role}` composite.
+
+**Roles (spawn targets):** Base team for every task: **Architect, Investigator, QA Reviewer, Critic, Doc-writer.**
 
 **Security activation rule:** Add the Security role whenever *any* selected layer includes Backend or Infra, or when auth/data-integrity concerns are present regardless of layer.
 

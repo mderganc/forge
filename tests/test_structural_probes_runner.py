@@ -494,7 +494,7 @@ def test_filter_python_scope_paths_skips_graphifyignored(
     assert scope == ["ok.py"]
 
 
-def test_ensure_primary_probe_plan_skips_python_without_safe_scope(
+def test_ensure_primary_probe_plan_keeps_python_with_scoped_root(
     tmp_path: Path,
 ) -> None:
     (tmp_path / "pyproject.toml").write_text("[project]\nname='x'\n", encoding="utf-8")
@@ -508,8 +508,9 @@ def test_ensure_primary_probe_plan_skips_python_without_safe_scope(
         scope_paths=["."],
         mode="pr",
     )
-    assert "pyscn" not in plan["tools"]
-    assert "skylos" not in plan["tools"]
+    assert "pyscn" in plan["tools"]
+    assert "skylos" in plan["tools"]
+    assert plan.get("python_root")
     assert plan.get("exclude_paths")
 
 

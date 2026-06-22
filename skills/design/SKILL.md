@@ -9,7 +9,7 @@ description: |
 
 Routing: [AGENTS.md](../../AGENTS.md) § Process-first.
 
-Shared runtime: [templates/workflow-skill-preamble.md](../../templates/workflow-skill-preamble.md).
+Shared runtime: [templates/workflow-skill-preamble.md](../../templates/workflow-skill-preamble.md). Agent roster: [templates/forge-agent-roster.md](../../templates/forge-agent-roster.md).
 
 ## No repo edits without permission
 

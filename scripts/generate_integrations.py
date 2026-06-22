@@ -31,8 +31,8 @@ WORKFLOW_HARD_RULE = """\
 COMMAND_OVERRIDES: dict[str, dict[str, str]] = {
     "sketch": {
         "tell_user": (
-            "- **Sketch** is an **iterative conversation** — reflect, confirm, revise — "
-            "before design investigates solutions.\n"
+            "- **Sketch** is a **1:1 iterative conversation** — reflect, confirm, revise — "
+            "before design investigates solutions (no agent team dispatch).\n"
             "- Optional: domain glossary (`CONTEXT.md`) and ADRs when domain-docs mode is on."
         ),
         "agent_run": (
@@ -41,7 +41,7 @@ COMMAND_OVERRIDES: dict[str, dict[str, str]] = {
         ),
         "codex_extra": (
             "Do **not** write `docs/forge/specs/*-design.md` in sketch.\n\n"
-            "**Iterative dialogue:** re-run step 2 to continue; step 3 only after user confirms."
+            "**No agent team** — 1:1 dialogue only. Re-run step 2 to continue; step 3 only after user confirms."
         ),
     },
     "design": {
@@ -75,7 +75,7 @@ COMMAND_OVERRIDES: dict[str, dict[str, str]] = {
     },
 }
 
-UTILITY_COMMANDS = frozenset({"resume", "status", "doctor", "graphify", "ship"})
+UTILITY_COMMANDS = frozenset({"takeover", "status", "doctor", "graphify", "ship"})
 
 
 def _load_spec() -> dict:

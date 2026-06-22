@@ -78,6 +78,7 @@ is_step1_abandoned = _session_hygiene.is_step1_abandoned
 auto_close_superseded_sessions = _session_hygiene.auto_close_superseded_sessions
 print_auto_closed_audit = _session_hygiene.print_auto_closed_audit
 resume_invocation_hint = _session_hygiene.resume_invocation_hint
+takeover_invocation_hint = _session_hygiene.takeover_invocation_hint
 hint_cleanup_if_still_active = _session_hygiene.hint_cleanup_if_still_active
 run_step1_session_hygiene = _session_hygiene.run_step1_session_hygiene
 collect_session_leak_hints = _session_hygiene.collect_session_leak_hints
@@ -768,7 +769,7 @@ def build_base_parser(skill_name: str, max_step: int) -> argparse.ArgumentParser
     )
     parser.add_argument(
         "--session", type=str, default=None,
-        help="Session id to continue (from forge status / forge resume)",
+        help="Session id to continue (from forge status / forge takeover)",
     )
     parser.add_argument(
         "--label", type=str, default=None,

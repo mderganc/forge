@@ -30,10 +30,9 @@ forge doctor
 | `forge-code-review` | `forge code-review` |
 | `forge-test` | `forge test` |
 | `forge-diagnose` | `forge diagnose` |
-| `forge-resume` | `forge resume` |
+| `forge-takeover` | `forge takeover` |
 | `forge-status` | `forge status` |
 | `forge-doctor` | `forge doctor` |
-| `forge-iterate` | `forge iterate` |
 | `forge-ship` | `forge ship` |
 | `forge-graphify` | `forge graphify` (subcommands: `refresh`, `install-hook`, `uninstall-hook`) |
 

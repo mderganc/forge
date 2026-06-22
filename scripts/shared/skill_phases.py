@@ -107,6 +107,16 @@ _SKILL_PHASE_NAMES: dict[str, dict[str | None, dict[int, str]]] = {
             9: "Report",
         },
     },
+    "takeover": {
+        None: {
+            1: "Initialize + route",
+            2: "Upstream / continue",
+            3: "Plan + evaluate (pre)",
+            4: "Implement + evaluate (post)",
+            5: "Code review + test",
+            6: "Report",
+        },
+    },
     "ship": {
         None: {
             1: "Graphify preflight (before commit)",

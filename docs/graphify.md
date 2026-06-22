@@ -5,7 +5,7 @@ Forge works without Graphify. When a repo has a knowledge graph (`graphify-out/`
 This document covers:
 
 1. **Building the graph** (CLI, refresh, git hook)
-2. **Resume context** (`forge resume`)
+2. **Takeover context** (`forge takeover`)
 3. **Ship-time enforcement** (GRAPHIFY on `forge ship` only)
 4. **Claude Code hooks** (`forge claude-graphify`)
 5. **Codex policy** (`forge codex-agents`)
@@ -36,7 +36,7 @@ forge graphify refresh --foreground # wait in this process
 forge graphify refresh --force      # spawn even when status looks fresh
 ```
 
-Forge writes **`.codex/forge/state/graphify-status.json`** (fail-soft on errors). `forge resume` reads this file and any `GRAPH_REPORT.md` it finds.
+Forge writes **`.codex/forge/state/graphify-status.json`** (fail-soft on errors). `forge takeover` reads this file and any `GRAPH_REPORT.md` it finds.
 
 **Automatic background refresh** (when Graphify is on PATH and status is missing, stale, or behind `git HEAD`; ship also uses `--force` when an index exists):
 

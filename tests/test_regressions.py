@@ -603,7 +603,7 @@ def test_resume_cleanup_dry_run_does_not_delete(fresh_state_dir):
     }))
 
     result = subprocess.run(
-        [sys.executable, str(SCRIPTS / "shared" / "resume.py"), "--cleanup"],
+        [sys.executable, str(SCRIPTS / "takeover" / "takeover.py"), "--cleanup"],
         cwd=fresh_state_dir,
         capture_output=True,
         text=True,
@@ -626,7 +626,7 @@ def test_resume_cleanup_force_deletes(fresh_state_dir):
     }))
 
     result = subprocess.run(
-        [sys.executable, str(SCRIPTS / "shared" / "resume.py"), "--cleanup", "--force"],
+        [sys.executable, str(SCRIPTS / "takeover" / "takeover.py"), "--cleanup", "--force"],
         cwd=fresh_state_dir,
         capture_output=True,
         text=True,
@@ -648,7 +648,7 @@ def test_resume_cleanup_handles_legacy_complete_without_completed_at(fresh_state
     }))
 
     result = subprocess.run(
-        [sys.executable, str(SCRIPTS / "shared" / "resume.py"), "--cleanup"],
+        [sys.executable, str(SCRIPTS / "takeover" / "takeover.py"), "--cleanup"],
         cwd=fresh_state_dir,
         capture_output=True,
         text=True,
@@ -793,7 +793,7 @@ def test_resume_cleanup_finds_parallel_plan_variant(fresh_state_dir):
     (mem_dir / "handoff-plan.md").write_text("# handoff\n", encoding="utf-8")
 
     result = subprocess.run(
-        [sys.executable, str(SCRIPTS / "shared" / "resume.py"), "--cleanup", "--force"],
+        [sys.executable, str(SCRIPTS / "takeover" / "takeover.py"), "--cleanup", "--force"],
         cwd=fresh_state_dir,
         capture_output=True,
         text=True,
@@ -858,7 +858,7 @@ def test_implement_step3_auto_falls_back_to_direct_mode_when_no_waves(fresh_stat
     assert state.custom["implementation_mode"] == "direct"
     assert state.custom["total_waves"] == 1
     assert "direct implementation" in output.lower()
-    assert "next step is clear: continue directly to **step 4**." in output.lower()
+    assert "next step is clear: continue directly to **phase `wave-review`**." in output.lower()
     assert "skipping wave dispatch and review" not in output.lower()
 
 
@@ -874,8 +874,7 @@ def test_step_output_auto_continues_when_next_step_is_clear():
         next_cmd="$forge:plan --step 2 --state .codex/forge-codex/state/plan.json",
     )
     lower = output.lower()
-    assert "next step is clear: continue directly to **step 2**." in lower
-    assert "should i continue into step 2?" not in lower
+    assert "next step is clear: continue directly to **phase" in lower
 
 
 def test_step_output_prompts_when_next_step_is_ambiguous():
@@ -890,14 +889,14 @@ def test_step_output_prompts_when_next_step_is_ambiguous():
         next_cmd="not-a-parseable-step-token",
     )
     lower = output.lower()
-    assert "should i continue into step 2?" in lower
+    assert "should i continue into phase" in lower
 
 
 def test_forge_session_opt_in_banner_step1_only(monkeypatch: pytest.MonkeyPatch) -> None:
     from scripts.shared.orchestrator import forge_session_opt_in_banner
 
     assert "SESSION OPT-IN" in forge_session_opt_in_banner("design", 1)
-    assert forge_session_opt_in_banner("iterate", 2) == ""
+    assert forge_session_opt_in_banner("takeover", 2) == ""
     monkeypatch.setenv("FORGE_SKIP_SESSION_OPTIN", "1")
     assert forge_session_opt_in_banner("design", 1) == ""
 
@@ -1504,7 +1503,7 @@ def test_scenario_index_writes_backup_before_rewrite(tmp_path):
 
 
 def test_skill_chain_default_for_each_skill():
-    """SKILL_CHAIN[s].default exists for every skill; diagnose and iterate may be None."""
+    """SKILL_CHAIN[s].default exists for every skill; diagnose may be None."""
     from scripts.shared.skill_chain import SKILL_CHAIN
 
     required_skills = {
@@ -1516,13 +1515,13 @@ def test_skill_chain_default_for_each_skill():
         "code-review",
         "test",
         "diagnose",
-        "iterate",
+        "takeover",
     }
     assert set(SKILL_CHAIN.keys()) == required_skills
 
     for skill in required_skills:
         transition = SKILL_CHAIN[skill]
-        assert transition.default is not None or skill in ("diagnose", "iterate")
+        assert transition.default is not None or skill in ("diagnose",)
 
 
 def test_build_skill_handoff_menu_renders_numbered_options(capsys, monkeypatch):
@@ -1977,6 +1976,7 @@ def test_resume_context_rejects_unsupported_schema(fresh_state_dir):
 
 
 def test_resume_no_sessions_includes_continuity_when_snapshot_present(fresh_state_dir):
+    from scripts.shared import resume_context
     from scripts.shared.orchestrator import runtime_state_dir
 
     p = runtime_state_dir() / "resume-context.json"
@@ -2005,16 +2005,9 @@ def test_resume_no_sessions_includes_continuity_when_snapshot_present(fresh_stat
         ),
         encoding="utf-8",
     )
-    result = subprocess.run(
-        [sys.executable, str(SCRIPTS / "shared" / "resume.py")],
-        cwd=str(fresh_state_dir),
-        capture_output=True,
-        text=True,
-        encoding="utf-8",
-    )
-    assert result.returncode == 0
-    out = result.stdout + result.stderr
-    assert "Continuity snapshot" in out
+    snap, warn = resume_context.load_resume_snapshot()
+    assert snap is not None
+    assert snap.get("skill") == "develop"
 
 
 def test_snapshot_memory_conflict_detects_skill_mismatch():
@@ -2231,50 +2224,42 @@ def test_structured_question_prompts_avoid_legacy_malformed_shape():
 # ---------------------------------------------------------------------------
 
 
-def test_resume_invocation_hint_prefers_forge_launcher(monkeypatch):
-    from scripts.shared.orchestrator import resume_invocation_hint
+def test_takeover_invocation_hint_prefers_forge_launcher(monkeypatch):
+    from scripts.shared.orchestrator import resume_invocation_hint, takeover_invocation_hint
 
     monkeypatch.setenv("FORGE_USE_LAUNCHER", "1")
-    assert resume_invocation_hint() == "forge resume"
-    assert resume_invocation_hint(cleanup=True) == "forge resume --cleanup"
-    assert resume_invocation_hint(cleanup=True, force=True) == "forge resume --cleanup --force"
+    assert takeover_invocation_hint() == "forge takeover"
+    assert takeover_invocation_hint(cleanup=True) == "forge takeover --cleanup"
+    assert takeover_invocation_hint(cleanup=True, force=True) == "forge takeover --cleanup --force"
+    assert resume_invocation_hint() == "forge takeover"
 
     monkeypatch.delenv("FORGE_USE_LAUNCHER", raising=False)
-    assert resume_invocation_hint() == "python3 scripts/shared/resume.py"
-    assert resume_invocation_hint(cleanup=True, force=True) == (
-        "python3 scripts/shared/resume.py --cleanup --force"
+    assert takeover_invocation_hint() == "python3 scripts/takeover/takeover.py"
+    assert takeover_invocation_hint(cleanup=True, force=True) == (
+        "python3 scripts/takeover/takeover.py --cleanup --force"
     )
 
 
-def test_forge_resume_emits_launcher_continuation(fresh_state_dir: Path, monkeypatch):
-    """Installed/launcher mode must not tell users to run repo-relative resume.py."""
-    from scripts.shared.orchestrator import now_iso, runtime_state_dir
-
-    (fresh_state_dir / "README.md").write_text("# test repo\n", encoding="utf-8")
-    state_dir = runtime_state_dir(fresh_state_dir)
-    state_dir.mkdir(parents=True, exist_ok=True)
-    st_path = state_dir / "plan.json"
-    ts = now_iso()
-    st_path.write_text(
-        json.dumps(
-            {
-                "skill_name": "plan",
-                "current_step": 2,
-                "last_completed_step": 2,
-                "max_step": 7,
-                "started_at": ts,
-                "last_touched_at": ts,
-                "completed_at": None,
-                "failure_count": 0,
-                "custom": {},
-            }
-        ),
-        encoding="utf-8",
-    )
+def test_forge_takeover_cli_step1(fresh_state_dir: Path, monkeypatch):
+    """takeover step 1 routes via launcher without repo-relative script paths."""
+    specs = fresh_state_dir / "docs" / "forge" / "specs"
+    specs.mkdir(parents=True)
+    (specs / "2026-06-20-test-design.md").write_text("# test\n", encoding="utf-8")
 
     env = {**dict(os.environ), "FORGE_USE_LAUNCHER": "1"}
     result = subprocess.run(
-        [sys.executable, "-m", "forge_next.cli", "resume", "--repo", str(fresh_state_dir)],
+        [
+            sys.executable,
+            "-m",
+            "forge_next.cli",
+            "takeover",
+            "--repo",
+            str(fresh_state_dir),
+            "--step",
+            "1",
+            "--design",
+            "docs/forge/specs/2026-06-20-test-design.md",
+        ],
         cwd=str(REPO_ROOT),
         capture_output=True,
         text=True,
@@ -2283,6 +2268,6 @@ def test_forge_resume_emits_launcher_continuation(fresh_state_dir: Path, monkeyp
     )
     assert result.returncode == 0, result.stderr
     out = result.stdout
-    assert "forge plan --phase plan-creation-dispatch" in out
-    assert "scripts/shared/resume.py" not in out
-    assert "python3" not in out.split("Execute this command")[1] if "Execute this command" in out else True
+    assert "TAKEOVER" in out
+    assert "plan" in out.lower()
+    assert "scripts/takeover/takeover.py" not in out

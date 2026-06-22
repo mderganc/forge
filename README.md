@@ -29,11 +29,11 @@ This repository is the **source tree** for prompts, templates, agent briefs, and
 ## Overview
 
 - **App-first:** Cursor and Claude Code use `/forge:…`; Codex uses `$forge:…`. See [OpenAI Codex](#openai-codex).
-- **Session-safe:** Repo state lives under `.codex/forge/` by default. Older trees may still use `.codex/forge-codex/` until migrated. If `.codex` is a file, read-only (common in Codex sandboxes), or otherwise not writable, Forge falls back to `.forge/`. Stop anytime; continue with `forge resume`, `/forge:resume` (Cursor/Claude), or `$forge:resume` (Codex). Each skill save also updates **`state/resume-context.json`** (continuity snapshot for new chats) and **`memory/forge-memory-synthesis.md`** (rollup of `project.md`, `current-step.md`, and recent handoffs). Resume prints memory + optional **Graphify** codebase status; if the snapshot disagrees with live JSON state, output asks you to pick **state-based** vs **snapshot-based** continuation before auto-running the next step.
+- **Session-safe:** Repo state lives under `.codex/forge/` by default. Older trees may still use `.codex/forge-codex/` until migrated. If `.codex` is a file, read-only (common in Codex sandboxes), or otherwise not writable, Forge falls back to `.forge/`. Stop anytime; continue with `forge takeover`, `/forge:takeover` (Cursor/Claude), or `$forge:takeover` (Codex). Each skill save also updates **`state/resume-context.json`** (continuity snapshot for new chats) and **`memory/forge-memory-synthesis.md`** (rollup of `project.md`, `current-step.md`, and recent handoffs). Takeover infers the next skill from sessions, handoffs, and specs; if the snapshot disagrees with live JSON state, output asks you to pick **state-based** vs **snapshot-based** continuation before auto-running the next step.
 - **Handoffs:** On the last step, the orchestrator emits a **`handoff-multiselect`** block (for Cursor/Claude **AskQuestion** with `allow_multiple: true`) plus a text fallback. Labels use `/forge:…` (Cursor/Claude) or `$forge:…` (Codex). Reply `yes`, `1`, or pick options; see [AGENTS.md](AGENTS.md). Downstream step-1 intake consumes handoffs (read + close).
 - **Per-skill run memory:** Every workflow run appends an auditable entry to `memory/<skill>-runs.jsonl` (for example `plan-runs.jsonl`), retaining the most recent 30 entries with timestamp, phase/step, short summary, session linkage, and handoff linkage when present.
-- **Integrations:** `forge install` and `forge uninstall` lay down Cursor, Claude, and Codex wrappers. Install output includes optional **Graphify** setup (CLI or `FORGE_GRAPHIFY_COMMAND`, `forge graphify refresh`, `install-hook` / `uninstall-hook`) for codebase context in `forge resume` — see [`docs/graphify.md`](docs/graphify.md).
-- **Memory rollup:** each time skill state is saved, Forge refreshes **`memory/forge-memory-synthesis.md`** as an explicit merge of `project.md`, `current-step.md`, and recent handoffs so resume can open one synthesized narrative (see `templates/memory-protocol.md`).
+- **Integrations:** `forge install` and `forge uninstall` lay down Cursor, Claude, and Codex wrappers. Install output includes optional **Graphify** setup (CLI or `FORGE_GRAPHIFY_COMMAND`, `forge graphify refresh`, `install-hook` / `uninstall-hook`) for codebase context during **takeover** — see [`docs/graphify.md`](docs/graphify.md).
+- **Memory rollup:** each time skill state is saved, Forge refreshes **`memory/forge-memory-synthesis.md`** as an explicit merge of `project.md`, `current-step.md`, and recent handoffs so takeover can open one synthesized narrative (see `templates/memory-protocol.md`).
 
 ---
 
@@ -119,8 +119,7 @@ All **14** workflows are defined in [`integrations/spec/commands.json`](integrat
 | code-review | [Code review](#code-review) |
 | test | [Test](#test) |
 | diagnose | [Diagnose](#diagnose) |
-| iterate | [Iterate](#iterate) |
-| resume | [Resume](#resume) |
+| takeover | [Takeover](#takeover) |
 | status | [Status](#status) |
 | doctor | [Doctor](#doctor) |
 | ship | [Ship](#ship) |
@@ -140,7 +139,7 @@ Default linear order (evaluate and diagnose also run standalone):
 | 5 | `/forge:code-review` | `$forge:code-review` |
 | 6 | `/forge:test` | `$forge:test` |
 
-Handoff menus may recommend **evaluate** as a quality gate; **`forge resume`** treats evaluate as standalone when no session is active — follow the last handoff menu when in doubt. **Ship** is a finalize utility (not a pipeline step); handoff menus after implement, code-review, and test often list it.
+Handoff menus may recommend **evaluate** as a quality gate; **`forge takeover`** treats evaluate as standalone when no session is active — follow the last handoff menu when in doubt. **Ship** is a finalize utility (not a pipeline step); handoff menus after implement, code-review, and test often list it.
 
 When intent is fuzzy, run [sketch](#sketch) before [design](#design).
 
@@ -278,31 +277,21 @@ When intent is fuzzy, run [sketch](#sketch) before [design](#design).
 
 ---
 
-### Iterate
+### Takeover
 
 | | Cursor / Claude | Codex | Terminal |
 |--|-----------------|-------|----------|
-| Invoke | `/forge:iterate` | `$forge:iterate` | `forge iterate --step 1 --goal "…"` |
+| Invoke | `/forge:takeover` | `$forge:takeover` | `forge takeover` |
 
-**What it does:** Meta-workflow chaining diagnose → plan → evaluate → implement → code-review → test with inner and outer loops until metrics or max loops.
+**What it does:** Infers work from sessions, handoffs, design specs, and optional `--issue`, then drives child Forge skills until **ship-ready** quality gates pass (plan → evaluate → implement → code-review → test).
 
-**Artifacts:** `.iterate-gates/` under runtime memory.
+**When to use:** After interruption, to continue an epic autonomously, or to chain the delivery pipeline without manually picking each skill.
 
-**CLI:** `--target "accuracy >= 0.9" --max-loops 5` or `--text "… until …, max loops N"`.
+**CLI:** `--design <path>`, `--issue <n|url>`, `--goal <text>` (default goal: ship-ready). **`--cleanup`** / **`--cleanup --force`** remove stale state (migrated from legacy `forge resume --cleanup`).
 
----
+**Artifacts:** `.takeover-gates/` under runtime memory; deviations sidecar at session `sidecars/.takeover-deviations.json`.
 
-### Resume
-
-| | Cursor / Claude | Codex | Terminal |
-|--|-----------------|-------|----------|
-| Invoke | `/forge:resume` | `$forge:resume` | `forge resume` |
-
-**What it does:** Discovers active sessions, prints continuity from `resume-context.json` and memory synthesis, suggests the next `forge <skill> --step …` line.
-
-**When to use:** After interruption; use **`--cleanup`** (dry-run) or **`--cleanup --force`** to remove stale state.
-
-**Behavior:** With multiple active sessions the menu is authoritative. Snapshot vs JSON disagreement offers two resume paths. See [`skills/resume/SKILL.md`](skills/resume/SKILL.md).
+See [`skills/takeover/SKILL.md`](skills/takeover/SKILL.md).
 
 ---
 
@@ -372,7 +361,7 @@ forge uninstall
 pipx uninstall forge-next
 ```
 
-**Project state** (optional): `forge resume --cleanup` (terminal), or `/forge:resume` / `$forge:resume` with cleanup if exposed, or delete `.codex/forge/` (and legacy `.codex/forge-codex/` if present) and `.forge/` in that repo as needed.
+**Project state** (optional): `forge takeover --cleanup` (terminal), or `/forge:takeover` / `$forge:takeover` with cleanup if exposed, or delete `.codex/forge/` (and legacy `.codex/forge-codex/` if present) and `.forge/` in that repo as needed.
 
 ---
 
@@ -390,15 +379,15 @@ pipx uninstall forge-next
 
 **Primary layout** (new runs): under `.codex/forge/sessions/` each workflow gets a directory with `session.json`, optional `handoff.md`, and `sidecars/` for step artifacts. `index.json` lists active sessions; completed or auto-closed sessions move to `sessions/_archive/`. See [`docs/sessions.md`](docs/sessions.md).
 
-**Legacy layout** (still supported): flat JSON under `.codex/forge/state/` (for example `plan.json`, `plan-foo.json`) and global `memory/handoff-{skill}.md`. Resume and cleanup understand both layouts.
+**Legacy layout** (still supported): flat JSON under `.codex/forge/state/` (for example `plan.json`, `plan-foo.json`) and global `memory/handoff-{skill}.md`. Takeover and cleanup understand both layouts.
 
 - **Run memory files:** Each skill appends a short record on every step run to `memory/<skill>-runs.jsonl` and keeps only the last ~30 records.
-- **Continuity snapshot:** On every skill state save (and evaluate saves), Forge writes **`state/resume-context.json`** with skill, steps, invocation hint, state path, and pointers to the latest handoff / `current-step.md` for `forge resume` and new chat pickup.
-- **Memory synthesis:** The same saves refresh **`memory/forge-memory-synthesis.md`** — an explicit merge of `project.md`, `current-step.md`, and recent handoffs (see `templates/memory-protocol.md`). Resume prefers this file for the memory narrative when present.
+- **Continuity snapshot:** On every skill state save (and evaluate saves), Forge writes **`state/resume-context.json`** with skill, steps, invocation hint, state path, and pointers to the latest handoff / `current-step.md` for `forge takeover` and new chat pickup.
+- **Memory synthesis:** The same saves refresh **`memory/forge-memory-synthesis.md`** — an explicit merge of `project.md`, `current-step.md`, and recent handoffs (see `templates/memory-protocol.md`). Takeover prefers this file for the memory narrative when present.
 - **Audit linkage:** Run-memory records include `state_path`/`session_ref` and `handoff_path`/`handoff_ref` (when a handoff exists), plus timestamp and summary.
 - **Handoff closure:** Handoffs are consumed on step-1 intake of downstream skills (for example plan consumes design handoff, code-review consumes implement handoff, test consumes code-review/implement handoffs).
 - **Session completeness:** Active-session detection treats a run as complete when either `completed_at` is set or legacy state reached max step (`current_step >= max_step` and `last_completed_step >= max_step`).
-- **Cleanup behavior:** `forge resume --cleanup` removes stale session directories and legacy flat state files (dry-run by default; `--force` to delete). Env: `FORGE_SESSION_MAX_AGE_DAYS` (default `7`), `FORGE_SKIP_SESSION_CLEANUP=1` to disable automatic archive of old sessions.
+- **Cleanup behavior:** `forge takeover --cleanup` removes stale session directories and legacy flat state files (dry-run by default; `--force` to delete). Env: `FORGE_SESSION_MAX_AGE_DAYS` (default `7`), `FORGE_SKIP_SESSION_CLEANUP=1` to disable automatic archive of old sessions.
 - **Auto-close on step 1:** Starting a pipeline skill removes superseded session JSON when a handoff exists, when you move forward in the pipeline, or when a step-1-only session was abandoned (see [AGENTS.md](AGENTS.md) State Lifecycle). `forge status` / `forge doctor` report remaining leaks.
 
 ---
@@ -437,7 +426,7 @@ Re-run `forge claude-graphify` after `pipx upgrade forge-next` (hooks use your p
 
 - `forge-next` on PyPI installs terminal `forge` and bundled orchestrators.
 - This repo is the source for `prompts/`, `templates/`, `agents/`, `scripts/`, and **`integrations/`** (installable slash commands and Codex skills — exhaustive per `commands.json`).
-- **`skills/`** holds agent-facing `SKILL.md` files for most workflows (not all 14: **ship** and **iterate** live under `integrations/` and `.cursor/skills/ship/`). Edit repo-root `prompts/` and `templates/` for orchestration content; `forge_next/assets/` mirrors them at release.
+- **`skills/`** holds agent-facing `SKILL.md` files for most workflows (not all: **ship** lives under `integrations/` and `.cursor/skills/ship/`). Edit repo-root `prompts/` and `templates/` for orchestration content; `forge_next/assets/` mirrors them at release.
 
 PyPI: [pypi.org/project/forge-next](https://pypi.org/project/forge-next/)
 
@@ -466,7 +455,7 @@ Full list: [`docs/environment.md`](docs/environment.md).
 
 ## Contributing
 
-Orchestration lives in `scripts/shared/` (`orchestrator.py`, `skill_chain.py`, `resume.py`, `session_store.py`). Keep [AGENTS.md](AGENTS.md), [`docs/README.md`](docs/README.md), and `skills/` aligned with behavior.
+Orchestration lives in `scripts/shared/` (`orchestrator.py`, `skill_chain.py`, `session_store.py`) and `scripts/takeover/` (meta-workflow). Keep [AGENTS.md](AGENTS.md), [`docs/README.md`](docs/README.md), and `skills/` aligned with behavior.
 
 **Versions:** Any change that affects the PyPI package or editor integrations must bump semver in **[`pyproject.toml`](pyproject.toml)** (and the Cursor plugin [`plugin.json`](integrations/cursor-plugin/.cursor-plugin/plugin.json) when that bundle changes). Follow **[Versioning](AGENTS.md#versioning)** in [AGENTS.md](AGENTS.md): use **patch** for narrow fixes, **minor** for additive behavior, **major** for breaking contracts.
 

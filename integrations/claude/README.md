@@ -128,9 +128,7 @@ Definitions live in `integrations/claude/commands/` as `<subcommand>.md` (for ex
 
 | `forge:diagnose` | `forge diagnose …` |
 
-| `forge:iterate` | `forge iterate …` |
-
-| `forge:resume` | `forge resume …` |
+| `forge:takeover` | `forge takeover …` |
 
 | `forge:status` | `forge status …` |
 

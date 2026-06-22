@@ -9,7 +9,7 @@ Truth values are usually `1`, `true`, `yes`, or `on` (case-insensitive) unless n
 | `FORGE_SKIP_SESSION_OPTIN` | off | Suppress step-1 session opt-in banner |
 | `FORGE_SKIP_AUTO_CLOSE` | off | Disable step-1 auto-close of superseded sessions |
 | `FORGE_STEP1_ABANDON_HOURS` | `1` | Hours before idle step-1-only sessions are auto-closed |
-| `FORGE_STALE_SESSION_HOURS` | `24` | Stale session threshold for resume/status |
+| `FORGE_STALE_SESSION_HOURS` | `24` | Stale session threshold for takeover/status |
 | `FORGE_SESSION_MAX_AGE_DAYS` | `7` | Automatic archive age for session directories |
 | `FORGE_SKIP_SESSION_CLEANUP` | off | Disable automatic session archive |
 | `FORGE_AUTO_PARALLEL_ON_CONFLICT` | `1` | Step-1 allocates a new session on same-skill conflict |

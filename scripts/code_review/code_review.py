@@ -432,6 +432,10 @@ def handle_step_n(
     step: int,
     state_file: str | None = None,
     session_id: str | None = None,
+    *,
+    allow_structural_probes_incomplete: bool = False,
+    structural_probes_override_reason: str = "",
+    structural_probes_override_follow_up: str = "",
 ) -> None:
     """Steps 2-6: Load state, render template, output prompt."""
     from scripts.shared.orchestrator import resolve_step_state_path
@@ -452,6 +456,20 @@ def handle_step_n(
         print("Delete the state file and re-run step 1.")
         sys.exit(1)
 
+    scan_root = _detect_repo_root(Path.cwd())
+
+    if step >= 4:
+        from scripts.code_review.structural_probes_gate import exit_if_structural_probes_gate_fails
+
+        state_dir = _code_review_state_dir(sp, scan_root)
+        exit_if_structural_probes_gate_fails(
+            state_dir,
+            scan_root,
+            allow_incomplete=allow_structural_probes_incomplete,
+            override_reason=structural_probes_override_reason,
+            override_follow_up=structural_probes_override_follow_up,
+        )
+
     # Map steps to template names
     mode = state.custom.get("mode", "pr")
 
@@ -471,7 +489,6 @@ def handle_step_n(
     # Load template before mutating state — a missing template must not leave
     # state half-written.
     template = load_template(template_name)
-    scan_root = _detect_repo_root(Path.cwd())
     prompts_style = "full" if step == MAX_STEP else "brief"
     variables = _build_variables(
         state,
@@ -611,6 +628,13 @@ def main():
         "--plan", type=str, default=None,
         help="Optional plan file path or keywords (searches repo + native .cursor/.claude/.codex plans)",
     )
+    parser.add_argument(
+        "--allow-structural-probes-incomplete",
+        action="store_true",
+        help="Bypass structural probes gate on steps 4+ (requires override reason and follow-up)",
+    )
+    parser.add_argument("--structural-probes-override-reason", type=str, default="")
+    parser.add_argument("--structural-probes-override-follow-up", type=str, default="")
     args = parser.parse_args()
     apply_resolved_workflow_step(args, SKILL_NAME, MAX_STEP)
 
@@ -624,6 +648,15 @@ def main():
             args.step,
             state_file=args.state,
             session_id=getattr(args, "session", None),
+            allow_structural_probes_incomplete=getattr(
+                args, "allow_structural_probes_incomplete", False
+            ),
+            structural_probes_override_reason=getattr(
+                args, "structural_probes_override_reason", ""
+            ),
+            structural_probes_override_follow_up=getattr(
+                args, "structural_probes_override_follow_up", ""
+            ),
         )
 
 

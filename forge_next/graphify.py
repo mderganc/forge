@@ -1,7 +1,7 @@
 """Graphify integration: refresh index metadata and optional git post-commit hook.
 
 Graphify is optional third-party tooling. Forge never requires it for core
-workflows; `forge resume` reads `graphify-status.json` when present.
+workflows; `forge takeover` reads `graphify-status.json` when present.
 """
 
 from __future__ import annotations
@@ -411,7 +411,7 @@ def graphify_install_notice_lines() -> list[str]:
         "",
         f"Graphify: {summary}",
         "",
-        "Graphify (optional — gives `forge resume` a codebase map, not your chat history):",
+        "Graphify (optional — gives `forge takeover` a codebase map, not your chat history):",
     ]
     if available:
         lines.extend(

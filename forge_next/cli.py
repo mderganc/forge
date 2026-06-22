@@ -201,19 +201,22 @@ def build_parser() -> argparse.ArgumentParser:
     dg.add_argument("--state", type=str)
     dg.add_argument("--quick", action="store_true")
 
-    # iterate (meta-workflow)
-    it = sub.add_parser("iterate", help="Run the iterate meta-workflow orchestrator")
-    add_common_repo_flag(it)
-    add_common_output_flags(it)
-    add_session_flags(it)
-    add_workflow_phase_flags(it)
-    it.add_argument("--state", type=str)
-    it.add_argument("--goal", type=str)
-    it.add_argument("--target", type=str)
-    it.add_argument("--max-loops", type=int, dest="max_loops")
-    it.add_argument("--metric-command", type=str, dest="metric_command")
-    it.add_argument("--harness", type=str)
-    it.add_argument("--text", type=str, help="Natural-language goal line")
+    # takeover (meta-workflow — replaces resume + iterate)
+    to = sub.add_parser(
+        "takeover",
+        help="Infer epic and drive Forge skills until ship-ready",
+    )
+    add_common_repo_flag(to)
+    add_common_output_flags(to)
+    add_session_flags(to)
+    add_workflow_phase_flags(to)
+    to.add_argument("--state", type=str)
+    to.add_argument("--issue", type=str)
+    to.add_argument("--design", type=str)
+    to.add_argument("--goal", type=str)
+    to.add_argument("--cleanup", action="store_true")
+    to.add_argument("--force", action="store_true")
+    to.add_argument("--all-stale", action="store_true", dest="all_stale")
 
     # status
     st = sub.add_parser("status", help="Show workflow status (dashboard)")
@@ -224,14 +227,6 @@ def build_parser() -> argparse.ArgumentParser:
     doc = sub.add_parser("doctor", help="Diagnose installation and environment issues")
     add_common_repo_flag(doc)
     add_common_output_flags(doc)
-
-    # resume
-    rs = sub.add_parser("resume", help="Resume an in-progress workflow")
-    add_common_repo_flag(rs)
-    add_common_output_flags(rs)
-    rs.add_argument("--cleanup", action="store_true")
-    rs.add_argument("--force", action="store_true")
-    rs.add_argument("--all-stale", action="store_true", dest="all_stale")
 
     # session — manage parallel workflow sessions
     sess = sub.add_parser("session", help="Manage workflow sessions")

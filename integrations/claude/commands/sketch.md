@@ -17,9 +17,9 @@ Runs at **ship** only (`forge ship --step 1`). This workflow does not print GRAP
 
 ## What to tell the user first
 
-- **Sketch** is an **iterative conversation** — reflect, confirm, revise — before design investigates solutions.
+- **Sketch** is a **1:1 iterative conversation** — reflect, confirm, revise — before design investigates solutions (no agent team dispatch).
 - Optional: domain glossary (`CONTEXT.md`) and ADRs when domain-docs mode is on.
 
 ## What you run (agent)
 
-Run **sketch** at step one. **Dialogue only** — do not spawn Forge agents or Task sub-agents. Synthesis every few exchanges; re-run step 2 to continue; step 3 only after the user confirms ready for design.
+Run **sketch** at step one. Synthesis every few exchanges; re-run step 2 to continue; step 3 only after the user confirms ready for design.

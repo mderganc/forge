@@ -12,6 +12,10 @@ At **step 3**, the orchestrator runs **pyscn** (Python) and **knip** (Node) when
 
 **Steps 4–6 are blocked** until required probes have run (`pass` or `fail`, not `skip`). Re-run step 3 or use `--allow-structural-probes-incomplete` with override reason/follow-up to bypass.
 
+## Simplicity
+
+Preamble § Simplicity (YAGNI). Flag over-engineering and **Speculative Generality** (`templates/code-smells.md`).
+
 <invoke cmd="forge code-review" />
 
 | Argument | Required | Description |

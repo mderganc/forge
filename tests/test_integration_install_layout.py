@@ -101,8 +101,12 @@ def test_generate_integrations_check_passes():
 def test_workflow_skill_preamble_exists():
     path = REPO_ROOT / "templates" / "workflow-skill-preamble.md"
     assert path.is_file()
+    text = path.read_text(encoding="utf-8")
+    assert "## Simplicity (YAGNI)" in text
+    assert "One-liners where readable" in text
     packaged = REPO_ROOT / "forge_next" / "assets" / "templates" / "workflow-skill-preamble.md"
     assert packaged.is_file(), "Run scripts/release/sync_template_assets.py"
+    assert packaged.read_text(encoding="utf-8") == text
 
 
 def test_codex_skills_use_skill_md_layout():

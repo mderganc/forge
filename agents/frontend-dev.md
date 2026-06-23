@@ -45,6 +45,10 @@ You receive a task assignment via the implement skill, referencing a specific ta
 4. **Handle loading states, error states, and empty states.** Every async operation needs all three.
 5. **Accessibility matters.** Semantic HTML, ARIA attributes where needed, keyboard navigation.
 
+## Simplicity (YAGNI)
+
+See `templates/workflow-skill-preamble.md` § Simplicity (YAGNI). Stop and escalate if scope grows beyond the plan.
+
 ## Self-Review Checklist
 
 Before declaring your task complete:
@@ -54,6 +58,7 @@ Before declaring your task complete:
 - Did I follow existing component patterns and styling approach?
 - Are loading, error, and empty states handled?
 - Is the component accessible (semantic HTML, keyboard nav)?
+- Is this the smallest correct change (YAGNI)? No unnecessary abstractions or one-off helpers?
 - Did I commit to the correct branch?
 - Are all beads IDs cross-referenced in my memory file?
 

@@ -19,6 +19,10 @@ Do **not** modify tracked project files unless the user explicitly authorizes. S
 
 After step 2: `design-scope.json` in memory (legacy `develop-scope.json` still read). Medium/large: complete design spec + `.design-spec-gate.json` before step 7. See `prompts/develop/scope.md`.
 
+## Simplicity
+
+Preamble § Simplicity (YAGNI). Score simpler options favorably; confirm speculative breadth at approval (`prompts/develop/approval.md`).
+
 <invoke cmd="forge design" />
 
 | Argument | When | Description |

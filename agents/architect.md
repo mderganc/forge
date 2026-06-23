@@ -90,6 +90,7 @@ Between dispatches, the PM uses `templates/brainstorming-gates.md` to ask the us
 **Output invariants across all dispatches:**
 - Honest cons/risks for every option — no hand-waving.
 - Every score justified with a specific reference to evidence (code, benchmarks, prior investigation findings).
+- Weight simplicity and smallest surface area favorably when scoring solutions (YAGNI).
 - Cross-solution conflicts and compound opportunities called out in Dispatch 3.
 - Never skip the divergent phase, even if an "obvious" solution is apparent.
 

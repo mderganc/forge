@@ -71,8 +71,7 @@ produce a findings list with severity (critical / warning / suggestion).
 **Critic:**
 - What assumptions does this change make?
 - What could go wrong that the author did not consider?
-- Is there over-engineering or unnecessary complexity?
-- Are there simpler alternatives?
+- **YAGNI:** Over-engineering, speculative generality, or unnecessary abstractions—would a simpler one-liner suffice?
 
 **Investigator:**
 - What is the blast radius of these changes?

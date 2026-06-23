@@ -29,3 +29,11 @@ Final step emits a **WORKFLOW HANDOFF** menu. Defaults and alternatives: `script
 ## Routing
 
 When unsure which skill to run next, see [AGENTS.md](../AGENTS.md) § Process-first skill choice.
+
+## Simplicity (YAGNI)
+
+- **YAGNI:** Build only what the current task or approved scope requires. No speculative APIs, config flags, abstraction layers, or "future-proof" hooks unless explicitly in scope.
+- **Smallest correct change:** Prefer the shortest diff that satisfies acceptance criteria. A focused 5-line fix beats a 100-line refactor.
+- **One-liners where readable:** Prefer inline expressions (ternaries, comprehensions, small lambdas, guard clauses) over one-off helpers, wrapper classes, or new files—when clarity is preserved.
+- **No premature generalization:** One caller → implement at the call site; three similar call sites → then extract.
+- **When in doubt:** Ship the simpler option; escalate breadth to design/plan, not implementation.

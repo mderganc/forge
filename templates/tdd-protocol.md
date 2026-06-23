@@ -48,6 +48,7 @@ Actual: [paste actual test output]
 **Minimum implementation means:**
 - If the test expects a function to return `42`, it's valid to write `return 42` at this stage.
 - Don't add error handling, edge cases, or optimizations that aren't tested yet.
+- Prefer one-liners and inline fixes when readable; don't extract helpers used only once.
 - The next Red phase will drive those additions.
 
 ### Step 3: REFACTOR — Clean Up

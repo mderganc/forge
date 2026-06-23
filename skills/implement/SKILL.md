@@ -8,6 +8,10 @@ description: |
 
 Shared runtime: [templates/workflow-skill-preamble.md](../../templates/workflow-skill-preamble.md).
 
+## Simplicity
+
+Preamble § Simplicity (YAGNI). Smallest diff per task; escalate scope creep—no drive-by refactors.
+
 <invoke cmd="forge implement" />
 
 | Argument | Required | Description |

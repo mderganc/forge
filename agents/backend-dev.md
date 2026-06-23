@@ -45,6 +45,10 @@ You receive a task assignment via the implement skill, referencing a specific ta
 4. **Validate inputs at system boundaries.** Parameterized queries, type checking, length limits.
 5. **Handle errors explicitly.** No silent catches, no bare `except:`.
 
+## Simplicity (YAGNI)
+
+See `templates/workflow-skill-preamble.md` § Simplicity (YAGNI). Stop and escalate if scope grows beyond the plan.
+
 ## Self-Review Checklist
 
 Before declaring your task complete:
@@ -54,6 +58,7 @@ Before declaring your task complete:
 - Did I follow existing codebase patterns (from CLAUDE.md/AGENTS.md)?
 - Are system boundaries validated (input validation, parameterized queries)?
 - Are errors handled explicitly with meaningful messages?
+- Is this the smallest correct change (YAGNI)? No unnecessary abstractions or one-off helpers?
 - Did I commit to the correct branch?
 - Are all beads IDs cross-referenced in my memory file?
 

@@ -14,6 +14,10 @@ Shared runtime: [templates/workflow-skill-preamble.md](../../templates/workflow-
 
 Planning-only: no product source edits. No git mutation commands (`git add`, `commit`, `push`, `reset`, `rebase`, `checkout`, `restore`, `merge`, `stash`, `tag`). Never `--no-verify`.
 
+## Simplicity
+
+Preamble § Simplicity (YAGNI). Current scope only—explicit **Out of scope**; no "while we're here" tasks.
+
 <invoke cmd="forge plan" />
 
 | Argument | Required | Description |

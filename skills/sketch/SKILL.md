@@ -15,6 +15,10 @@ Routing and sketch vs design boundary: [AGENTS.md](../../AGENTS.md) § Process-f
 
 Shared runtime: [templates/workflow-skill-preamble.md](../../templates/workflow-skill-preamble.md).
 
+## Simplicity
+
+Preamble § Simplicity (YAGNI). Separate must-have from nice-to-have; defer speculative scope unless the user opts in.
+
 <invoke cmd="forge sketch" />
 
 | Argument | When | Description |

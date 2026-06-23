@@ -17,6 +17,7 @@ For each task in the wave, dispatch the assigned agent with:
    - Verify it fails with expected error
    - Implement minimal code to pass
    - Verify all tests pass (new + existing)
+   - **YAGNI:** Smallest diff; prefer one-liners where readable; no drive-by refactors
 4. Cross-reference beads if available
 
 Follow `templates/parallel-dispatch.md` for dispatch protocol.

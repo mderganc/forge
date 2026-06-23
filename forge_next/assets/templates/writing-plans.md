@@ -98,7 +98,8 @@ Each task is a discrete unit of work assigned to one agent. Every task must incl
 3. **TDD is mandatory.** Every task that changes runtime code must have TDD steps. Config-only or documentation tasks are exempt but must say so explicitly.
 4. **Acceptance criteria must be observable.** "Code is clean" is not observable. "Linter passes with zero warnings" is.
 5. **No task should take more than ~2 hours of agent work.** If it's bigger, break it down further.
-6. **INVEST validation.** Every task must pass the INVEST criteria:
+6. **YAGNI on tasks.** No speculative or "future" tasks; no framework-building unless explicitly in scope. Prefer fewer, smaller tasks.
+7. **INVEST validation.** Every task must pass the INVEST criteria:
    - **I**ndependent — Can be completed without waiting for other in-progress tasks
    - **N**egotiable — Implementation approach is flexible (not over-specified)
    - **V**aluable — Delivers testable, observable value on its own

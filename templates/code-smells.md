@@ -2,6 +2,8 @@
 
 Based on Martin Fowler and Kent Beck's catalog. Used by the architect and critic during code review (architecture mode) and evaluate review mode to identify symptoms of deeper design problems.
 
+**YAGNI:** See `templates/workflow-skill-preamble.md` § Simplicity (YAGNI). **Speculative Generality** (below) is the primary smell for YAGNI violations.
+
 ## Core Principle
 
 > A code smell is not a bug — it's a surface indicator of a design problem. Every smell has a specific refactoring remedy. Identify the smell, confirm the underlying issue, then apply the targeted fix.

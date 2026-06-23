@@ -27,6 +27,8 @@ Spec reference, In scope, Out of scope, **Plan mode: {{PLAN_MODE}}**).
 Replace each remaining `<!-- FORGE_SKELETON: ... -->` marker with content per
 `templates/writing-plans.md` and `templates/plan-modes.md`:
 
+- **YAGNI:** Plan only in-scope work; no speculative or "while we're here" tasks—list those in **Out of scope**.
+
 1. **`BRANCH-STRATEGY`** — Branch structure per the template's diagram and rules.
 2. **`TASK-BREAKDOWN`** — Tasks with exact file paths, agents, TDD steps, **Verify**
    command + expected outcome per task. No placeholders. INVEST validation.

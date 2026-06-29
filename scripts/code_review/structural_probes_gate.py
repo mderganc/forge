@@ -1,4 +1,4 @@
-"""Gate: code-review steps 4+ require structural probes (pyscn/knip) from step 3."""
+"""Gate: structural probes — user pause, code-review tool completeness."""
 
 from __future__ import annotations
 
@@ -11,6 +11,11 @@ from scripts.shared.structural_probes import (
     build_stack_inventory,
     inventory_stack_capabilities,
     skip_structural_probes,
+)
+from scripts.shared.structural_probes_gate import (
+    load_probe_gate_sidecar,
+    probe_gate_is_pending,
+    validate_probe_gate_at_step_entry,
 )
 from scripts.shared.workflow_gate import (
     exit_if_gate_fails,
@@ -75,6 +80,15 @@ def validate_structural_probes_gate(
     override_timestamp: str = "",
 ) -> tuple[bool, str]:
     """Return (ok, message). Steps 4+ require step-3 probe sidecar with pyscn/knip executed."""
+    ok_gate, gate_msg = validate_probe_gate_at_step_entry(
+        state_dir,
+        allow_incomplete=allow_incomplete,
+        override_reason=override_reason,
+        override_follow_up=override_follow_up,
+    )
+    if not ok_gate:
+        return False, gate_msg
+
     if skip_structural_probes():
         return True, "Structural probes suppressed (`FORGE_SKIP_STRUCTURAL_TOOLS=1`)."
 
@@ -98,6 +112,16 @@ def validate_structural_probes_gate(
             "STRUCTURAL PROBES GATE: missing `.structural-probes.json`.\n"
             f"Run `forge code-review --step 3` first (expected sidecar: `{path}`).",
         )
+
+    top_status = str(payload.get("status") or "").upper()
+    if top_status and top_status != "OK":
+        gate = load_probe_gate_sidecar(state_dir)
+        if probe_gate_is_pending(state_dir) or (gate and gate.get("gate_state") == "pending"):
+            return (
+                False,
+                f"STRUCTURAL PROBES GATE: probe status is {top_status} — "
+                "clear the gate (retry, override, or defer to ship) before continuing.",
+            )
 
     python_capable, node_capable = _stack_flags(payload, repo_root)
     by_tool = _probe_by_tool(payload)

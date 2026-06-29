@@ -303,6 +303,8 @@ def _format_output(
     mode: str | None = None,
     step: int | None = None,
     handoff_menu: str | None = None,
+    *,
+    require_confirmation: bool | None = None,
 ) -> str:
     """Format step output with title, todos, and continuation directive."""
     max_step = _max_step_for_mode(mode) if mode else 1
@@ -324,6 +326,7 @@ def _format_output(
         all_phase_todos=_mode_phase_todos(mode) if mode else None,
         handoff_menu=handoff_menu,
         title=title,
+        require_confirmation=require_confirmation,
     )
 
 
@@ -590,7 +593,7 @@ def handle_step_n(
 
     template = load_template(template_name)
     variables = _build_variables(state, plan_content, state_dir=sp.parent, step=step)
-    body = render_step_body(template, variables, state, sp, step)
+    body, probe_gate_pending = render_step_body(template, variables, state, sp, step)
 
     state.current_step = step
     save_state(state, sp)
@@ -636,7 +639,7 @@ def handle_step_n(
             state=state,
             state_path=sp,
         )
-    print(_format_output(title, body, next_cmd, phase_todos=phase_todos, mode=state.mode or "pre", step=step, handoff_menu=handoff_menu))
+    print(_format_output(title, body, next_cmd, phase_todos=phase_todos, mode=state.mode or "pre", step=step, handoff_menu=handoff_menu, require_confirmation=probe_gate_pending or None))
 
 
 def main():

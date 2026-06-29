@@ -498,6 +498,7 @@ def handle_step_n(
     )
     body = render_template(template, variables)
 
+    probe_gate_pending = False
     if step == 3:
         print(
             "forge: code-review step 3 — loading template and structural Pass B…",
@@ -522,6 +523,12 @@ def handle_step_n(
         )
         if sidecar:
             state.custom["structural_probes_sidecar"] = str(sidecar)
+
+    from scripts.shared.structural_probes_gate import probe_gate_is_pending
+
+    probe_gate_pending = step == 3 and probe_gate_is_pending(
+        _code_review_state_dir(sp, scan_root)
+    )
 
     from scripts.shared.workflow_prompt_archive import record_step_prompt
 
@@ -604,6 +611,7 @@ def handle_step_n(
         handoff_menu=handoff_menu,
         all_phase_names=PHASE_NAMES,
         all_phase_todos=PHASE_TODOS,
+        require_confirmation=True if probe_gate_pending else None,
     )
     # Flush before large step bodies so terminals show output immediately.
     print(output, flush=True)

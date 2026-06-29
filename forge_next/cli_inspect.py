@@ -131,7 +131,10 @@ def run_status(repo_root: Path, json_output: bool = False) -> None:
         sessions = detect_active_sessions(repo_root)
         leak_hints = collect_session_leak_hints(repo_root)
         state_issues = collect_unreadable_state_files(repo_root)
-        warnings = [*leak_hints, *state_issues]
+        from scripts.shared.structural_probes_gate import collect_probe_gate_hints
+
+        probe_gate_hints = collect_probe_gate_hints(repo_root)
+        warnings = [*leak_hints, *state_issues, *probe_gate_hints]
 
         if json_output:
             payload = {
@@ -241,6 +244,11 @@ def run_doctor(repo_root: Path, json_output: bool = False) -> None:
         warnings.extend(partial_warn)
 
     warnings.extend(check_session_leaks(repo_root))
+    from scripts.shared.structural_probes_gate import collect_probe_gate_hints
+
+    probe_gate_hints = collect_probe_gate_hints(repo_root)
+    warnings.extend(probe_gate_hints)
+    checks["structural_probe_gates"] = probe_gate_hints
 
     payload = {
         "command": "doctor",

@@ -1,6 +1,6 @@
 # Workflow session directories
 
-Forge stores workflow state under the **runtime root** (default `.codex/forge/` in the target repo; legacy `.codex/forge-codex/` if the canonical tree does not exist yet; `.forge/` when `.codex` is a file, read-only — common in Codex sandboxes — or its runtime subtree is not writable).
+Forge stores workflow state under **`<repo>/.forge/`** (repo-local only). Legacy trees under `.codex/forge/` and `.codex/forge-codex/` are migrated into `.forge/` on the next workflow step 1 and remain readable until archived.
 
 Implementation: [`scripts/shared/session_store.py`](../scripts/shared/session_store.py).
 
@@ -9,7 +9,8 @@ Implementation: [`scripts/shared/session_store.py`](../scripts/shared/session_st
 Step 1 of a workflow allocates a new directory under `sessions/`:
 
 ```
-.codex/forge/
+.forge/
+  adaptation.json           # runtime profile (writable alias, mount class)
   sessions/
     index.json              # fast listing of active sessions
     {session_id}/
@@ -27,7 +28,7 @@ Continue interrupted work with:
 ```bash
 forge takeover
 forge <skill> --step N --session <id>
-forge <skill> --step N --state .codex/forge/sessions/<id>/session.json
+forge <skill> --step N --state .forge/sessions/<id>/session.json
 ```
 
 When **multiple active sessions** exist for the same skill, steps 2+ require **`--session <id>`** (or an explicit `--state` path). `forge takeover` and `forge status` list session IDs.

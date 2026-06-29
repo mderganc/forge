@@ -23,7 +23,7 @@ Truth values are usually `1`, `true`, `yes`, or `on` (case-insensitive) unless n
 | `FORGE_SKIP_GRAPHIFY_SESSION_REFRESH` | Suppress Claude SessionStart background refresh |
 | `FORGE_GRAPHIFY_COMMAND` | Shell command to rebuild graph (default `graphify update .`) |
 
-Per-clone prefs: `forge graphify on|off|status` writes `.codex/forge/state/graphify-prefs.json`. See [graphify.md](graphify.md).
+Per-clone prefs: `forge graphify on|off|status` writes `.forge/state/graphify-prefs.json`. See [graphify.md](graphify.md).
 
 ## Structural quality
 
@@ -45,7 +45,7 @@ See [structural-quality.md](structural-quality.md).
 | Variable | Effect |
 |----------|--------|
 | `FORGE_WORKFLOW_INVOCATION` | Agent handoff prefix: `slash` → `/forge:…` (Cursor/Claude); `dollar` → `$forge:…` (Codex). Auto: `CURSOR_*` / `CLAUDE_CODE` → slash; `CODEX_HOME` → dollar; repos with `.cursor/` → slash. Override when Codex runs inside a Cursor checkout. |
-| `FORGE_REPO` | Override detected writable git root (sandbox/WSL) |
+| `FORGE_REPO` | Override detected writable git root (rare; Forge normally picks a writable alias automatically — see `.forge/adaptation.json`) |
 | `FORGE_USE_LAUNCHER` | Set by `forge` CLI (internal) |
 | `FORGE_ASCII` | ASCII-only banners (Windows consoles) |
 | `FORGE_SKIP_SUBAGENT_LIFECYCLE` | Disable Cursor subagent hooks |

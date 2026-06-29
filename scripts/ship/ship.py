@@ -62,6 +62,17 @@ Repo: `{repo_root}`
 
 def handle_step_1() -> None:
     repo_root = _detect_repo_root(Path.cwd())
+    deferred_probe_lines: list[str] = []
+    if not __import__(
+        "forge_next.graphify_enforcement", fromlist=["graphify_fully_disabled"]
+    ).graphify_fully_disabled(repo_root):
+        try:
+            from scripts.shared.structural_probes_gate import run_ship_deferred_probe_passes
+
+            deferred_probe_lines = run_ship_deferred_probe_passes(repo_root)
+        except Exception as exc:
+            deferred_probe_lines = [f"Deferred structural probes failed (non-fatal): {exc}"]
+
     print(
         "forge: ship step 1 — starting graphify refresh in the background…",
         file=sys.stderr,
@@ -89,6 +100,9 @@ def handle_step_1() -> None:
             refresh_note = f"Graphify refresh failed (non-fatal): {exc}"
 
     body = _ship_body(repo_root, refresh_note=refresh_note)
+    if deferred_probe_lines:
+        body += "\n\n## Structural probes (deferred to ship)\n\n"
+        body += "\n".join(f"- {line}" for line in deferred_probe_lines)
     output = format_step_output(
         SKILL_NAME,
         1,

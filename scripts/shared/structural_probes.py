@@ -92,6 +92,10 @@ def _is_vendored_forge_snapshot_dir(part: str) -> bool:
     return part.startswith("forge_next-") and part != "forge_next"
 
 
+PROBE_GIT_TIMEOUT_SEC = 8
+PROBE_INVENTORY_WALK_MAX = 8000
+
+
 def _probe_progress(message: str) -> None:
     """stderr progress so step output is not silent while inventory scans run."""
     print(f"forge: {message}", file=sys.stderr, flush=True)
@@ -252,16 +256,17 @@ def filter_python_scope_paths(repo_root: Path, paths: list[str]) -> list[str]:
     return out
 
 
-def _git_run_names(repo_root: Path, args: list[str]) -> list[str]:
+def _git_run_names(repo_root: Path, args: list[str], *, timeout: int | None = None) -> list[str]:
     import subprocess
 
+    effective_timeout = PROBE_GIT_TIMEOUT_SEC if timeout is None else timeout
     try:
         proc = subprocess.run(
             ["git", *args],
             cwd=str(repo_root),
             capture_output=True,
             text=True,
-            timeout=30,
+            timeout=effective_timeout,
             encoding="utf-8",
             errors="replace",
         )
@@ -476,6 +481,8 @@ def should_run_probes(skill_name: str, step: int, mode: str | None = None) -> bo
     if slug == "evaluate" and step == 4 and mode == "post":
         return True
     if slug == "evaluate" and step == 1 and mode == "review":
+        return True
+    if slug == "implement" and step == 4:
         return True
     return False
 
@@ -1322,13 +1329,33 @@ def resolve_probe_summary_for_state(
     return format_probe_summary_markdown(sidecar, payload, style=style)
 
 
-def format_probe_results_banner(payload: dict[str, Any], sidecar: Path | None) -> str:
-    if skip_structural_probes():
-        return ""
+def format_probe_results_banner(
+    payload: dict[str, Any],
+    sidecar: Path | None,
+    *,
+    state_dir: Path | None = None,
+) -> str:
+    from scripts.shared.structural_probes_gate import (
+        finalize_probe_outcome,
+        resolve_probe_status_from_payload,
+    )
+
+    probe_status, reason = resolve_probe_status_from_payload(payload)
+    if payload is not None:
+        payload["status"] = probe_status
+        payload["status_reason"] = reason
+    gate_dir = state_dir or (sidecar.parent if sidecar else Path.cwd())
+    extra, _ = finalize_probe_outcome(
+        gate_dir,
+        status=probe_status,
+        reason=reason,
+        sidecar=sidecar,
+    )
     bar = ("=" * 60) if os.environ.get("FORGE_ASCII") == "1" else ("━" * 60)
     lines = [
+        extra.rstrip(),
         bar,
-        "STRUCTURAL PROBES — results (Pass B)",
+        "STRUCTURAL PROBES — results detail (Pass B)",
         bar,
         "",
         "Read `templates/structural-quality-probes.md` and the results sidecar before structural findings.",
@@ -1369,13 +1396,23 @@ def format_probe_planning_banner(
     inventory: dict[str, Any],
     suggestion: dict[str, Any],
 ) -> str:
-    if skip_structural_probes():
-        return ""
+    from scripts.shared.structural_probes_gate import (
+        STATUS_DEFERRED,
+        finalize_probe_outcome,
+    )
+
+    extra, _ = finalize_probe_outcome(
+        state_dir,
+        status=STATUS_DEFERRED,
+        reason="probe plan drafted; run `forge structural-probes run` or enable auto-run",
+        policy="manual",
+    )
     bar = ("=" * 60) if os.environ.get("FORGE_ASCII") == "1" else ("━" * 60)
     inv_file = Path(state_dir) / INVENTORY_NAME
     plan_file = Path(state_dir) / PLAN_NAME
     run_cmd = f"forge structural-probes run --state-dir {state_dir}"
     lines = [
+        extra.rstrip(),
         bar,
         "STRUCTURAL PROBES — agent selects tools (Pass B)",
         bar,
@@ -1437,14 +1474,27 @@ def inject_structural_probes_section(
     quick_mode: bool = False,
 ) -> tuple[str, Path | None, dict[str, Any] | None]:
     """Append planning or results banner; code-review step 3 auto-runs probes (pyscn when Python)."""
-    if not should_run_probes(skill_name, step, mode) or skip_structural_probes():
+    if not should_run_probes(skill_name, step, mode):
         return body, None, None
 
     from scripts.shared.repo_paths import equivalent_path_in_repo, resolve_repo_root
+    from scripts.shared.structural_probes_gate import (
+        STATUS_SKIPPED,
+        finalize_probe_outcome,
+        resolve_probe_status_from_payload,
+    )
 
     scan_root = resolve_repo_root(repo_root)
     write_dir = equivalent_path_in_repo(Path(state_dir), scan_root)
     write_dir.mkdir(parents=True, exist_ok=True)
+
+    if skip_structural_probes():
+        extra, _ = finalize_probe_outcome(
+            write_dir,
+            status=STATUS_SKIPPED,
+            reason="FORGE_SKIP_STRUCTURAL_TOOLS=1",
+        )
+        return body + "\n\n" + extra, None, None
 
     _probe_progress(
         f"structural Pass B — scanning repo inventory ({skill_name} step {step})…"
@@ -1498,7 +1548,7 @@ def inject_structural_probes_section(
             step=step,
         )
         sc = sidecar_path(write_dir)
-        banner = format_probe_results_banner(payload, sc)
+        banner = format_probe_results_banner(payload, sc, state_dir=write_dir)
         return body + "\n\n" + banner + eight_banner, sc, payload
 
     banner = format_probe_planning_banner(write_dir, inventory, draft_plan)

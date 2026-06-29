@@ -5,22 +5,37 @@ from scripts.shared import orchestrator
 from scripts.shared import repo_paths as rp
 
 
-def test_runtime_root_uses_canonical_layout_when_dot_codex_is_directory(tmp_path: Path):
-    (tmp_path / ".codex").mkdir()
-
-    expected = tmp_path / ".codex" / "forge"
+def test_runtime_root_uses_dot_forge_as_primary(tmp_path: Path):
+    """All new writes use ``.forge/`` under the repo root."""
+    expected = tmp_path / ".forge"
     assert orchestrator.runtime_root(tmp_path) == expected
     assert orchestrator.runtime_state_path("develop", tmp_path) == expected / "state" / "develop.json"
 
 
+def test_runtime_root_candidates_include_legacy_codex_trees(tmp_path: Path):
+    from scripts.shared import runtime_layout
+
+    (tmp_path / ".codex" / "forge").mkdir(parents=True)
+    legacy_fc = tmp_path / ".codex" / "forge-codex"
+    legacy_fc.mkdir(parents=True)
+
+    candidates = runtime_layout.runtime_root_candidates(tmp_path)
+    assert candidates[0] == tmp_path / ".forge"
+    assert tmp_path / ".codex" / "forge" in candidates
+    assert legacy_fc in candidates
+
+
 def test_runtime_root_prefers_legacy_forge_codex_when_canonical_missing(tmp_path: Path):
     """Older repos may only have `.codex/forge-codex/` until migrated."""
+    from scripts.shared import runtime_layout
+
     codex = tmp_path / ".codex"
     codex.mkdir()
     legacy = codex / "forge-codex"
     legacy.mkdir()
 
-    assert orchestrator.runtime_root(tmp_path) == legacy
+    assert orchestrator.runtime_root(tmp_path) == tmp_path / ".forge"
+    assert legacy in runtime_layout.runtime_root_candidates(tmp_path)
 
 
 def test_runtime_root_falls_back_to_legacy_when_dot_codex_is_not_directory(tmp_path: Path):
@@ -48,15 +63,15 @@ def test_runtime_root_falls_back_when_dot_codex_is_read_only(tmp_path: Path, mon
     assert orchestrator.runtime_root(tmp_path) == expected
 
 
-def test_runtime_root_keeps_writable_existing_canonical_tree(tmp_path: Path):
+def test_runtime_root_keeps_dot_forge_when_codex_tree_exists(tmp_path: Path):
     canonical = tmp_path / ".codex" / "forge"
     canonical.mkdir(parents=True)
     (canonical / "sessions").mkdir()
 
-    assert orchestrator.runtime_root(tmp_path) == canonical
+    assert orchestrator.runtime_root(tmp_path) == tmp_path / ".forge"
 
 
-def test_runtime_root_falls_back_when_existing_canonical_tree_is_read_only(
+def test_runtime_root_stays_dot_forge_when_codex_tree_read_only(
     tmp_path: Path, monkeypatch
 ):
     canonical = tmp_path / ".codex" / "forge"
@@ -103,7 +118,7 @@ def test_scan_evaluate_sessions_uses_correct_mode_max_steps(tmp_path: Path):
 
 def test_consume_handoff_reads_and_closes_files(tmp_path: Path):
     runtime = orchestrator.runtime_memory_dir(tmp_path)
-    legacy = orchestrator.legacy_memory_dir(tmp_path)
+    legacy = tmp_path / ".codex" / "forge" / "memory"
     runtime.mkdir(parents=True, exist_ok=True)
     legacy.mkdir(parents=True, exist_ok=True)
 
@@ -225,24 +240,20 @@ def test_status_does_not_crash_on_evaluate_state(monkeypatch):
 
 
 def test_template_runtime_variables_use_canonical_layout(tmp_path: Path):
-    (tmp_path / ".codex").mkdir()
-
     vars_ = orchestrator.template_runtime_variables(tmp_path)
-    assert vars_["RUNTIME_DIR"] == ".codex/forge"
-    assert vars_["MEMORY_DIR"] == ".codex/forge/memory"
+    assert vars_["RUNTIME_DIR"] == ".forge"
+    assert vars_["MEMORY_DIR"] == ".forge/memory"
 
 
 def test_render_template_injects_memory_dir(tmp_path: Path):
     from scripts.evaluate.template_engine import render_template
 
-    (tmp_path / ".codex").mkdir()
     rendered = render_template(
         "Write to `{{MEMORY_DIR}}/investigator.md`",
         {},
         search_dir=tmp_path,
     )
-    assert rendered == "Write to `.codex/forge/memory/investigator.md`"
-    assert "forge-codex" not in rendered
+    assert rendered == "Write to `.forge/memory/investigator.md`"
 
 
 def test_agents_memory_paths_use_canonical_forge_layout():

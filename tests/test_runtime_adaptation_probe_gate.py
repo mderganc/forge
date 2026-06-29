@@ -33,6 +33,9 @@ def test_adapt_runtime_writes_profile(tmp_path: Path, monkeypatch):
     profile = ra.adapt_runtime(tmp_path)
     assert profile["runtime_root"] == ".forge"
     assert (tmp_path / ".forge" / "adaptation.json").is_file()
+    loaded = ra.load_adaptation_profile(tmp_path)
+    assert loaded is not None
+    assert loaded["writable_repo_root"] == profile["writable_repo_root"]
 
 
 def test_non_ok_probe_writes_gate_and_pauses(tmp_path: Path):

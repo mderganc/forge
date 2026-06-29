@@ -245,10 +245,13 @@ def run_doctor(repo_root: Path, json_output: bool = False) -> None:
 
     warnings.extend(check_session_leaks(repo_root))
     from scripts.shared.structural_probes_gate import collect_probe_gate_hints
+    from scripts.shared.runtime_adaptation import load_adaptation_profile
 
     probe_gate_hints = collect_probe_gate_hints(repo_root)
     warnings.extend(probe_gate_hints)
     checks["structural_probe_gates"] = probe_gate_hints
+    adaptation = load_adaptation_profile(repo_root)
+    checks["runtime_adaptation"] = adaptation or "(no .forge/adaptation.json yet)"
 
     payload = {
         "command": "doctor",

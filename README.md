@@ -239,7 +239,7 @@ When intent is fuzzy, run [sketch](#sketch) before [design](#design).
 
 **What it does:** Structured PR/diff/architecture review with Pass A (spec) and Pass B (engineering quality).
 
-**Artifacts:** `memory/code-review-report.md`; step 3 runs structural probes (pyscn/skylos on Python repos) — see [`docs/structural-quality.md`](docs/structural-quality.md).
+**Artifacts:** `memory/code-review-report.md`; step 3 runs structural probes (jscn/knip/madge on Node repos; pyscn/skylos on Python) — see [`docs/structural-quality.md`](docs/structural-quality.md).
 
 **Default handoff:** [test](#test) or [ship](#ship).
 

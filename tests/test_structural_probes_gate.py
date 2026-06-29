@@ -40,14 +40,23 @@ def _write_sidecar(state_dir: Path, *, python: bool = True, node: bool = False) 
             }
         )
     if node:
-        probes.append(
-            {
-                "tool": "knip",
-                "status": "pass",
-                "command": ["knip"],
-                "summary": "ok",
-                "findings": [],
-            }
+        probes.extend(
+            [
+                {
+                    "tool": "knip",
+                    "status": "pass",
+                    "command": ["knip"],
+                    "summary": "ok",
+                    "findings": [],
+                },
+                {
+                    "tool": "jscn",
+                    "status": "pass",
+                    "command": ["jscn", "analyze"],
+                    "summary": "ok",
+                    "findings": [],
+                },
+            ]
         )
     payload = {
         "stack": {"python": python, "node": node},
@@ -83,7 +92,7 @@ def test_gate_fails_when_pyscn_skipped(tmp_path: Path) -> None:
     assert "pyscn" in msg
 
 
-def test_gate_requires_knip_when_node(tmp_path: Path) -> None:
+def test_gate_requires_knip_and_jscn_when_node(tmp_path: Path) -> None:
     state_dir = tmp_path / "session"
     _write_sidecar(state_dir, python=True, node=True)
     ok, msg = validate_structural_probes_gate(state_dir, tmp_path)
@@ -98,6 +107,7 @@ def test_gate_fails_node_without_knip(tmp_path: Path) -> None:
         "probes": [
             {"tool": "pyscn", "status": "pass", "summary": "ok", "findings": []},
             {"tool": "knip", "status": "skip", "summary": "not installed", "findings": []},
+            {"tool": "jscn", "status": "pass", "summary": "ok", "findings": []},
         ],
     }
     state_dir.mkdir(parents=True)
@@ -105,6 +115,24 @@ def test_gate_fails_node_without_knip(tmp_path: Path) -> None:
     ok, msg = validate_structural_probes_gate(state_dir, tmp_path)
     assert not ok
     assert "knip" in msg
+
+
+def test_gate_fails_node_without_jscn(tmp_path: Path) -> None:
+    state_dir = tmp_path / "session"
+    payload = {
+        "stack": {"python": True, "node": True},
+        "plan": {"stack_applicable": {"python": True, "node": True}},
+        "probes": [
+            {"tool": "pyscn", "status": "pass", "summary": "ok", "findings": []},
+            {"tool": "knip", "status": "pass", "summary": "ok", "findings": []},
+            {"tool": "jscn", "status": "skip", "summary": "not installed", "findings": []},
+        ],
+    }
+    state_dir.mkdir(parents=True)
+    (state_dir / ".structural-probes.json").write_text(json.dumps(payload), encoding="utf-8")
+    ok, msg = validate_structural_probes_gate(state_dir, tmp_path)
+    assert not ok
+    assert "jscn" in msg
 
 
 def test_gate_override_requires_reason(tmp_path: Path) -> None:

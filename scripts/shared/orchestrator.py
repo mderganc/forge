@@ -232,7 +232,10 @@ def resolve_step1_state_path(
         session_json_path,
     )
 
-    repo_root = _detect_repo_root(search_dir).resolve()
+    from scripts.shared.runtime_adaptation import adapt_runtime, writable_repo_root
+
+    repo_root = writable_repo_root(search_dir)
+    adapt_runtime(repo_root)
 
     run_session_cleanup(search_dir=repo_root)
     migrate_legacy_state_files(repo_root)

@@ -425,7 +425,11 @@ def create_session(
     search_dir: Path | None = None,
 ) -> tuple[str, Path]:
     """Create a new session directory and empty ``session.json`` shell."""
-    migrate_legacy_state_files(search_dir)
+    from scripts.shared.runtime_adaptation import adapt_runtime, writable_repo_root
+
+    repo = writable_repo_root(search_dir)
+    adapt_runtime(repo)
+    migrate_legacy_state_files(repo)
     sid = _new_session_id(search_dir)
     session_label = label or _default_label(skill)
     session_dir = session_directory(sid, search_dir)

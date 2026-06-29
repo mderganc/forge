@@ -139,8 +139,9 @@ def inject_structural_probes(
     state: EvalState,
     state_path: Path,
     step: int,
-) -> str:
+) -> tuple[str, bool]:
     from scripts.shared.structural_probes import inject_structural_probes_section
+    from scripts.shared.structural_probes_gate import probe_gate_is_pending
 
     body, sidecar, _payload = inject_structural_probes_section(
         body,
@@ -153,7 +154,7 @@ def inject_structural_probes(
     )
     if sidecar:
         state.custom["structural_probes_sidecar"] = str(sidecar)
-    return body
+    return body, probe_gate_is_pending(state_path.parent)
 
 
 def render_step_body(
@@ -162,8 +163,9 @@ def render_step_body(
     state: EvalState,
     state_path: Path,
     step: int,
-) -> str:
+) -> tuple[str, bool]:
     body = render_template(template, variables)
+    gate_pending = False
     if should_inject_structural_probes(state, step):
-        body = inject_structural_probes(body, state, state_path, step)
-    return body
+        body, gate_pending = inject_structural_probes(body, state, state_path, step)
+    return body, gate_pending

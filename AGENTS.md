@@ -132,9 +132,9 @@ The skill orchestrators handle state-file lifecycle so workflows are interruptib
 - **Step-1 auto-close** (pipeline skills: design, plan, implement, code-review, test, diagnose): starting a skill at step 1 automatically removes superseded JSON state when (1) `handoff-{skill}.md` exists, (2) the session is **upstream** in the pipeline relative to the skill being started, or (3) the session is **step-1-only** and idle longer than `FORGE_STEP1_ABANDON_HOURS` (default `1`). The new step-1 target path is never deleted. Suppress with `FORGE_SKIP_AUTO_CLOSE=1`. Look for `AUTO-CLOSED:` lines on stderr.
 - **Canonical completion** remains the final orchestrator step (`forge <skill> --step N` at max step): sets `completed_at`, writes handoff via `write_handoff`, then `clear_state_file`.
 - **Cross-skill conflicts** that survive auto-close still emit a stderr warning but do not block.
-- **Session directories (primary):** New runs allocate `.codex/forge/sessions/{id}/session.json` with optional `handoff.md` and `sidecars/`; `index.json` lists actives; `sessions/_archive/` holds completed or auto-closed sessions. See [`docs/sessions.md`](docs/sessions.md) and `scripts/shared/session_store.py`.
+- **Session directories (primary):** New runs allocate `.forge/sessions/{id}/session.json` with optional `handoff.md` and `sidecars/`; `index.json` lists actives; `sessions/_archive/` holds completed or auto-closed sessions. See [`docs/sessions.md`](docs/sessions.md) and `scripts/shared/session_store.py`.
 - **`forge takeover --cleanup`** removes stale session directories and legacy flat state files (including parallel `skill-*.json` variants). Defaults to dry-run; pass `--force` to delete. Pass `--all-stale --force` to clear every state file regardless of age. From a Forge source checkout without the launcher, `python3 scripts/takeover/takeover.py --cleanup` is equivalent.
-- **`forge status`** and **`forge doctor`** surface leak hints (handoff present but JSON active, misplaced state paths, step-1 abandoned).
+- **`forge status`** and **`forge doctor`** surface leak hints (handoff present but JSON active, misplaced state paths, step-1 abandoned) and pending structural probe gates.
 - **Plan files** are now created by `scripts/plan/plan.py` itself with section-marker placeholders; agents replace markers rather than create the file. The step-6 completion gate refuses to mark the workflow complete while any markers remain.
 - **Evaluate findings** persist between phases via per-step sidecar files at `<state-dir>/.evaluate-findings-step<N>.json`. Each phase's prompt instructs the LLM to write findings there; the orchestrator ingests them on the next step.
 - **Design spec gate:** when `spec_required` is true (medium/large scope from `memory/design-scope.json`; legacy `develop-scope.json` still read), step 7 validates `<state-dir>/.design-spec-gate.json` (legacy `.develop-spec-gate.json` still read) before handoff. Optional strict bypass: `--allow-spec-incomplete` with `--spec-override-reason` and `--spec-override-follow-up` on `forge design --step 7`.
@@ -155,7 +155,7 @@ All reads use `.get(key, default)` pattern for backward compatibility with legac
 
 The recommendation sidecar persists at `<state-dir>/.test-recommendation-step2.json` (step-numbered, mirrors evaluate's findings sidecar convention). Schema: `{"chosen": "<type>", "reasoning": "...", "confidence": 0.0-1.0, "alternatives": [...]}`. Ingested at step 3; malformed sidecar aborts with `sys.exit(1)` and stderr message.
 
-The scenario-index update at `<scenarios_dir>/README.md` is parser-gated; on parse failure, report step aborts and leaves file unchanged. Backup written to `<runtime>/memory/scenario-index.bak` before any rewrite (runtime default `.codex/forge/`; legacy `.codex/forge-codex/`).
+The scenario-index update at `<scenarios_dir>/README.md` is parser-gated; on parse failure, report step aborts and leaves file unchanged. Backup written to `<runtime>/memory/scenario-index.bak` before any rewrite (runtime default `.forge/`; legacy `.codex/forge*` still read during migration).
 
 ### Diagnose — Methodology sidecars and gates
 
@@ -163,7 +163,7 @@ The scenario-index update at `<scenarios_dir>/README.md` is parser-gated; on par
 
 **Playbooks:** `templates/diagnose-execution-playbooks.md` — operational when/phase/artifact rules for all 20 catalog techniques.
 
-**Sidecars** (under the active diagnose session: `.codex/forge/sessions/<id>/sidecars/` or legacy flat state dir beside `session.json`; canonical runtime `.codex/forge/`, legacy `.codex/forge-codex/`):
+**Sidecars** (under the active diagnose session: `.forge/sessions/<id>/sidecars/` or legacy flat state dir beside `session.json`; canonical runtime `.forge/`, legacy `.codex/forge*` still read during migration):
 
 | File | Phase | Gate steps |
 |------|-------|------------|

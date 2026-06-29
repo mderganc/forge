@@ -81,7 +81,7 @@ def test_evaluate_post_step4_injects_structural_banner(
     from scripts.evaluate.state import EvalState, save_state
     from scripts.shared import structural_probes as sp
 
-    state_dir = REPO_ROOT / ".codex" / "forge" / "state" / "evaluate-post-step4-smoke"
+    state_dir = REPO_ROOT / ".forge" / "state" / "evaluate-post-step4-smoke"
     state_dir.mkdir(parents=True, exist_ok=True)
     plan = state_dir / "plan.md"
     plan.write_text("# Plan\n\n## Task 1\n\nDo thing.\n", encoding="utf-8")
@@ -103,6 +103,7 @@ def test_evaluate_post_step4_injects_structural_banner(
         return fake
 
     monkeypatch.setattr(sp, "run_probes", fake_run)
+    monkeypatch.delenv("FORGE_STRUCTURAL_PROBES_MANUAL", raising=False)
     monkeypatch.setenv("FORGE_STRUCTURAL_PROBES_AUTO", "1")
     monkeypatch.setenv("FORGE_SKIP_GRAPHIFY", "1")
     monkeypatch.setenv("FORGE_SKIP_SESSION_OPTIN", "1")
@@ -126,3 +127,92 @@ def test_evaluate_post_step4_injects_structural_banner(
     assert "STRUCTURAL PROBES" in out
     assert "custom" in reloaded
     assert "structural_probes_sidecar" in reloaded.get("custom", {})
+
+
+def test_code_review_step3_real_template_probe_gate(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    """Step 3 loads real team-dispatch template + probe gate multiselect."""
+    import io
+
+    import scripts.code_review.code_review as cr
+    from scripts.shared.orchestrator import SkillState, save_state
+
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / ".git").mkdir()
+    sess = tmp_path / ".forge" / "sessions" / "cr3" / "session.json"
+    sess.parent.mkdir(parents=True)
+    state = SkillState(skill_name="code-review", max_step=6)
+    state.current_step = 2
+    state.last_completed_step = 2
+    state.custom["mode"] = "deep"
+    state.custom["target"] = "feat/runtime-probe-gates"
+    state.custom["target_tokens"] = []
+    save_state(state, sess)
+
+    monkeypatch.setenv("FORGE_STRUCTURAL_PROBES_MANUAL", "1")
+    monkeypatch.setenv("FORGE_SKIP_GRAPHIFY", "1")
+    monkeypatch.setenv("FORGE_SKIP_SESSION_OPTIN", "1")
+    monkeypatch.setenv("FORGE_SKIP_STRUCTURAL_EIGHT_AGENTS", "1")
+
+    buf = io.StringIO()
+    monkeypatch.setattr(sys, "stdout", buf)
+    try:
+        cr.handle_step_n(3, state_file=str(sess))
+        out = buf.getvalue()
+    finally:
+        pass
+
+    assert "CODE-REVIEW — Team Dispatch" in out
+    assert "STRUCTURAL PROBES — DEFERRED" in out
+    assert "STRUCTURAL PROBES GATE" in out
+    assert "forge_probe_gate_multiselect" in out
+    assert "Dispatch all reviewers" in out or "trace code paths" in out
+    assert (sess.parent / ".structural-probes-gate.json").is_file()
+
+
+def test_implement_step4_real_template_structural_probes(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    """Wave review step 4 appends real structural probe banners to template body."""
+    import io
+
+    import scripts.implement.implement as imp
+    from scripts.shared.orchestrator import SkillState, save_state
+
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / ".git").mkdir()
+    plan = tmp_path / "docs" / "plans" / "smoke.plan.md"
+    plan.parent.mkdir(parents=True)
+    plan.write_text("# Smoke\n\n## Task 1\n\nDo thing.\n", encoding="utf-8")
+    sess = tmp_path / ".forge" / "sessions" / "imp4" / "session.json"
+    sess.parent.mkdir(parents=True)
+    state = SkillState(skill_name="implement", max_step=8)
+    state.current_step = 3
+    state.last_completed_step = 3
+    state.custom.update(
+        {
+            "plan_path": str(plan),
+            "current_wave": 1,
+            "total_waves": 1,
+            "waves_completed": 0,
+            "implementation_mode": "direct",
+        }
+    )
+    save_state(state, sess)
+
+    monkeypatch.setenv("FORGE_STRUCTURAL_PROBES_MANUAL", "1")
+    monkeypatch.setenv("FORGE_SKIP_GRAPHIFY", "1")
+    monkeypatch.setenv("FORGE_SKIP_SESSION_OPTIN", "1")
+
+    buf = io.StringIO()
+    monkeypatch.setattr(sys, "stdout", buf)
+    imp.handle_step_4(state, sess)
+    out = buf.getvalue()
+
+    assert "IMPLEMENT — Wave Review" in out
+    assert "Wave Review" in out
+    assert "STRUCTURAL PROBES" in out
+    assert "Per-task review loop" in out or "Review Protocol" in out

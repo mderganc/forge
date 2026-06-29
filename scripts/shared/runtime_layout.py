@@ -18,6 +18,7 @@ from scripts.shared.state_lifecycle import (
 CANONICAL_RUNTIME_PARTS = (".codex", "forge")
 LEGACY_FORGE_CODEX_RUNTIME_PARTS = (".codex", "forge-codex")
 LEGACY_RUNTIME_DIRNAME = ".forge"
+PRIMARY_RUNTIME_DIRNAME = ".forge"
 EVALUATE_STATE_FILENAME = ".evaluate-state.json"
 RUN_HISTORY_MAX_ENTRIES = 30
 
@@ -46,30 +47,18 @@ def blocked_runtime_anchor(base_dir: Path) -> bool:
 
 
 def runtime_root(search_dir: Path | None = None) -> Path:
-    """Return the runtime root for Forge artifacts under the target repo."""
-    return runtime_root_candidates(search_dir)[0]
+    """Return the repo-local Forge runtime root (always ``.forge/``)."""
+    base_dir = search_dir or detect_repo_root()
+    return base_dir / PRIMARY_RUNTIME_DIRNAME
 
 
 def runtime_root_candidates(search_dir: Path | None = None) -> list[Path]:
-    """Return runtime roots with the writable primary first, then other trees."""
-    from scripts.shared.repo_paths import is_writable_dir
-
+    """Return runtime roots for reads: primary ``.forge/`` first, then legacy trees."""
     base_dir = search_dir or detect_repo_root()
-    legacy_root = base_dir / LEGACY_RUNTIME_DIRNAME
-    if blocked_runtime_anchor(base_dir):
-        return _dedupe_runtime_roots([legacy_root])
-
-    canonical = base_dir.joinpath(*CANONICAL_RUNTIME_PARTS)
+    primary = base_dir / PRIMARY_RUNTIME_DIRNAME
+    legacy_canonical = base_dir.joinpath(*CANONICAL_RUNTIME_PARTS)
     legacy_fc = base_dir.joinpath(*LEGACY_FORGE_CODEX_RUNTIME_PARTS)
-    if canonical.is_dir():
-        primary = canonical if is_writable_dir(canonical) else legacy_root
-    elif legacy_fc.is_dir():
-        primary = legacy_fc if is_writable_dir(legacy_fc) else legacy_root
-    else:
-        primary = canonical
-
-    extras = [canonical, legacy_fc, legacy_root]
-    return _dedupe_runtime_roots([primary, *extras])
+    return _dedupe_runtime_roots([primary, legacy_canonical, legacy_fc])
 
 
 def _dedupe_runtime_roots(roots: list[Path]) -> list[Path]:
@@ -93,7 +82,13 @@ def _dedupe_runtime_roots(roots: list[Path]) -> list[Path]:
 
 
 def legacy_runtime_root(search_dir: Path | None = None) -> Path:
-    """Return the legacy runtime root used by the original copied workflow."""
+    """Former ``.codex/forge`` layout (read and migrate only)."""
+    base_dir = search_dir or detect_repo_root()
+    return base_dir.joinpath(*CANONICAL_RUNTIME_PARTS)
+
+
+def legacy_flat_runtime_root(search_dir: Path | None = None) -> Path:
+    """Flat ``.forge/`` at repo root (pre-session-directory layout)."""
     base_dir = search_dir or detect_repo_root()
     return base_dir / LEGACY_RUNTIME_DIRNAME
 
@@ -109,12 +104,12 @@ def repo_relative_path(path: Path, search_dir: Path | None = None) -> str:
 
 
 def runtime_dir_relative(search_dir: Path | None = None) -> str:
-    """Repo-relative Forge runtime root (e.g. ``.codex/forge``)."""
+    """Repo-relative Forge runtime root (e.g. ``.forge``)."""
     return repo_relative_path(runtime_root(search_dir), search_dir)
 
 
 def runtime_memory_dir_relative(search_dir: Path | None = None) -> str:
-    """Repo-relative Forge memory directory (e.g. ``.codex/forge/memory``)."""
+    """Repo-relative Forge memory directory (e.g. ``.forge/memory``)."""
     return repo_relative_path(runtime_memory_dir(search_dir), search_dir)
 
 
@@ -139,7 +134,7 @@ def runtime_state_dir(search_dir: Path | None = None) -> Path:
 
 
 def legacy_state_dir(search_dir: Path | None = None) -> Path:
-    return legacy_runtime_root(search_dir)
+    return legacy_flat_runtime_root(search_dir)
 
 
 def runtime_adr_dir(search_dir: Path | None = None) -> Path:

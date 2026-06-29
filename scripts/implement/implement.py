@@ -477,7 +477,8 @@ def _emit(step: int, body: str, next_cmd: str | None,
           state: SkillState | None = None,
           state_path: Path | None = None,
           handoff_path: Path | None = None,
-          summary: str | None = None) -> None:
+          summary: str | None = None,
+          require_confirmation: bool | None = None) -> None:
     """Shared output helper that injects PHASE_TODOS and continuation blocks."""
     label = phase_label or PHASE_NAMES.get(step, f"Step {step}")
     if state is not None and state_path is not None:
@@ -498,6 +499,7 @@ def _emit(step: int, body: str, next_cmd: str | None,
         handoff_menu=handoff_menu,
         all_phase_names=PHASE_NAMES,
         all_phase_todos=PHASE_TODOS,
+        require_confirmation=require_confirmation,
     ))
 
 
@@ -628,13 +630,39 @@ def handle_step_4(state: SkillState, sp: Path) -> None:
     variables = _build_wave_variables(state)
     body = render_template(template, variables)
 
+    from scripts.shared.structural_probes import inject_structural_probes_section
+    from scripts.shared.structural_probes_gate import probe_gate_is_pending
+    from scripts.shared.repo_paths import resolve_repo_root
+
+    scan_root = resolve_repo_root(REPO_ROOT)
+    state_dir = sp.parent
+    body, sidecar, _payload = inject_structural_probes_section(
+        body,
+        skill_name=SKILL_NAME,
+        step=4,
+        repo_root=scan_root,
+        state_dir=state_dir,
+        quick_mode=state.quick_mode,
+    )
+    if sidecar:
+        state.custom["structural_probes_sidecar"] = str(sidecar)
+    probe_gate_pending = probe_gate_is_pending(state_dir)
+
     state.current_step = 4
     save_state(state, sp)
 
     state.mark_step_complete(4)
     save_state(state, sp)
 
-    _emit(4, body, _next_command(4, quick=state.quick_mode), wave=current_wave, state=state, state_path=sp)
+    _emit(
+        4,
+        body,
+        _next_command(4, quick=state.quick_mode),
+        wave=current_wave,
+        state=state,
+        state_path=sp,
+        require_confirmation=True if probe_gate_pending else None,
+    )
 
 
 def handle_step_5(state: SkillState, sp: Path) -> None:

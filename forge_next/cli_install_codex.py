@@ -2,9 +2,16 @@
 
 from __future__ import annotations
 
+import shutil
 from pathlib import Path
 
 from forge_next.cli_install_io import copytree_replace, default_codex_skills_dir
+
+_CODEX_TEMPLATE_FILES = (
+    "plan-modes.md",
+    "writing-plans.md",
+    "structural-quality-probes.md",
+)
 
 
 def install_codex_skills(
@@ -24,6 +31,14 @@ def install_codex_skills(
     )
     dst = base / "forge"
     copytree_replace(src, dst)
+    templates_src = repo_root / "templates"
+    templates_dst = dst / "templates"
+    if templates_src.is_dir():
+        templates_dst.mkdir(parents=True, exist_ok=True)
+        for name in _CODEX_TEMPLATE_FILES:
+            src_file = templates_src / name
+            if src_file.is_file():
+                shutil.copy2(src_file, templates_dst / name)
     return str(dst), warnings
 
 

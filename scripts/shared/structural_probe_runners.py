@@ -10,7 +10,10 @@ from typing import Any
 from scripts.shared.structural_probes import (
     SIDECAR_NAME,
     _extract_stdout_json,
+    _jscn_analyze_command,
+    _jscn_probe_targets,
     _madge_entry,
+    _parse_jscn_json_findings,
     _parse_skylos_json_findings,
     _pyscn_analyze_command,
     _pyscn_check_command,
@@ -191,6 +194,74 @@ def run_pyscn_probe(
 
     return {
         "tool": "pyscn",
+        "status": "fail" if failed else "pass",
+        "command": command,
+        "summary": summary[:200],
+        "findings": findings,
+    }
+
+
+def run_jscn_probe(
+    *,
+    repo_root: Path,
+    node_root: Path,
+    effective_scope: list[str] | None,
+    timeout: int,
+) -> dict[str, Any]:
+    from forge_next.structural_tools import resolve_jscn_command
+
+    jscn = resolve_jscn_command()
+    if not jscn:
+        return _skip_probe("jscn", "jscn not available — run forge structural-tools install")
+
+    targets = _jscn_probe_targets(
+        repo_root,
+        node_root=node_root,
+        effective_scope=effective_scope,
+    )
+    if not targets:
+        return _skip_probe(
+            "jscn",
+            "skipped: no safe JS/TS probe scope (repo root blocked by large ignored dirs)",
+        )
+
+    use_per_file = bool(effective_scope) or repo_has_large_ignored_dirs(repo_root)
+    findings: list[dict[str, Any]] = []
+    commands: list[list[str]] = []
+    failed = False
+    summaries: list[str] = []
+
+    run_targets = targets if use_per_file else targets[:1]
+    for rel in run_targets:
+        cmd = _jscn_analyze_command(jscn, targets=[rel])
+        commands.append(cmd)
+        code, out = _run_cmd(cmd, cwd=repo_root, timeout=timeout)
+        if code not in (0, 1):
+            failed = True
+        parsed = _extract_stdout_json(out)
+        if parsed is not None:
+            for row in _parse_jscn_json_findings(out):
+                row["id"] = f"J{len(findings) + 1}"
+                findings.append(row)
+        elif code != 0:
+            failed = True
+            for row in _tool_findings("jscn", code, out):
+                row["id"] = f"J{len(findings) + 1}"
+                findings.append(row)
+        summaries.append((out.splitlines() or [f"exit {code}"])[0][:120])
+
+    if len(commands) == 1:
+        command: list[str] = commands[0]
+        summary = summaries[0]
+    else:
+        command = commands[0]
+        summary = (
+            f"per-file jscn x{len(commands)} "
+            f"({timeout}s each); {summaries[0]}"
+        )
+
+    return {
+        "tool": "jscn",
         "status": "fail" if failed else "pass",
         "command": command,
         "summary": summary[:200],

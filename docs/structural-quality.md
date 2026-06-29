@@ -1,4 +1,4 @@
-# Structural quality tools (knip, madge, pyscn, skylos)
+# Structural quality tools (knip, madge, jscn, pyscn, skylos)
 
 Forge can install CLI probes used during **code-review** and **evaluate** Pass B (engineering quality): unused exports, circular dependencies, and Python structural analysis.
 
@@ -8,7 +8,7 @@ With the Forge launcher:
 
 ```bash
 pipx install forge-next
-forge install   # installs knip, madge, pyscn, and skylos by default; warns if any are missing
+forge install   # installs knip, madge, jscn, pyscn, and skylos by default; warns if any are missing
 ```
 
 Skip during install:
@@ -41,7 +41,7 @@ Forge may honor these environment variables when spawning probe or graph command
 | Variable | Effect |
 |----------|--------|
 | `FORGE_GRAPHIFY_COMMAND` | Replace default `graphify` CLI invocation |
-| `FORGE_PYSCN_COMMAND` / `FORGE_SKYLOS_COMMAND` / … | Override structural probe binaries |
+| `FORGE_PYSCN_COMMAND` / `FORGE_JSCN_COMMAND` / `FORGE_SKYLOS_COMMAND` / … | Override structural probe binaries |
 
 Use only in trusted CI or local dev. Do not set from untrusted input.
 
@@ -59,6 +59,7 @@ Inventory scans use a pruned directory walk (they do **not** descend into `.venv
 |------|--------|----------------|
 | **knip** | JavaScript / TypeScript | `npm install` under `~/.forge/structural-tools` (Windows) or `~/.local/share/forge/structural-tools` (Unix) |
 | **madge** | JS/TS dependency graph | Same npm prefix |
+| **jscn** | JS/TS complexity, clones, deps, dead code | Same npm prefix (`@msderganc/jscn` on npm; [msderganc/jscn](https://github.com/msderganc/jscn)) |
 | **pyscn** | Python clones / complexity / CFG dead code | `pipx install pyscn`, else `uv tool install pyscn`, else `uvx pyscn@latest` |
 | **skylos** | Python dead code, SAST, secrets, quality | `pipx install skylos`, else `uv tool install skylos`, else `uvx skylos@latest` |
 
@@ -82,7 +83,7 @@ Override commands if needed:
 
 ## Usage in workflows
 
-During **forge code-review** step 3, the orchestrator **runs** stack-applicable probes and writes **`.structural-probes.json`** (**pyscn+skylos** when Python is present; **knip+madge** when Node is present). Planning-only: `FORGE_STRUCTURAL_PROBES_MANUAL=1`. **Evaluate** (post step 4, review step 1) still uses inventory/plan unless `FORGE_STRUCTURAL_PROBES_AUTO=1`. The **eight Civil Learning subagents** dispatch on **code-review step 3** and **evaluate review step 1** only (default **S3/S4/S8**). See [`templates/structural-quality-probes.md`](../templates/structural-quality-probes.md).
+During **forge code-review** step 3, the orchestrator **runs** stack-applicable probes and writes **`.structural-probes.json`** (**pyscn+skylos** when Python is present; **knip+madge+jscn** when Node is present). Planning-only: `FORGE_STRUCTURAL_PROBES_MANUAL=1`. **Evaluate** (post step 4, review step 1) still uses inventory/plan unless `FORGE_STRUCTURAL_PROBES_AUTO=1`. The **eight Civil Learning subagents** dispatch on **code-review step 3** and **evaluate review step 1** only (default **S3/S4/S8**). See [`templates/structural-quality-probes.md`](../templates/structural-quality-probes.md).
 
 Skip probes: `FORGE_SKIP_STRUCTURAL_TOOLS=1`. Planning-only on code-review step 3: `FORGE_STRUCTURAL_PROBES_MANUAL=1`. Skip eight subagents: `FORGE_SKIP_STRUCTURAL_EIGHT_AGENTS=1`. Full eight-agent dispatch: `FORGE_STRUCTURAL_EIGHT_AGENTS_FULL=1`.
 

@@ -331,7 +331,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--tools",
         type=str,
         default=None,
-        help="Override plan: comma-separated knip,madge,pyscn,skylos",
+        help="Override plan: comma-separated knip,madge,jscn,pyscn,skylos",
     )
 
     # codex-agents — merge ~/.codex/config.toml delegation snippet for Forge skills

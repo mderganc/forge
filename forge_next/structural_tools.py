@@ -1,4 +1,4 @@
-"""Install and resolve structural quality CLI tools (knip, madge, pyscn, skylos).
+"""Install and resolve structural quality CLI tools (knip, madge, jscn, pyscn, skylos).
 
 Used by ``forge install --structural-tools`` and ``forge structural-tools install``.
 """
@@ -19,13 +19,16 @@ from typing import Any
 # Pinned majors for reproducible installs under the Forge-managed npm prefix.
 KNIP_VERSION = "^5.62.0"
 MADGE_VERSION = "^8.0.0"
+JSCN_VERSION = "^0.1.2"
+JSCN_NPM_PACKAGE = "@msderganc/jscn"
 NPM_PACKAGE_JSON = {
     "name": "forge-structural-tools",
     "private": True,
-    "description": "Forge-managed knip and madge for code-review / evaluate probes",
+    "description": "Forge-managed knip, madge, and jscn for code-review / evaluate probes",
     "devDependencies": {
         "knip": KNIP_VERSION,
         "madge": MADGE_VERSION,
+        JSCN_NPM_PACKAGE: JSCN_VERSION,
     },
 }
 
@@ -144,6 +147,7 @@ class StructuralToolsInstallResult:
     manifest_path: str
     knip: str | None = None
     madge: str | None = None
+    jscn: str | None = None
     pyscn: str | None = None
     pyscn_via: str | None = None
     skylos: str | None = None
@@ -190,10 +194,11 @@ def _install_npm_tools(prefix: Path, result: StructuralToolsInstallResult) -> No
     if code != 0:
         result.warnings.append(f"npm install failed ({code}): {out[:500]}")
         return
-    result.steps.append("npm install completed for knip and madge")
+    result.steps.append("npm install completed for knip, madge, and jscn")
 
     knip_bin = _bin_in_prefix(prefix, "knip")
     madge_bin = _bin_in_prefix(prefix, "madge")
+    jscn_bin = _bin_in_prefix(prefix, "jscn")
     if knip_bin.is_file():
         result.knip = str(knip_bin)
     else:
@@ -202,12 +207,17 @@ def _install_npm_tools(prefix: Path, result: StructuralToolsInstallResult) -> No
         result.madge = str(madge_bin)
     else:
         result.warnings.append(f"madge binary missing after install: {madge_bin}")
+    if jscn_bin.is_file():
+        result.jscn = str(jscn_bin)
+    else:
+        result.warnings.append(f"jscn binary missing after install: {jscn_bin}")
 
     npx = _npx_executable()
     if npx:
         for warmup in (
             [npx, "--yes", f"knip@{KNIP_VERSION.lstrip('^')}", "--version"],
             [npx, "--yes", f"madge@{MADGE_VERSION.lstrip('^')}", "--version"],
+            [npx, "--yes", f"{JSCN_NPM_PACKAGE}@{JSCN_VERSION.lstrip('^')}", "--version"],
         ):
             wcode, _ = _run(warmup, timeout=120)
             if wcode == 0:
@@ -314,12 +324,14 @@ def write_manifest(prefix: Path, result: StructuralToolsInstallResult) -> Path:
         "node_prefix": str(prefix),
         "knip": result.knip,
         "madge": result.madge,
+        "jscn": result.jscn,
         "pyscn": result.pyscn,
         "pyscn_via": result.pyscn_via,
         "skylos": result.skylos,
         "skylos_via": result.skylos_via,
         "knip_npx": f"knip@{KNIP_VERSION.lstrip('^')}",
         "madge_npx": f"madge@{MADGE_VERSION.lstrip('^')}",
+        "jscn_npx": f"{JSCN_NPM_PACKAGE}@{JSCN_VERSION.lstrip('^')}",
     }
     mp.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
     result.manifest_path = str(mp)
@@ -343,7 +355,7 @@ def install_structural_tools(*, prefix: Path | None = None) -> StructuralToolsIn
     _install_skylos(result)
     write_manifest(root, result)
     result.ok = not any("failed" in w.lower() for w in result.warnings) or bool(
-        result.knip or result.madge or result.pyscn or result.skylos
+        result.knip or result.madge or result.jscn or result.pyscn or result.skylos
     )
     return result
 
@@ -407,6 +419,25 @@ def resolve_madge_command() -> list[str]:
     return []
 
 
+def resolve_jscn_command() -> list[str]:
+    override = (os.environ.get("FORGE_JSCN_COMMAND") or "").strip()
+    if override:
+        return _split_override_command(override)
+    manifest = load_manifest()
+    if manifest and manifest.get("jscn"):
+        p = Path(str(manifest["jscn"]))
+        if p.is_file():
+            return [str(p)]
+    which = shutil.which("jscn")
+    if which:
+        return [which]
+    npx = _npx_executable()
+    pin = (manifest or {}).get("jscn_npx", f"{JSCN_NPM_PACKAGE}@{JSCN_VERSION.lstrip('^')}")
+    if npx:
+        return [npx, "--yes", str(pin)]
+    return []
+
+
 def resolve_skylos_command() -> list[str]:
     override = (os.environ.get("FORGE_SKYLOS_COMMAND") or "").strip()
     if override:
@@ -462,10 +493,12 @@ def doctor_checks() -> dict[str, Any]:
         "node": node_ver if node_ok else False,
         "knip": None,
         "madge": None,
+        "jscn": None,
         "pyscn": None,
         "skylos": None,
         "knip_command": resolve_knip_command(),
         "madge_command": resolve_madge_command(),
+        "jscn_command": resolve_jscn_command(),
         "pyscn_command": resolve_pyscn_command(),
         "skylos_command": resolve_skylos_command(),
     }
@@ -475,6 +508,9 @@ def doctor_checks() -> dict[str, Any]:
     madge = resolve_madge_command()
     if madge:
         checks["madge"] = _tool_version([*madge, "--version"])
+    jscn = resolve_jscn_command()
+    if jscn:
+        checks["jscn"] = _tool_version([*jscn, "--version"])
     pyscn = resolve_pyscn_command()
     if pyscn:
         checks["pyscn"] = _tool_version([*pyscn, "check", "--help"]) or _tool_version(
@@ -490,7 +526,7 @@ def doctor_checks() -> dict[str, Any]:
 
 
 def structural_tools_missing_warnings() -> list[str]:
-    """Warn for each probe CLI (knip, madge, pyscn, skylos) that cannot be resolved."""
+    """Warn for each probe CLI (knip, madge, jscn, pyscn, skylos) that cannot be resolved."""
     if skip_structural_tools():
         return []
     warnings: list[str] = []
@@ -504,6 +540,11 @@ def structural_tools_missing_warnings() -> list[str]:
         warnings.append(
             f"madge not available — re-run {reinstall} (requires Node.js/npm), "
             "or set FORGE_MADGE_COMMAND"
+        )
+    if not resolve_jscn_command():
+        warnings.append(
+            f"jscn not available — re-run {reinstall} (requires Node.js/npm), "
+            "or set FORGE_JSCN_COMMAND / use `npx @msderganc/jscn`"
         )
     if not resolve_pyscn_command():
         warnings.append(
@@ -554,13 +595,15 @@ def structural_tools_install_notice_lines(result: StructuralToolsInstallResult |
 
     lines = [
         "",
-        "Structural quality tools (knip, madge, pyscn, skylos — code-review / evaluate Pass B):",
+        "Structural quality tools (knip, madge, jscn, pyscn, skylos — code-review / evaluate Pass B):",
         f"  Prefix: {result.prefix}",
     ]
     if result.knip:
         lines.append(f"  knip: {result.knip}")
     if result.madge:
         lines.append(f"  madge: {result.madge}")
+    if result.jscn:
+        lines.append(f"  jscn: {result.jscn}")
     if result.pyscn:
         lines.append(f"  pyscn: {result.pyscn} ({result.pyscn_via or 'unknown'})")
     if result.skylos:

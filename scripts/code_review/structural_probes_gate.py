@@ -23,7 +23,7 @@ from scripts.shared.workflow_gate import (
 )
 
 REQUIRED_PYTHON_TOOLS = ("pyscn",)
-REQUIRED_NODE_TOOLS = ("knip",)
+REQUIRED_NODE_TOOLS = ("knip", "jscn")
 
 
 def sidecar_path(state_dir: Path) -> Path:
@@ -149,7 +149,7 @@ def validate_structural_probes_gate(
             "or bypass with `--allow-structural-probes-incomplete` and override reason/follow-up.",
         )
 
-    return True, "Structural probes gate passed (pyscn/knip executed per stack)."
+    return True, "Structural probes gate passed (pyscn/jscn/knip executed per stack)."
 
 
 def exit_if_structural_probes_gate_fails(

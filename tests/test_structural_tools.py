@@ -82,6 +82,7 @@ def test_install_structural_tools_mocked(
     def fake_npm(prefix: Path, result: st.StructuralToolsInstallResult) -> None:
         result.knip = str(prefix / "knip")
         result.madge = str(prefix / "madge")
+        result.jscn = str(prefix / "jscn")
         result.steps.append("fake npm")
 
     def fake_pyscn(result: st.StructuralToolsInstallResult) -> None:
@@ -98,7 +99,7 @@ def test_install_structural_tools_mocked(
 
     result = st.install_structural_tools()
     assert result.ok
-    assert result.knip and result.madge and result.pyscn and result.skylos
+    assert result.knip and result.madge and result.jscn and result.pyscn and result.skylos
     assert tmp_path.joinpath("manifest.json").is_file()
     data = json.loads(tmp_path.joinpath("manifest.json").read_text(encoding="utf-8"))
     assert data["knip"] == result.knip
@@ -111,9 +112,10 @@ def test_doctor_checks_without_tools(monkeypatch: pytest.MonkeyPatch) -> None:
     checks = st.doctor_checks()
     assert checks["knip"] is None
     warnings = st.structural_tools_warnings_for_doctor()
-    assert len(warnings) == 4
+    assert len(warnings) == 5
     assert any("knip" in w for w in warnings)
     assert any("madge" in w for w in warnings)
+    assert any("jscn" in w for w in warnings)
     assert any("pyscn" in w for w in warnings)
     assert any("skylos" in w for w in warnings)
 

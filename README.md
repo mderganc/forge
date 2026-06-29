@@ -69,7 +69,7 @@ pipx install forge-next
 forge install
 ```
 
-`forge install` also installs structural probes for code-review / evaluate (**knip**, **madge**, **pyscn**, **skylos**) and prints warnings for any that could not be installed. To skip: `forge install --skip-structural-tools`. See [`docs/structural-quality.md`](docs/structural-quality.md).
+`forge install` also installs structural probes for code-review / evaluate (**knip**, **madge**, **jscn**, **pyscn**, **skylos**) and prints warnings for any that could not be installed. To skip: `forge install --skip-structural-tools`. See [`docs/structural-quality.md`](docs/structural-quality.md).
 
 Or only what you use:
 

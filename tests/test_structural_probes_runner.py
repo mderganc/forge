@@ -133,6 +133,10 @@ def test_run_probes_skip_without_node(tmp_path: Path, monkeypatch: pytest.Monkey
         lambda: None,
     )
     monkeypatch.setattr(
+        "forge_next.structural_tools.resolve_jscn_command",
+        lambda: None,
+    )
+    monkeypatch.setattr(
         "forge_next.structural_tools.resolve_skylos_command",
         lambda: None,
     )
@@ -213,6 +217,7 @@ def test_code_review_step3_auto_runs_without_env(
     monkeypatch.delenv("FORGE_STRUCTURAL_PROBES_MANUAL", raising=False)
     monkeypatch.setattr("forge_next.structural_tools.resolve_knip_command", lambda: None)
     monkeypatch.setattr("forge_next.structural_tools.resolve_madge_command", lambda: None)
+    monkeypatch.setattr("forge_next.structural_tools.resolve_jscn_command", lambda: None)
     monkeypatch.setattr("forge_next.structural_tools.resolve_pyscn_command", lambda: None)
     monkeypatch.setattr("forge_next.structural_tools.resolve_skylos_command", lambda: None)
 
@@ -552,6 +557,7 @@ def test_inject_auto_mode_runs_probes(tmp_path: Path, monkeypatch: pytest.Monkey
     monkeypatch.delenv("FORGE_STRUCTURAL_PROBES_MANUAL", raising=False)
     monkeypatch.setattr("forge_next.structural_tools.resolve_knip_command", lambda: None)
     monkeypatch.setattr("forge_next.structural_tools.resolve_madge_command", lambda: None)
+    monkeypatch.setattr("forge_next.structural_tools.resolve_jscn_command", lambda: None)
     monkeypatch.setattr("forge_next.structural_tools.resolve_pyscn_command", lambda: None)
     monkeypatch.setattr("forge_next.structural_tools.resolve_skylos_command", lambda: None)
 
@@ -603,6 +609,43 @@ def test_run_pyscn_probe_uses_analyze_for_scoped_files(
     assert "check" not in cmd
 
 
+def test_run_jscn_probe_uses_analyze_for_scoped_files(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    mod = tmp_path / "src" / "app.ts"
+    mod.parent.mkdir(parents=True)
+    mod.write_text("export const x = 1;\n", encoding="utf-8")
+    captured: list[list[str]] = []
+
+    def fake_run(cmd, *, cwd, timeout):
+        captured.append(cmd)
+        return 0, json.dumps({"issues": [], "summary": {"qualityIssueCount": 0}})
+
+    monkeypatch.setattr(
+        "scripts.shared.structural_probe_runners._run_cmd",
+        fake_run,
+    )
+    monkeypatch.setattr(
+        "forge_next.structural_tools.resolve_jscn_command",
+        lambda: ["jscn"],
+    )
+    from scripts.shared.structural_probe_runners import run_jscn_probe
+
+    result = run_jscn_probe(
+        repo_root=tmp_path,
+        node_root=tmp_path,
+        effective_scope=["src/app.ts"],
+        timeout=30,
+    )
+    assert captured
+    cmd = captured[0]
+    assert "analyze" in cmd
+    assert "--json" in cmd
+    assert "src/app.ts" in cmd
+    assert result["tool"] == "jscn"
+    assert result["status"] == "pass"
+
+
 def test_run_skylos_probe_adds_excludes_on_root_scan(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -652,6 +695,7 @@ def test_run_probes_respects_plan_tools(tmp_path: Path, monkeypatch: pytest.Monk
     )
     monkeypatch.setattr("forge_next.structural_tools.resolve_knip_command", lambda: None)
     monkeypatch.setattr("forge_next.structural_tools.resolve_madge_command", lambda: None)
+    monkeypatch.setattr("forge_next.structural_tools.resolve_jscn_command", lambda: None)
     monkeypatch.setattr("forge_next.structural_tools.resolve_pyscn_command", lambda: None)
     monkeypatch.setattr("forge_next.structural_tools.resolve_skylos_command", lambda: None)
 

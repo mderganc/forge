@@ -1,4 +1,4 @@
-"""Structural probes (knip, madge, pyscn, skylos) with agent-selected execution."""
+"""Structural probes (knip, madge, jscn, pyscn, skylos) with agent-selected execution."""
 
 from __future__ import annotations
 
@@ -15,9 +15,10 @@ from typing import Any
 SIDECAR_NAME = ".structural-probes.json"
 INVENTORY_NAME = ".structural-probes-inventory.json"
 PLAN_NAME = ".structural-probes-plan.json"
-VALID_PROBE_TOOLS = frozenset({"knip", "madge", "pyscn", "skylos"})
-NODE_PROBE_TOOLS = frozenset({"knip", "madge"})
+VALID_PROBE_TOOLS = frozenset({"knip", "madge", "jscn", "pyscn", "skylos"})
+NODE_PROBE_TOOLS = frozenset({"knip", "madge", "jscn"})
 PYTHON_PROBE_TOOLS = frozenset({"pyscn", "skylos"})
+_JS_SUFFIXES = frozenset({".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs"})
 
 _NODE_MARKERS = (
     "package.json",
@@ -256,6 +257,31 @@ def filter_python_scope_paths(repo_root: Path, paths: list[str]) -> list[str]:
     return out
 
 
+def filter_javascript_scope_paths(repo_root: Path, paths: list[str]) -> list[str]:
+    """Keep review-relevant JS/TS paths; drop gitignored/graphifyignored trees."""
+    root = repo_root.resolve()
+    policy = _probe_ignore_policy(root)
+    out: list[str] = []
+    seen: set[str] = set()
+    for raw in paths:
+        tok = _normalize_scope_token(str(raw))
+        if not tok or tok in (".", "./"):
+            continue
+        candidate = (root / tok).resolve()
+        if not candidate.exists():
+            continue
+        if policy.is_ignored(candidate, for_scope=True):
+            continue
+        if candidate.is_file() and candidate.suffix.lower() not in _JS_SUFFIXES:
+            continue
+        rel = _rel_path(candidate, root).replace("\\", "/")
+        if rel in seen:
+            continue
+        seen.add(rel)
+        out.append(rel)
+    return out
+
+
 def _git_run_names(repo_root: Path, args: list[str], *, timeout: int | None = None) -> list[str]:
     import subprocess
 
@@ -417,7 +443,7 @@ def ensure_primary_probe_plan(
         inventory,
     )
     if node_capable:
-        for required in ("knip", "madge"):
+        for required in ("knip", "madge", "jscn"):
             if required not in tools:
                 tools.append(required)
 
@@ -453,7 +479,7 @@ def ensure_primary_probe_plan(
     skill_label = "Code-review step 3" if slug == "code-review" else "Evaluate"
     note = (
         f"{skill_label} runs stack-applicable probes only "
-        "(knip/madge when Node; pyscn/skylos when Python). "
+        "(knip/madge/jscn when Node; pyscn/skylos when Python). "
         "Python probes prefer changed-file scope; repo-root scans are skipped when "
         "large ignored dirs exist (.venv, node_modules, graphify-out, .pyscn). "
         "Gitignored and graphifyignored paths are never scanned. "
@@ -724,8 +750,10 @@ def suggest_probe_plan(
     tools: list[str] = []
     notes: list[str] = []
     if hints.get("node"):
-        tools.extend(["knip", "madge"])
-        notes.append("Node/TS markers present → knip (dead exports) + madge (cycles).")
+        tools.extend(["knip", "madge", "jscn"])
+        notes.append(
+            "Node/TS markers present → knip (dead exports) + madge (cycles) + jscn (complexity/clones)."
+        )
     if hints.get("python"):
         tools.extend(["pyscn", "skylos"])
         notes.append(
@@ -837,7 +865,7 @@ def _tool_findings(tool: str, code: int, out: str, *, max_findings: int = 8) -> 
     if code == 0 and len(out) < 200:
         return []
     findings: list[dict[str, Any]] = []
-    prefix = {"knip": "K", "madge": "M", "pyscn": "P", "skylos": "Y"}.get(tool, "X")
+    prefix = {"knip": "K", "madge": "M", "jscn": "J", "pyscn": "P", "skylos": "Y"}.get(tool, "X")
     lines = [ln for ln in out.splitlines() if ln.strip()]
     for i, line in enumerate(lines[:max_findings], start=1):
         path = ""
@@ -1070,6 +1098,103 @@ def _pyscn_probe_targets(
     return ["."]
 
 
+def _jscn_analyze_command(
+    resolved: list[str],
+    *,
+    targets: list[str],
+    min_complexity: int = 15,
+) -> list[str]:
+    args = [
+        "analyze",
+        "--output",
+        "-",
+        "--json",
+        "--min-complexity",
+        str(min_complexity),
+        *targets,
+    ]
+    if resolved[:1] == ["jscn"] or (resolved and resolved[0].endswith("jscn")):
+        return [*resolved, *args]
+    if len(resolved) >= 2 and resolved[1] == "--yes":
+        return [*resolved, *args]
+    return [*resolved, *args]
+
+
+def _parse_jscn_json_findings(raw: str, *, max_findings: int = 8) -> list[dict[str, Any]]:
+    try:
+        data = json.loads(raw)
+    except json.JSONDecodeError:
+        return []
+    if not isinstance(data, dict):
+        return []
+    findings: list[dict[str, Any]] = []
+    issues = data.get("issues") or []
+    if isinstance(issues, list):
+        for issue in issues:
+            if not isinstance(issue, dict):
+                continue
+            if len(findings) >= max_findings:
+                break
+            path = str(issue.get("file") or issue.get("path") or "")
+            detail = str(issue.get("message") or issue.get("detail") or issue)[:240]
+            findings.append(
+                {
+                    "id": f"J{len(findings) + 1}",
+                    "severity": str(issue.get("severity") or "warning"),
+                    "path": path,
+                    "detail": detail,
+                }
+            )
+    summary = data.get("summary") or {}
+    if isinstance(summary, dict) and not findings:
+        q = summary.get("qualityIssueCount") or summary.get("totalIssues") or 0
+        if q:
+            findings.append(
+                {
+                    "id": "J1",
+                    "severity": "warning",
+                    "path": "",
+                    "detail": f"jscn reported {q} quality issue(s)",
+                }
+            )
+    return findings
+
+
+def _jscn_probe_targets(
+    repo_root: Path,
+    *,
+    node_root: Path,
+    effective_scope: list[str] | None,
+) -> list[str]:
+    """Resolve jscn path arguments; never return repo root when unsafe."""
+    policy = _probe_ignore_policy(repo_root)
+    if effective_scope:
+        js_paths = filter_javascript_scope_paths(repo_root, effective_scope)
+        if js_paths:
+            return js_paths
+        scoped = [
+            p
+            for p in (_normalize_scope_token(x) for x in effective_scope if str(x).strip())
+            if p and p not in (".", "./") and not policy.rel_is_ignored(p, for_scope=True)
+        ]
+        return scoped
+
+    if repo_has_large_ignored_dirs(repo_root):
+        if node_root.resolve() != repo_root.resolve():
+            try:
+                return [str(node_root.relative_to(repo_root))]
+            except ValueError:
+                return [str(node_root)]
+        return []
+
+    if node_root.resolve() != repo_root.resolve():
+        try:
+            return [str(node_root.relative_to(repo_root))]
+        except ValueError:
+            return [str(node_root)]
+    return ["."]
+
+
 def _madge_entry(node_root: Path, scope_paths: list[str] | None) -> str:
     if scope_paths:
         return scope_paths[0]
@@ -1104,6 +1229,7 @@ def run_probes(
     """Run only the probes listed in ``plan`` / ``tools``; write results sidecar."""
     from forge_next.structural_tools import skip_structural_tools
     from scripts.shared.structural_probe_runners import (
+        run_jscn_probe,
         run_knip_probe,
         run_madge_probe,
         run_pyscn_probe,
@@ -1149,6 +1275,18 @@ def run_probes(
         )
     else:
         probes.append(_skip_probe("madge", "not selected in probe plan"))
+
+    if "jscn" in selected:
+        probes.append(
+            run_jscn_probe(
+                repo_root=root,
+                node_root=node_root,
+                effective_scope=effective_scope,
+                timeout=timeout_per_tool,
+            )
+        )
+    else:
+        probes.append(_skip_probe("jscn", "not selected in probe plan"))
 
     exclude_paths = merged_plan.get("exclude_paths")
     if not isinstance(exclude_paths, list):
@@ -1374,6 +1512,17 @@ def format_probe_results_banner(
         n = len(probe.get("findings") or [])
         lines.append(f"- {tool}: {status} ({n} finding(s)) — {summary[:120]}")
     lines.append("")
+    js_rows = [
+        p
+        for p in (payload.get("probes") or [])
+        if p.get("tool") in ("knip", "jscn") and p.get("status") != "skip"
+    ]
+    if js_rows:
+        lines.insert(
+            6,
+            "**Primary (Node/TS):** review **jscn** and **knip** output first; "
+            "cite `J*` / `K*` finding IDs in Pass B.",
+        )
     py_rows = [
         p
         for p in (payload.get("probes") or [])
@@ -1417,7 +1566,7 @@ def format_probe_planning_banner(
         "STRUCTURAL PROBES — agent selects tools (Pass B)",
         bar,
         "",
-        "Do **not** assume knip/madge/pyscn all apply. Use repo facts + your judgment.",
+        "Do **not** assume knip/madge/jscn/pyscn all apply. Use repo facts + your judgment.",
         "",
         "1. Read the inventory (and graphify report if listed):",
         f"   `{inv_file}`",
@@ -1425,9 +1574,9 @@ def format_probe_planning_banner(
         f"   `{plan_file}`",
         "",
         "   Plan fields:",
-        "   - `tools`: subset of `knip`, `madge`, `pyscn`, `skylos` (empty `[]` = skip all)",
+        "   - `tools`: subset of `knip`, `madge`, `jscn`, `pyscn`, `skylos` (empty `[]` = skip all)",
         "   - `node_root` / `python_root`: relative paths when not repo root",
-        "   - `scope_paths`: optional paths for madge/knip/pyscn/skylos (e.g. changed files)",
+        "   - `scope_paths`: optional paths for madge/knip/jscn/pyscn/skylos (e.g. changed files)",
         "   - `exclude_paths`: optional folder names for skylos `--exclude-folder` on broad scans",
         "   - `reasoning`: one short paragraph (required — documents your choice)",
         "",
@@ -1442,7 +1591,7 @@ def format_probe_planning_banner(
         "",
         "Full guide: `templates/structural-quality-probes.md`.",
         "",
-        "_Code-review step 3 runs stack-applicable probes (pyscn+skylos when Python; knip+madge when Node)._",
+        "_Code-review step 3 runs stack-applicable probes (pyscn+skylos when Python; knip+madge+jscn when Node)._",
         "_Planning-only: `FORGE_STRUCTURAL_PROBES_MANUAL=1`._",
         "_Force auto on other steps: `FORGE_STRUCTURAL_PROBES_AUTO=1`._",
         "_Skip eight subagents: `FORGE_SKIP_STRUCTURAL_EIGHT_AGENTS=1`._",
@@ -1607,7 +1756,7 @@ def cli_run(argv: list[str] | None = None) -> int:
         "--tools",
         type=str,
         default=None,
-        help="Override plan tools (comma-separated: knip,madge,pyscn,skylos)",
+        help="Override plan tools (comma-separated: knip,madge,jscn,pyscn,skylos)",
     )
     args = parser.parse_args(argv)
 

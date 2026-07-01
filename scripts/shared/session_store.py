@@ -603,7 +603,7 @@ def migrate_legacy_state_files(search_dir: Path | None = None) -> list[str]:
             path = session_dir / SESSION_JSON
             state.session_id = sid
             payload = enrich_state_dict_for_save(state, path, label=label)
-            path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+            path.write_text(json.dumps(payload, indent=2, default=str) + "\n", encoding="utf-8")
             update_index_for_session(state, path, label=label, search_dir=cwd)
             candidate.unlink(missing_ok=True)
             migrated.append(str(candidate))

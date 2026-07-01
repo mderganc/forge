@@ -255,7 +255,7 @@ def save_state(state: SkillState, path: Path, *, label: str | None = None) -> No
 
     path.parent.mkdir(parents=True, exist_ok=True)
     payload = enrich_state_dict_for_save(state, path, label=label)
-    content = json.dumps(payload, indent=2)
+    content = json.dumps(payload, indent=2, default=str)
     fd, tmp = tempfile.mkstemp(dir=path.parent, suffix=".tmp")
     try:
         os.close(fd)

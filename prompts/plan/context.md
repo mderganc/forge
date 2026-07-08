@@ -20,11 +20,12 @@ Read context for plan creation.
 
 ## Instructions
 
-1. If handoff from develop exists, read approved solutions and scope
+1. If handoff from develop exists, read approved solutions, scope, and **spec issues** (`.design-spec-issues.json` beside the design session when present)
 2. Read `{{MEMORY_DIR}}/project.md` for team state and autonomy level
 3. Read all `{{MEMORY_DIR}}/` files for context
-4. If no handoff, ask the user what needs to be planned
-5. Capture scope signals in `plan_context` for mode recommendation (modules touched, risk, size)
+4. When a design spec exists, read it **and** map plan tasks to the issue rows from `.design-spec-issues.json` (do not re-decompose scope from scratch unless the sidecar is missing)
+5. If no handoff, ask the user what needs to be planned
+6. Capture scope signals in `plan_context` for mode recommendation (modules touched, risk, size)
 
 Record the planning context in `{{MEMORY_DIR}}/planner.md`.
 Include **`plan_mode`** (`default` or `lite`) once confirmed.

@@ -1,4 +1,4 @@
-"""Design spec completion gate for develop step 7 (handoff).
+"""Design spec completion gate for develop step 8 (handoff).
 
 Reads `.develop-spec-gate.json` beside the develop state file when
 ``spec_required`` is true. Medium/large scope tiers require a committed design

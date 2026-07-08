@@ -1,6 +1,6 @@
 # Design spec gate (medium / large scope)
 
-When `SPEC_REQUIRED` is **yes** (scope tier `medium` or `large` from `design-scope.json`; legacy `develop-scope.json` still read), you **must** complete this gate **before** running `forge design --step 7`.
+When `SPEC_REQUIRED` is **yes** (scope tier `medium` or `large` from `design-scope.json`; legacy `develop-scope.json` still read), you **must** complete this gate **before** running `forge design --step 7` (spec → issues).
 
 Current scope signals (from orchestrator state):
 

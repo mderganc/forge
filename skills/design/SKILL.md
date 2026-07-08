@@ -17,7 +17,7 @@ Do **not** modify tracked project files unless the user explicitly authorizes. S
 
 ## Spec gate (medium/large)
 
-After step 2: `design-scope.json` in memory (legacy `develop-scope.json` still read). Medium/large: complete design spec + `.design-spec-gate.json` before step 7. See `prompts/develop/scope.md`.
+After step 2: `design-scope.json` in memory (legacy `develop-scope.json` still read). Medium/large: complete design spec + `.design-spec-gate.json` on step 6, split spec into `.design-spec-issues.json` on step 7, then handoff on step 8. See `prompts/develop/scope.md`.
 
 ## Simplicity
 
@@ -27,12 +27,16 @@ Preamble § Simplicity (YAGNI). Score simpler options favorably; confirm specula
 
 | Argument | When | Description |
 |----------|------|-------------|
-| `--step` | Always | Phase 1–7 |
+| `--step` | Always | Phase 1–8 |
 | `--auto1` / `--auto2` / `--auto3` | Any | Autonomy level |
 | `--quick` | Step 1+ | Quick mode |
-| `--allow-spec-incomplete` | Step 7 only | Bypass spec gate (requires override fields) |
+| `--allow-spec-incomplete` | Step 8 only | Bypass spec gate (requires override fields) |
 | `--spec-override-reason` | With bypass | Recorded in handoff |
 | `--spec-override-follow-up` | With bypass | Required follow-up |
 | `--spec-override-requested-by` | Optional | Who requested bypass |
+| `--allow-issues-incomplete` | Step 8 only | Bypass spec → issues gate (requires override fields) |
+| `--issues-override-reason` | With issues bypass | Recorded in handoff |
+| `--issues-override-follow-up` | With issues bypass | Required follow-up |
+| `--issues-override-requested-by` | Optional | Who requested issues bypass |
 
 Default handoff: **`forge:plan`**.

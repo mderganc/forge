@@ -57,7 +57,9 @@ bd dep add [review-finding-id] [task-id] --type discovered-from
 | agent:[role] | Impl tasks | Which agent is assigned |
 | critic | Critic findings | Finding from the critic agent |
 | review | Review findings | General review finding |
-| deferred | Deferred items | Deferred by user decision |
+| plan-prep | Spec slice issues | Design step 7 — spec decomposed for plan |
+| spec-slice | Spec slice issues | One vertical slice from the design spec |
+| stage-design | Spec slice issues | Created during design (not implement) |
 
 ## Scores as Comments
 

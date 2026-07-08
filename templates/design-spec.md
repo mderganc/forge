@@ -11,7 +11,7 @@ Do not dump the full spec in one message. **Present 2–4 digestible chunks** fo
 3. **Risks and operations** — **Data / API / schema impact**, **Error handling and operational behavior**, **Test strategy**.
 4. **Rollout, assumptions, open questions** — **Rollout / rollback** through **Open questions**.
 
-After each chunk: “Any changes before we lock this section?” Then proceed. Final sign-off happens again at **Decision record** / gate JSON (see `develop/spec_gate`).
+After each chunk: “Any changes before we lock this section?” Then proceed. Final sign-off happens again at **Decision record** / gate JSON (see `develop/spec_gate`). When scope is medium/large, step 7 decomposes the approved spec into plan-ready issues (see `develop/spec_issues`).
 
 ## Context
 

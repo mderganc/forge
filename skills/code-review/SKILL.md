@@ -6,6 +6,8 @@ description: |
 
 # Forge Code Review — Multi-Mode Review
 
+Two-axis review aligned with [mattpocock/skills code-review](https://github.com/mattpocock/skills/blob/main/skills/engineering/code-review/SKILL.md): **Pass A — Spec** (intent/requirements) and **Pass B — Standards** (repo standards + `templates/standards-review-baseline.md`). Structural probes at step 3 are Pass B tooling. Findings are reported per axis — do not merge or rerank across axes.
+
 Shared runtime: [templates/workflow-skill-preamble.md](../../templates/workflow-skill-preamble.md).
 
 At **step 3**, the orchestrator runs **pyscn** (Python) and **knip** (Node) when applicable and writes `.structural-probes.json`.
@@ -14,7 +16,7 @@ At **step 3**, the orchestrator runs **pyscn** (Python) and **knip** (Node) when
 
 ## Simplicity
 
-Preamble § Simplicity (YAGNI). Flag over-engineering and **Speculative Generality** (`templates/code-smells.md`).
+Preamble § Simplicity (YAGNI). Flag over-engineering and **Speculative Generality** (`templates/standards-review-baseline.md`, `templates/code-smells.md`).
 
 <invoke cmd="forge code-review" />
 

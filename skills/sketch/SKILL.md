@@ -9,6 +9,8 @@ description: |
 
 Iterative pair-thinking: reflect, confirm, revise — not a checklist. See `templates/sketch-protocol.md`.
 
+Session artifact `sketch-decisions.md` uses wayfinder-inspired sections (adapted from [mattpocock/skills wayfinder](https://github.com/mattpocock/skills/blob/main/skills/engineering/wayfinder/SKILL.md)): **Destination**, **Decisions so far**, **Not yet specified** (fog), and **Out of scope**. Plan, don't do — sketch records decisions; design owns investigation and specs.
+
 **No agent team:** Sketch is 1:1 dialogue only. Do **not** spawn Task sub-agents or Forge roster roles (`templates/forge-agent-roster.md`).
 
 Routing and sketch vs design boundary: [AGENTS.md](../../AGENTS.md) § Process-first.

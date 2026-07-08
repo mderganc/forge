@@ -2,6 +2,8 @@
 
 Dispatch all reviewers to analyze design patterns, coupling, and SOLID principles.
 
+**Two-axis review:** Tag every finding with **Pass A (Spec)** or **Pass B (Standards)**. Do not merge or rerank across axes. Sub-agent reports: under ~400 words each.
+
 ## Review Target
 
 **Mode:** Architecture Review
@@ -58,10 +60,10 @@ Use the eight-agent sidecar for structural Pass B; below focuses on architecture
 - Are there hidden dependencies (globals, singletons)?
 - Is the test infrastructure adequate for the architecture?
 
-**Critic — Design Smells & Code Smells:**
-- Run code smells assessment per `templates/code-smells.md`
-- Priority smells: God Class, Shotgun Surgery, Inappropriate Intimacy (critical); Feature Envy, Long Method, Divergent Change (warning)
-- For each smell: cite file:line, name the smell, state the consequence, recommend the specific refactoring
+**Critic — Design Smells & Code Smells (Pass B):**
+- Apply `templates/standards-review-baseline.md` for diff-scoped smells (judgement calls)
+- For systemic patterns, use `templates/code-smells.md` (God Class, Shotgun Surgery, etc.)
+- Cite file:line, name the smell, state the consequence, recommend the specific refactoring
 - Check for Dependency Structure Matrix issues: cyclic dependencies between modules, layering violations, coupling clusters
 
 **Investigator — Dependency Analysis:**
@@ -80,9 +82,10 @@ Use the eight-agent sidecar for structural Pass B; below focuses on architecture
 
 Collect all findings into a unified list with:
 - Finding ID (F1, F2, ...)
+- **Pass** (`A` or `B`)
 - Source reviewer
 - Severity: critical / warning / suggestion
 - Title (one line)
-- Detail (explanation with specific code references)
+- Detail (explanation with specific code references; spec quote for Pass A)
 
 Record findings in state and proceed to deep dive.

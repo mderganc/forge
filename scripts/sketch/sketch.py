@@ -56,17 +56,17 @@ PHASE_NAMES = {
 
 PHASE_TODOS = {
     1: [
-        {"content": "Confirm topic and domain-docs mode",
+        {"content": "Confirm topic, destination, and domain-docs mode",
          "activeForm": "Confirming sketch setup"},
-        {"content": "Initialize sketch state and memory directory",
+        {"content": "Initialize sketch-decisions.md (destination, fog, out-of-scope sections)",
          "activeForm": "Initializing sketch session"},
     ],
     2: [
         {"content": "Run conversation loop (reflect, confirm, ask)",
          "activeForm": "Running sketch dialogue"},
-        {"content": "Synthesis checkpoint every 2–3 exchanges",
+        {"content": "Synthesis checkpoint: destination + locked vs fog vs out-of-scope",
          "activeForm": "Synthesizing with user"},
-        {"content": "Update sketch-decisions.md (loop-back when revising)",
+        {"content": "Update sketch-decisions.md (name section on loop-back)",
          "activeForm": "Recording decisions"},
     ],
     3: [

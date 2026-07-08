@@ -19,7 +19,6 @@ from typing import Any
 # Pinned majors for reproducible installs under the Forge-managed npm prefix.
 KNIP_VERSION = "^5.62.0"
 MADGE_VERSION = "^8.0.0"
-JSCN_VERSION = "^0.1.2"
 JSCN_NPM_PACKAGE = "@msderganc/jscn"
 NPM_PACKAGE_JSON = {
     "name": "forge-structural-tools",
@@ -28,7 +27,7 @@ NPM_PACKAGE_JSON = {
     "devDependencies": {
         "knip": KNIP_VERSION,
         "madge": MADGE_VERSION,
-        JSCN_NPM_PACKAGE: JSCN_VERSION,
+        JSCN_NPM_PACKAGE: "*",
     },
 }
 
@@ -217,7 +216,7 @@ def _install_npm_tools(prefix: Path, result: StructuralToolsInstallResult) -> No
         for warmup in (
             [npx, "--yes", f"knip@{KNIP_VERSION.lstrip('^')}", "--version"],
             [npx, "--yes", f"madge@{MADGE_VERSION.lstrip('^')}", "--version"],
-            [npx, "--yes", f"{JSCN_NPM_PACKAGE}@{JSCN_VERSION.lstrip('^')}", "--version"],
+            [npx, "--yes", JSCN_NPM_PACKAGE, "--version"],
         ):
             wcode, _ = _run(warmup, timeout=120)
             if wcode == 0:
@@ -331,7 +330,7 @@ def write_manifest(prefix: Path, result: StructuralToolsInstallResult) -> Path:
         "skylos_via": result.skylos_via,
         "knip_npx": f"knip@{KNIP_VERSION.lstrip('^')}",
         "madge_npx": f"madge@{MADGE_VERSION.lstrip('^')}",
-        "jscn_npx": f"{JSCN_NPM_PACKAGE}@{JSCN_VERSION.lstrip('^')}",
+        "jscn_npx": JSCN_NPM_PACKAGE,
     }
     mp.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
     result.manifest_path = str(mp)
@@ -432,7 +431,7 @@ def resolve_jscn_command() -> list[str]:
     if which:
         return [which]
     npx = _npx_executable()
-    pin = (manifest or {}).get("jscn_npx", f"{JSCN_NPM_PACKAGE}@{JSCN_VERSION.lstrip('^')}")
+    pin = (manifest or {}).get("jscn_npx", JSCN_NPM_PACKAGE)
     if npx:
         return [npx, "--yes", str(pin)]
     return []

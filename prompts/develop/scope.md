@@ -53,7 +53,7 @@ Count **high-risk** and **medium-risk** indicators:
 ### What each tier means
 
 - **`trivial`:** Session memory artifacts only; **no** formal `docs/forge/specs/...` design spec required before `plan`.
-- **`medium` | `large`:** Formal design spec + self-review + user approval **before** `forge design --step 7` (see design spec gate appended at step 6).
+- **`medium` | `large`:** Formal design spec + self-review + user approval **before** `forge design --step 7` (see design spec gate appended at step 6). Then split the spec into plan-ready issues on step 7 before handoff (step 8).
 
 ## Record scope for the orchestrator
 

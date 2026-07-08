@@ -51,6 +51,8 @@ Key-value pairs specific to what the next skill needs. Content varies by skill.
 - **Investigation file:** [path to investigation.md]
 - **Selected solution:** [title and one-line summary]
 - **Solution scoring:** [path or inline summary]
+- **Design spec:** [path when medium/large]
+- **Spec issues sidecar:** [`.design-spec-issues.json` path or inline issue count]
 - **Key constraints:** [from brainstorming requirements context]
 - **Open questions:** [any unresolved items the plan must address]
 

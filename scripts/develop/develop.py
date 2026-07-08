@@ -10,14 +10,15 @@ brainstorm requirements, and explore creative solution directions with the user;
 steps structure that dialogue rather than replacing it.
 
 Covers 3 development stages (Investigation, Solution Generation, Approval)
-across 7 orchestrator steps:
+across 8 orchestrator steps:
   1. Startup        -- dependency detection, autonomy, session resume, init
   2. Scope & Team   -- scope assessment, team composition, create memory dir
   3. Investigation Dispatch  -- dispatch Architect + Investigator for Stage 1
   4. Investigation Review    -- review loop on investigation artifacts
   5. Solution Dispatch       -- dispatch Architect for Stage 2
   6. Solution Review + Approval -- review loop + user approval (Stage 3)
-  7. Handoff        -- write handoff, render dashboard, suggest plan
+  7. Spec → Issues  -- decompose approved spec into plan-ready issues
+  8. Handoff        -- write handoff, render dashboard, suggest plan
 """
 
 from __future__ import annotations
@@ -62,17 +63,24 @@ from scripts.shared.orchestrator import (
     write_handoff,
 )
 from scripts.develop.spec_gate import (
-    exit_if_gate_fails,
+    exit_if_gate_fails as exit_if_spec_gate_fails,
     gate_sidecar_path,
     handoff_spec_summary,
     load_gate_json,
     validate_spec_gate,
 )
+from scripts.develop.spec_issues import (
+    exit_if_gate_fails as exit_if_issues_gate_fails,
+    gate_sidecar_path as issues_gate_sidecar_path,
+    handoff_issues_summary,
+    issues_status_block,
+    validate_spec_issues_gate,
+)
 from scripts.evaluate.template_engine import load_template, render_template
 from scripts.shared.studio_status import studio_status_block
 
 SKILL_NAME = "design"
-MAX_STEP = 7
+MAX_STEP = 8
 PROMPTS_DIR = REPO_ROOT / "prompts"
 
 PHASE_NAMES = {
@@ -82,7 +90,8 @@ PHASE_NAMES = {
     4: "Investigation Review",
     5: "Solution Dispatch",
     6: "Solution Review & Approval",
-    7: "Handoff",
+    7: "Spec → Issues",
+    8: "Handoff",
 }
 
 PHASE_TODOS = {
@@ -127,6 +136,12 @@ PHASE_TODOS = {
          "activeForm": "Presenting solutions for approval"},
     ],
     7: [
+        {"content": "Decompose approved spec into plan-ready issues",
+         "activeForm": "Splitting spec into issues"},
+        {"content": "Create beads issues when available and record sidecar",
+         "activeForm": "Recording spec issues"},
+    ],
+    8: [
         {"content": "Write handoff file for next skill",
          "activeForm": "Writing handoff file"},
         {"content": "Render dashboard and complete skill",
@@ -263,6 +278,7 @@ def _build_variables(state: SkillState) -> dict[str, str]:
         "SPEC_REQUIRED": "yes" if spec_req else "no",
         "SCOPE_RATIONALE": str(state.custom.get("scope_rationale", "")).strip() or "(none yet)",
         "SPEC_GATE_STATUS": "(not computed)",
+        "SPEC_ISSUES_GATE_STATUS": "(not computed)",
         "STUDIO_STATUS": studio_status,
         "STUDIO_LOG": studio_vars["STUDIO_LOG"],
         "STUDIO_APPROVED": studio_vars["STUDIO_APPROVED"],
@@ -417,27 +433,48 @@ def handle_step_n(
     args: argparse.Namespace | None = None,
     session_id: str | None = None,
 ) -> None:
-    """Steps 2-7: Load state, render appropriate template, output prompt."""
+    """Steps 2-8: Load state, render appropriate template, output prompt."""
     state, sp = _load_existing_state(step, state_file, session_id=session_id)
 
     _ensure_develop_custom(state)
     _sync_develop_scope_from_memory(state)
     save_state(state, sp)
 
+    ns = args or argparse.Namespace()
     ts = ""
+    spec_required = bool(state.custom.get("spec_required"))
+
+    if step == 7 and spec_required:
+        ok, msg = validate_spec_gate(
+            sp,
+            spec_required,
+            allow_incomplete=False,
+        )
+        exit_if_spec_gate_fails(ok, msg)
+
     if step == MAX_STEP:
-        ns = args or argparse.Namespace()
         ts = now_iso()
         ok, msg = validate_spec_gate(
             sp,
-            bool(state.custom.get("spec_required")),
+            spec_required,
             allow_incomplete=bool(getattr(ns, "allow_spec_incomplete", False)),
             override_reason=str(getattr(ns, "spec_override_reason", "") or ""),
             override_requested_by=str(getattr(ns, "spec_override_requested_by", "") or ""),
             override_follow_up=str(getattr(ns, "spec_override_follow_up", "") or ""),
             override_timestamp=ts,
         )
-        exit_if_gate_fails(ok, msg)
+        exit_if_spec_gate_fails(ok, msg)
+
+        ok, msg = validate_spec_issues_gate(
+            sp,
+            spec_required,
+            allow_incomplete=bool(getattr(ns, "allow_issues_incomplete", False)),
+            override_reason=str(getattr(ns, "issues_override_reason", "") or ""),
+            override_requested_by=str(getattr(ns, "issues_override_requested_by", "") or ""),
+            override_follow_up=str(getattr(ns, "issues_override_follow_up", "") or ""),
+            override_timestamp=ts,
+        )
+        exit_if_issues_gate_fails(ok, msg)
 
     template_map = {
         2: "develop/scope",
@@ -445,7 +482,8 @@ def handle_step_n(
         4: "develop/investigation_review",
         5: "develop/solution",
         6: "develop/approval",
-        7: "develop/handoff",
+        7: "develop/spec_issues",
+        8: "develop/handoff",
     }
 
     template_name = template_map.get(step)
@@ -459,6 +497,7 @@ def handle_step_n(
     variables = _build_variables(state)
     variables["STATE_DIR"] = str(sp.resolve().parent)
     variables["SPEC_GATE_STATUS"] = _spec_gate_status_block(state, sp)
+    variables["SPEC_ISSUES_GATE_STATUS"] = issues_status_block(sp)
     body = render_template(template, variables)
 
     if step == 6 and state.custom.get("spec_required"):
@@ -467,6 +506,14 @@ def handle_step_n(
             body += "\n\n---\n\n" + render_template(spec_tmpl, variables)
         except FileNotFoundError:
             pass
+
+    if step == 7 and not state.custom.get("spec_required"):
+        body += (
+            "\n\n---\n\n**Note:** `SPEC_REQUIRED` is **no** (trivial scope). "
+            "No `.design-spec-issues.json` sidecar is required — proceed to "
+            "`forge design --step 8` after optional beads capture from approved "
+            "solutions.\n"
+        )
 
     state.current_step = step
     save_state(state, sp)
@@ -492,6 +539,12 @@ def handle_step_n(
             else load_gate_json(gate_sidecar_path(sp))
         )
         spec_summary = handoff_spec_summary(gate_data)
+        issues_data = (
+            None
+            if getattr(ns, "allow_issues_incomplete", False)
+            else load_gate_json(issues_gate_sidecar_path(sp))
+        )
+        issues_summary = handoff_issues_summary(issues_data)
 
         handoff_path = write_handoff(
             skill_name=SKILL_NAME,
@@ -506,12 +559,29 @@ def handle_step_n(
                 "Spec gate": spec_gate_label,
                 "Spec path": spec_summary.get("Spec path", ""),
                 "Spec approved": spec_summary.get("Spec approved", ""),
+                "Issues gate": (
+                    "overridden"
+                    if getattr(ns, "allow_issues_incomplete", False)
+                    else ("passed" if spec_required else "not required")
+                ),
+                "Issues sidecar": issues_summary.get("Issues sidecar", ""),
+                "Issue count": issues_summary.get("Issue count", ""),
+                "Beads mode": issues_summary.get("Beads mode", ""),
+                "Epic": issues_summary.get("Epic", ""),
                 "Override": (
                     f"yes — reason={getattr(ns, 'spec_override_reason', '') or '(n/a)'}; "
                     f"follow_up={getattr(ns, 'spec_override_follow_up', '') or '(n/a)'}; "
                     f"requested_by={getattr(ns, 'spec_override_requested_by', '') or '(n/a)'}; "
                     f"timestamp={ts}"
                     if getattr(ns, "allow_spec_incomplete", False)
+                    else "no"
+                ),
+                "Issues override": (
+                    f"yes — reason={getattr(ns, 'issues_override_reason', '') or '(n/a)'}; "
+                    f"follow_up={getattr(ns, 'issues_override_follow_up', '') or '(n/a)'}; "
+                    f"requested_by={getattr(ns, 'issues_override_requested_by', '') or '(n/a)'}; "
+                    f"timestamp={ts}"
+                    if getattr(ns, "allow_issues_incomplete", False)
                     else "no"
                 ),
             },
@@ -561,7 +631,7 @@ def main() -> None:
         "--allow-spec-incomplete",
         action="store_true",
         help=(
-            "Bypass strict design-spec gate on step 7 when spec_required. "
+            "Bypass strict design-spec gate on step 8 when spec_required. "
             "Requires --spec-override-reason and --spec-override-follow-up."
         ),
     )
@@ -582,6 +652,33 @@ def main() -> None:
         type=str,
         default="",
         help="Required tracked follow-up when using --allow-spec-incomplete.",
+    )
+
+    parser.add_argument(
+        "--issues-override-follow-up",
+        type=str,
+        default="",
+        help="Required tracked follow-up when using --allow-issues-incomplete.",
+    )
+    parser.add_argument(
+        "--allow-issues-incomplete",
+        action="store_true",
+        help=(
+            "Bypass strict design-spec-issues gate on step 8 when spec_required. "
+            "Requires --issues-override-reason and --issues-override-follow-up."
+        ),
+    )
+    parser.add_argument(
+        "--issues-override-reason",
+        type=str,
+        default="",
+        help="Recorded in handoff when using --allow-issues-incomplete.",
+    )
+    parser.add_argument(
+        "--issues-override-requested-by",
+        type=str,
+        default="",
+        help="Optional identifier for who requested the issues override.",
     )
 
     args = parser.parse_args()

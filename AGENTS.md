@@ -137,7 +137,7 @@ The skill orchestrators handle state-file lifecycle so workflows are interruptib
 - **`forge status`** and **`forge doctor`** surface leak hints (handoff present but JSON active, misplaced state paths, step-1 abandoned) and pending structural probe gates.
 - **Plan files** are now created by `scripts/plan/plan.py` itself with section-marker placeholders; agents replace markers rather than create the file. The step-6 completion gate refuses to mark the workflow complete while any markers remain.
 - **Evaluate findings** persist between phases via per-step sidecar files at `<state-dir>/.evaluate-findings-step<N>.json`. Each phase's prompt instructs the LLM to write findings there; the orchestrator ingests them on the next step.
-- **Design spec gate:** when `spec_required` is true (medium/large scope from `memory/design-scope.json`; legacy `develop-scope.json` still read), step 7 validates `<state-dir>/.design-spec-gate.json` (legacy `.develop-spec-gate.json` still read) before handoff. Optional strict bypass: `--allow-spec-incomplete` with `--spec-override-reason` and `--spec-override-follow-up` on `forge design --step 7`.
+- **Design spec gate:** when `spec_required` is true (medium/large scope from `memory/design-scope.json`; legacy `develop-scope.json` still read), step 6 completes `<state-dir>/.design-spec-gate.json` (legacy `.develop-spec-gate.json` still read); step 7 decomposes the spec into `<state-dir>/.design-spec-issues.json`; step 8 validates both before handoff. Optional strict bypass: `--allow-spec-incomplete` / `--allow-issues-incomplete` with matching override reason + follow-up on `forge design --step 8`.
 
 ### Test Skill — Flows Mode State
 

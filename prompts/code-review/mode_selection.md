@@ -12,7 +12,7 @@ Confirm and configure the review mode for this code review session.
 
 ### PR Mode (`pr`)
 Best for reviewing a specific PR or set of changes against a base branch.
-- Fetch the full diff
+- Fetch the full diff (use pinned `diff_command` from step 1)
 - All reviewers analyze the diff from their perspective
 - Focus: correctness, style, test coverage, security
 
@@ -30,16 +30,25 @@ Best for reviewing design decisions, structural patterns, and system health.
 - Review dependency direction and layering
 - Evaluate extensibility and maintainability
 
-## Two-pass review framework (Pass A / Pass B)
+## Two-axis review framework (Pass A / Pass B)
 
-Use **both** passes for every finding; note which pass drives each issue (labels help the report and triage). Canonical definitions for later phases:
+Aligned with [mattpocock/skills code-review](https://github.com/mattpocock/skills/blob/main/skills/engineering/code-review/SKILL.md). Use **both** passes for every finding; tag each issue with its pass. **Do not merge or rerank findings across axes.**
 
-| Pass | Question | Typical lenses |
-|------|-----------|----------------|
-| **Pass A — Spec / intent** | Does the change do **what was agreed** (plan, ticket, design, stated user-visible behavior)? | Completeness vs requirements, wrong behavior, missing cases, mismatched API or UX promises |
-| **Pass B — Engineering quality** | Is the solution **sound, safe, and maintainable** even if it “works”? | Security, tests, readability, coupling, observability, performance footguns, operational risk |
+| Pass | Axis | Question | Typical lenses |
+|------|------|----------|----------------|
+| **Pass A** | **Spec** | Does the change do **what was agreed** (plan, ticket, design, stated user-visible behavior)? | Completeness vs requirements, wrong behavior, missing cases, scope creep, mismatched API or UX promises |
+| **Pass B** | **Standards** | Is the solution **sound, safe, and maintainable** even if it "works"? | Repo standards, smell baseline (`templates/standards-review-baseline.md`), security, tests, coupling, structural probes |
 
-Pass A issues often block “done”; Pass B issues may be warnings or follow-ups depending on severity.
+Pass A issues often block "done"; Pass B issues may be warnings or follow-ups depending on severity.
+
+### Why two axes
+
+A change can pass one axis and fail the other:
+
+- Code that follows every standard but implements the wrong thing → **Standards pass, Spec fail.**
+- Code that does exactly what the issue asked but breaks project conventions → **Spec pass, Standards fail.**
+
+Reporting them separately stops one axis from masking the other.
 
 ## Your Task
 
@@ -49,7 +58,7 @@ Pass A issues often block “done”; Pass B issues may be warnings or follow-up
 {{TEAM_ASSIGNMENTS}}
 
 3. **Set the review scope:**
-   - For PR mode: identify the exact commits/diff to review
+   - For PR mode: use the pinned diff from step 1
    - For deep mode: identify the code paths to trace
    - For architecture mode: identify the modules/packages to analyze
 
@@ -57,4 +66,4 @@ Pass A issues often block “done”; Pass B issues may be warnings or follow-up
 
 ## Structural probes (Pass B)
 
-At team dispatch (step 3), the orchestrator **runs** structural probes ( **pyscn** when Python is present) and writes **`.structural-probes.json`**. Read that sidecar before reviewers; planning-only mode: `FORGE_STRUCTURAL_PROBES_MANUAL=1`. See `templates/structural-quality-probes.md`.
+At team dispatch (step 3), the orchestrator **runs** structural probes (**pyscn** when Python is present) and writes **`.structural-probes.json`**. Read that sidecar before reviewers; planning-only mode: `FORGE_STRUCTURAL_PROBES_MANUAL=1`. See `templates/structural-quality-probes.md`.

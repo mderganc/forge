@@ -2,6 +2,8 @@
 
 Dispatch all reviewers to trace code paths and investigate specific areas.
 
+**Two-axis review:** Tag every finding with **Pass A (Spec)** or **Pass B (Standards)**. Do not merge or rerank across axes. Sub-agent reports: under ~400 words each.
+
 ## Review Target
 
 **Mode:** Deep Troubleshooting Review
@@ -74,9 +76,10 @@ before the deep trace team. **S6** (error handling) and **S3/S7** complement sec
 
 Collect all findings into a unified list with:
 - Finding ID (F1, F2, ...)
+- **Pass** (`A` or `B`)
 - Source reviewer
 - Severity: critical / warning / suggestion
 - Title (one line)
-- Detail (explanation with file:line references and code path traces)
+- Detail (explanation with file:line references and code path traces; spec quote for Pass A)
 
 Record findings in state and proceed to deep dive.

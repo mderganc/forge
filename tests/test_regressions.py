@@ -772,6 +772,96 @@ def test_auto_close_step1_abandoned(fresh_state_dir, monkeypatch):
     assert not stale_path.exists()
 
 
+def test_auto_close_abandoned_mid_pipeline_code_review_when_starting_design(
+    fresh_state_dir, monkeypatch
+):
+    """Idle code-review at step 3 must close when starting design — not prompt 'leave alone'."""
+    from datetime import datetime, timedelta, timezone
+    from scripts.shared.orchestrator import auto_close_superseded_sessions
+
+    monkeypatch.setenv("FORGE_STEP1_ABANDON_HOURS", "1")
+    monkeypatch.setenv("FORGE_STALE_SESSION_HOURS", "48")
+    state_dir, _mem = _runtime_dirs(fresh_state_dir)
+    old_touch = (datetime.now(timezone.utc) - timedelta(hours=3)).isoformat()
+    review_path = _write_active_state(
+        state_dir,
+        "code-review",
+        current_step=3,
+        last_completed_step=3,
+        max_step=6,
+        last_touched_at=old_touch,
+    )
+    impl_path = _write_active_state(
+        state_dir,
+        "implement",
+        current_step=2,
+        last_completed_step=2,
+        max_step=5,
+        last_touched_at=old_touch,
+    )
+    design_target = state_dir / "design.json"
+
+    closed = auto_close_superseded_sessions(
+        "design",
+        search_dir=fresh_state_dir,
+        preserve_paths={design_target.resolve()},
+    )
+    closed_paths = {p for p, _ in closed}
+    assert review_path in closed_paths
+    assert impl_path in closed_paths
+    assert not review_path.exists()
+    assert not impl_path.exists()
+
+
+def test_auto_close_stale_pipeline_session_when_starting_design(
+    fresh_state_dir, monkeypatch
+):
+    from datetime import datetime, timedelta, timezone
+    from scripts.shared.orchestrator import auto_close_superseded_sessions
+
+    monkeypatch.setenv("FORGE_STALE_SESSION_HOURS", "24")
+    state_dir, _mem = _runtime_dirs(fresh_state_dir)
+    old_touch = (datetime.now(timezone.utc) - timedelta(hours=30)).isoformat()
+    review_path = _write_active_state(
+        state_dir,
+        "code-review",
+        current_step=3,
+        last_completed_step=3,
+        max_step=6,
+        last_touched_at=old_touch,
+    )
+    design_target = state_dir / "design.json"
+
+    closed = auto_close_superseded_sessions(
+        "design",
+        search_dir=fresh_state_dir,
+        preserve_paths={design_target.resolve()},
+    )
+    assert any(p == review_path and "stale" in r for p, r in closed)
+    assert not review_path.exists()
+
+
+def test_active_session_warning_defaults_to_continue_new_skill():
+    from scripts.shared.session_hygiene import format_active_session_warning
+
+    text = format_active_session_warning(
+        [
+            {
+                "skill": "implement",
+                "path": "/tmp/implement.json",
+                "current_step": 2,
+                "max_step": 5,
+                "last_completed_step": 2,
+            }
+        ],
+        "design",
+    )
+    assert "Default" in text
+    assert "leave leftover sessions untouched" in text or "leave" in text.lower()
+    assert "PAUSE" not in text
+    assert "leave the existing session alone" not in text
+
+
 def test_auto_close_respects_skip_env(fresh_state_dir, monkeypatch):
     from scripts.shared.orchestrator import auto_close_superseded_sessions
 

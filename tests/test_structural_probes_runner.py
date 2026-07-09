@@ -479,10 +479,10 @@ def test_run_pyscn_probe_runs_per_file(
         timeout=300,
     )
     assert result["status"] == "pass"
-    assert len(calls) == 2
-    assert all("analyze" in cmd for cmd in calls)
-    assert calls[0][-1] == "a.py"
-    assert calls[1][-1] == "b.py"
+    assert len(calls) == 1
+    assert "check" in calls[0]
+    assert "a.py" in calls[0]
+    assert "b.py" in calls[0]
 
 
 def test_filter_python_scope_paths_skips_graphifyignored(
@@ -574,7 +574,7 @@ def test_inject_auto_mode_runs_probes(tmp_path: Path, monkeypatch: pytest.Monkey
     assert payload is not None
 
 
-def test_run_pyscn_probe_uses_analyze_for_scoped_files(
+def test_run_pyscn_probe_uses_check_for_scoped_files(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     mod = tmp_path / "pkg" / "mod.py"
@@ -604,10 +604,9 @@ def test_run_pyscn_probe_uses_analyze_for_scoped_files(
     )
     assert captured
     cmd = captured[0]
-    assert "analyze" in cmd
+    assert "check" in cmd
     assert "pkg/mod.py" in cmd
-    assert "check" not in cmd
-
+    assert "analyze" not in cmd
 
 def test_run_jscn_probe_uses_analyze_for_scoped_files(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
@@ -752,3 +751,109 @@ def test_code_review_step3_mentions_sidecar(monkeypatch: pytest.MonkeyPatch) -> 
     assert "structural-probes" in out.lower() or "STRUCTURAL PROBES" in out
     assert "eight parallel subagents" in out.lower()
     assert "8 subagents" in out
+
+
+def test_probe_ignore_filter_paths_batches_check_ignore(tmp_path: Path) -> None:
+    """Large path lists must not spawn one git check-ignore per file."""
+    import subprocess
+
+    from scripts.shared.probe_ignore import ProbeIgnorePolicy
+
+    subprocess.run(["git", "init"], cwd=tmp_path, capture_output=True, check=True)
+    (tmp_path / ".gitignore").write_text("ignored/\n", encoding="utf-8")
+    ignored = tmp_path / "ignored"
+    ignored.mkdir()
+    (ignored / "a.py").write_text("x=1\n", encoding="utf-8")
+    (tmp_path / "ok.py").write_text("x=1\n", encoding="utf-8")
+
+    policy = ProbeIgnorePolicy(tmp_path, hard_skip_parts=frozenset())
+    calls: list[list[str]] = []
+    real_run = subprocess.run
+
+    def tracking_run(*args, **kwargs):
+        cmd = args[0] if args else kwargs.get("args")
+        if isinstance(cmd, list) and "check-ignore" in cmd:
+            calls.append(list(cmd))
+        return real_run(*args, **kwargs)
+
+    import scripts.shared.probe_ignore as pi
+
+    monkey_attr = subprocess.run
+    try:
+        subprocess.run = tracking_run  # type: ignore[assignment]
+        pi.subprocess.run = tracking_run  # type: ignore[attr-defined]
+        paths = [f"ignored/f{i}.py" for i in range(50)] + ["ok.py"]
+        # Create ignored files so check-ignore has something to match
+        for i in range(50):
+            (ignored / f"f{i}.py").write_text("x=1\n", encoding="utf-8")
+        out = policy.filter_paths(paths, for_scope=True)
+    finally:
+        subprocess.run = monkey_attr  # type: ignore[assignment]
+        pi.subprocess.run = monkey_attr  # type: ignore[attr-defined]
+
+    assert out == ["ok.py"]
+    assert calls, "expected at least one check-ignore invocation"
+    assert all("check-ignore" in c for c in calls)
+    # One batch for 51 paths (chunk size 80) — not one subprocess per path.
+    assert len(calls) == 1
+    assert calls[0].count("check-ignore") == 1
+    assert "ok.py" in calls[0] or any("ok.py" in a for a in calls[0])
+    assert len([a for a in calls[0] if a.endswith(".py")]) >= 50
+
+
+def test_walk_repo_files_respects_max_and_prunes_codex(tmp_path: Path) -> None:
+    (tmp_path / "keep.py").write_text("x=1\n", encoding="utf-8")
+    codex = tmp_path / ".codex" / "forge" / "sessions" / "abc"
+    codex.mkdir(parents=True)
+    for i in range(100):
+        (codex / f"noise{i}.py").write_text("pass\n", encoding="utf-8")
+
+    assert sp._should_prune_walk_path(tmp_path / ".codex", tmp_path) is True
+    walked = list(sp._walk_repo_files(tmp_path, suffix=".py", max_files=10))
+    assert len(walked) == 1
+    assert walked[0].name == "keep.py"
+
+
+def test_pyscn_probe_targets_caps_large_scope(tmp_path: Path) -> None:
+    files = []
+    for i in range(sp.PROBE_PYSCN_MAX_FILES + 15):
+        p = tmp_path / f"m{i}.py"
+        p.write_text("x=1\n", encoding="utf-8")
+        files.append(p.name)
+    targets = sp._pyscn_probe_targets(
+        tmp_path,
+        python_root=tmp_path,
+        effective_scope=files,
+    )
+    assert len(targets) == sp.PROBE_PYSCN_MAX_FILES
+
+
+def test_ensure_primary_probe_plan_reuses_scope_note(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    (tmp_path / "pyproject.toml").write_text("[project]\nname='x'\n", encoding="utf-8")
+    inv = {
+        "repo_root": str(tmp_path),
+        "stack_hints": {"python": True, "node": False},
+        "markers": {"pyproject": True},
+        "counts": {"py": 1},
+        "suggested_probe_roots": {"python": ".", "node": "."},
+    }
+    calls: list[int] = []
+
+    def boom(*_a, **_k):
+        calls.append(1)
+        raise AssertionError("resolve_effective_scope_paths should not re-run")
+
+    monkeypatch.setattr(sp, "resolve_effective_scope_paths", boom)
+    plan = sp.ensure_primary_probe_plan(
+        {"tools": ["pyscn"]},
+        inv,
+        skill_name="code-review",
+        step=3,
+        scope_paths=["a.py"],
+        scope_note="Scoped Python probes to 1 changed .py file(s) from git diff.",
+    )
+    assert calls == []
+    assert plan["scope_paths"] == ["a.py"]
+    assert "Scoped Python probes" in plan["reasoning"]

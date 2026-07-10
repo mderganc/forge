@@ -163,7 +163,7 @@ The scenario-index update at `<scenarios_dir>/README.md` is parser-gated; on par
 
 **Playbooks:** `templates/diagnose-execution-playbooks.md` — operational when/phase/artifact rules for all 20 catalog techniques.
 
-**Sidecars** (under the active diagnose session: `.forge/sessions/<id>/sidecars/` or legacy flat state dir beside `session.json`; canonical runtime `.forge/`, legacy `.codex/forge*` still read during migration):
+**Sidecars** (under the active diagnose session directory beside `session.json`: `.forge/sessions/<id>/`; canonical runtime `.forge/`, legacy `.codex/forge*` migrated then archived):
 
 | File | Phase | Gate steps |
 |------|-------|------------|

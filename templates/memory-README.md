@@ -8,7 +8,7 @@ This directory contains the shared memory files for a forge-codex team session.
 |------|-------|---------|
 | `project.md` | PM | Shared context, stage markers, autonomy log, findings tracker, Skill Flow section, completion summary |
 | `studio-log.md` | Studio (auto) | Append-only browser gate feedback (clicks, probes, freeform). Read via `{{STUDIO_LOG}}` in develop/plan; summarize into `project.md` when gates close |
-| `studio-approved-index.md` | Studio (auto) | Index of user-approved locked HTML under `.codex/forge/studio/approved/`. Read via `{{STUDIO_APPROVED}}` in develop/plan/implement |
+| `studio-approved-index.md` | Studio (auto) | Index of user-approved locked HTML under `.forge/studio/approved/`. Read via `{{STUDIO_APPROVED}}` in develop/plan/implement |
 | `investigation.md` | Architect | Five-why analysis, findings, root causes with evidence |
 | `investigator.md` | Investigator | Evidence gathered, five-why chains, MECE trees, barrier analysis |
 | `solution-requirements.md` | Architect | Brainstorming Phase 1 output — Requirements Context + How-Might-We framings. Written in Dispatch 1, consumed by brainstorming Gate 1 |
@@ -25,11 +25,11 @@ This directory contains the shared memory files for a forge-codex team session.
 
 ## ADR Directory
 
-The `.codex/forge/adr/` directory stores Architecture Decision Records (ADRs) — lightweight records of significant design decisions. See `templates/adr-template.md` for format.
+The `.forge/adr/` directory stores Architecture Decision Records (ADRs) — lightweight records of significant design decisions. See `templates/adr-template.md` for format.
 
 ## Handoff Files
 
-Skills write handoff files to `.codex/forge/memory/` to pass context to the next skill in the flow:
+Skills write handoff files to `.forge/memory/` to pass context to the next skill in the flow:
 
 | File | Written By | Read By | Purpose |
 |------|-----------|---------|---------|
@@ -49,7 +49,7 @@ See `templates/handoff-protocol.md` for the handoff file format.
 - **Stage markers:** `## Stage N: IN_PROGRESS [timestamp]` / `## Stage N: COMPLETE [timestamp]`
 - **Append-only:** Within a stage, append new sections — never overwrite previous rounds.
 - **Ownership:** Agents write only to their own file. PM writes only to `project.md`.
-- **ADR tracking:** Architecture decisions are recorded in `.codex/forge/adr/` with beads cross-references per `templates/adr-template.md`.
+- **ADR tracking:** Architecture decisions are recorded in `.forge/adr/` with beads cross-references per `templates/adr-template.md`.
 
 ## Resume
 

@@ -70,7 +70,7 @@ Lead test discovery, execution, failure analysis, and coverage gap identificatio
 6. For failures: classify as regression, new bug, or flaky test
 7. Report actionable findings with exact locations and fix recommendations
 
-**Output:** Write to `.codex/forge/memory/qa-reviewer.md`
+**Output:** Write to `.forge/memory/qa-reviewer.md`
 
 ## Test Skill: Round N [timestamp]
 
@@ -105,7 +105,7 @@ Comprehensive quality validation of the merged feature branch via the evaluate s
 8. Mutation audit: for critical paths, mentally mutate the code (flip condition, change operator, remove null check) and verify a specific test would catch it. Flag uncaught mutations as coverage gaps per `templates/verification-protocol.md` Level 9
 9. Follow `templates/verification-protocol.md`
 
-**Output:** Write to `.codex/forge/memory/qa-reviewer.md`
+**Output:** Write to `.forge/memory/qa-reviewer.md`
 
 ## Evaluate Review: Round N [timestamp]
 
@@ -144,8 +144,8 @@ Before submitting your review:
 
 ## Memory
 
-- **Read:** ALL files in `.codex/forge/memory/`
-- **Write:** `.codex/forge/memory/qa-reviewer.md`
+- **Read:** ALL files in `.forge/memory/`
+- **Write:** `.forge/memory/qa-reviewer.md`
 - Cross-reference beads IDs per `templates/memory-protocol.md`
 
 ## Beads Integration

@@ -120,8 +120,8 @@ The critic never issues PASS findings — your job is to find problems. If you f
 
 ## Memory
 
-- **Read:** ALL files in `.codex/forge/memory/` for full context
-- **Write:** `.codex/forge/memory/critic.md`
+- **Read:** ALL files in `.forge/memory/` for full context
+- **Write:** `.forge/memory/critic.md`
 - Tag all findings with the skill and stage: `## [Skill] Challenge — Round M`
 
 ## Beads

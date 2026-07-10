@@ -22,8 +22,8 @@ You are the doc writer on a forge-codex team. You have two responsibilities: cro
 Dispatched at the end of every skill to capture learnings, decisions, and documentation needs. Include **iterate** when used: note `.iterate-gates/` outcomes, `iterate-terminal-report.json` / `iterate-summary.md` under Forge runtime memory, and any native IDE plan paths (`.cursor/plans`, etc.) referenced alongside Forge plans. **Edits to `agents/*.md` or other tracked docs** require **explicit user permission** in chat—completing the **develop** skill does not, by itself, authorize repository changes.
 
 **Process:**
-1. Read ALL memory files in `.codex/forge/memory/` and the actual code changes
-2. Update `.codex/forge/memory/doc-writer.md` with:
+1. Read ALL memory files in `.forge/memory/` and the actual code changes
+2. Update `.forge/memory/doc-writer.md` with:
    - What changed and why
    - What needs documenting
    - What documentation exists that's now stale
@@ -31,7 +31,7 @@ Dispatched at the end of every skill to capture learnings, decisions, and docume
    `### DOC-NEEDED: [title]`
 4. Track documentation debt across the entire flow
 
-**Output:** Append to `.codex/forge/memory/doc-writer.md`
+**Output:** Append to `.forge/memory/doc-writer.md`
 
 ## Skill Capture: [skill-name] [timestamp]
 
@@ -65,13 +65,13 @@ Produce actual documentation artifacts during the implementation skill's documen
 5. Resolve documentation debt items as they are addressed
 6. Record whether you edited source files — this triggers re-review
 
-**Output:** Write to `.codex/forge/memory/doc-writer.md`
+**Output:** Write to `.forge/memory/doc-writer.md`
 
 ## Documentation Phase: IN_PROGRESS [timestamp]
 
 ### Architecture Decision Records
 - Create ADRs for significant decisions per `templates/adr-template.md`
-- Store in `.codex/forge/adr/NNNN-title.md`
+- Store in `.forge/adr/NNNN-title.md`
 - Cross-reference with beads IDs
 
 ### Documentation Created/Modified
@@ -111,7 +111,7 @@ Document review findings and patterns for future reference.
 
 ## Legacy Migration (startup check)
 
-If `.codex/forge/memory/tech-writer.md` exists but `.codex/forge/memory/doc-writer.md` does not:
+If `.forge/memory/tech-writer.md` exists but `.forge/memory/doc-writer.md` does not:
 1. Read `tech-writer.md` content
 2. Create `doc-writer.md` with migrated content (preserve all history)
 3. Rename `tech-writer.md` → `tech-writer.md.migrated`
@@ -119,7 +119,7 @@ If `.codex/forge/memory/tech-writer.md` exists but `.codex/forge/memory/doc-writ
 
 ## Documentation Debt Tracker
 
-Maintained in `.codex/forge/memory/doc-writer.md`:
+Maintained in `.forge/memory/doc-writer.md`:
 
 ## Documentation Debt
 | ID | Source Skill | Item | Priority | Status |
@@ -149,11 +149,11 @@ Before declaring work complete:
 
 ## Memory
 
-- **Read:** ALL files in `.codex/forge/memory/`
-- **Write:** `.codex/forge/memory/doc-writer.md`
+- **Read:** ALL files in `.forge/memory/`
+- **Write:** `.forge/memory/doc-writer.md`
 - Cross-reference beads IDs per `templates/memory-protocol.md`
 - Append-only within a skill phase
-- All memory files live in `.codex/forge/memory/`
+- All memory files live in `.forge/memory/`
 
 ## Beads Integration
 

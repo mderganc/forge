@@ -12,7 +12,7 @@ Read `templates/diagnose-feedback-loop.md` first, then `templates/diagnose-execu
 ## Beat A — Build the feedback loop
 
 1. Choose `loop_type` per `templates/diagnose-feedback-loop.md` (ordered constructors).
-2. Write `.diagnose-feedback-loop.json` beside diagnose state with at least:
+2. Write `{{STATE_DIR}}/.diagnose-feedback-loop.json` (under `.forge/`, never `.codex/forge*`) with at least:
    - `version`: 1
    - `loop_type`, `command_or_path`
    - `cannot_build_loop`: false (or true with `blocked_reason` + `user_ask` if genuinely blocked)
@@ -48,7 +48,7 @@ Read `templates/diagnose-feedback-loop.md` first, then `templates/diagnose-execu
 
 ## Barrier Analysis
 
-If incident profile includes safety/compliance/high-severity, draft `.diagnose-barriers.json` (finalize in Phase 7). Per layer: `exists`, `active`, `detected`, `failure_mode`.
+If incident profile includes safety/compliance/high-severity, draft `{{STATE_DIR}}/.diagnose-barriers.json` (finalize in Phase 7). Per layer: `exists`, `active`, `detected`, `failure_mode`.
 
 Otherwise note which defenses should have caught this (tests, monitoring, code review) in investigator memory.
 
@@ -59,6 +59,6 @@ Maintain two lists:
 - **Observations:** timestamps, logs, metrics, repro artifacts — each with source pointer.
 - **Assumptions:** each tied to a falsification test or missing-data flag.
 
-If **First-principles thinking** is in `activated_techniques`, update `.diagnose-first-principles.json` — link `violations[]` to observation pointers. Otherwise keep observations in problem spec or investigator memory.
+If **First-principles thinking** is in `activated_techniques`, update `{{STATE_DIR}}/.diagnose-first-principles.json` — link `violations[]` to observation pointers. Otherwise keep observations in problem spec or investigator memory.
 
 {{AUTONOMY_GATE}}

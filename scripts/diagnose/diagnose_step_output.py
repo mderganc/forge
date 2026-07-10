@@ -75,6 +75,7 @@ def build_next_step_command(
     script_dir: Path,
     max_step: int,
     is_last: bool,
+    state_path: Path,
 ) -> tuple[str | None, bool]:
     from scripts.shared.orchestrator import build_next_command
 
@@ -84,6 +85,7 @@ def build_next_step_command(
     extra: dict[str, str] = {}
     if state.custom.get("autonomy_mode"):
         extra["mode"] = state.custom["autonomy_mode"]
+    extra["state"] = str(state_path)
 
     next_step_override = (
         gate_result.next_step_override
@@ -141,7 +143,13 @@ def print_diagnose_step(
         handoff_path, handoff_menu = write_last_step_handoff(state, sp, skill_name=skill_name)
 
     next_cmd, gate_confirm = build_next_step_command(
-        step, state, gate_result, script_dir=script_dir, max_step=max_step, is_last=is_last
+        step,
+        state,
+        gate_result,
+        script_dir=script_dir,
+        max_step=max_step,
+        is_last=is_last,
+        state_path=sp,
     )
 
     output = format_step_output(

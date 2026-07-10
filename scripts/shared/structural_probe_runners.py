@@ -15,6 +15,7 @@ from scripts.shared.structural_probes import (
     _madge_entry,
     _parse_jscn_json_findings,
     _parse_skylos_json_findings,
+    _probe_progress,
     _pyscn_analyze_command,
     _pyscn_check_command,
     _pyscn_probe_targets,
@@ -161,19 +162,43 @@ def run_pyscn_probe(
             "skipped: no safe Python probe scope (repo root blocked by large ignored dirs)",
         )
 
-    use_analyze = bool(effective_scope) or repo_has_large_ignored_dirs(repo_root)
+    # Prefer ``check`` for explicit file targets — ``analyze`` can hang for minutes
+    # on large modules and historically left orphaned pyscn-windows-amd64 workers.
+    use_analyze = (
+        not effective_scope
+        and not repo_has_large_ignored_dirs(repo_root)
+        and targets == ["."]
+    )
     findings: list[dict[str, Any]] = []
     commands: list[list[str]] = []
     failed = False
     summaries: list[str] = []
 
-    # One file per invocation — avoids batch hangs; each target gets the full timeout.
-    for rel in targets:
-        if use_analyze:
-            cmd = _pyscn_analyze_command(pyscn, targets=[rel])
-        else:
-            cmd = _pyscn_check_command(pyscn, target=rel)
+    if use_analyze:
+        cmd = _pyscn_analyze_command(pyscn, targets=targets)
         commands.append(cmd)
+        _probe_progress("structural Pass B — pyscn analyze…")
+        code, out = _run_cmd(cmd, cwd=repo_root, timeout=timeout)
+        if code != 0:
+            failed = True
+        summaries.append((out.splitlines() or [f"exit {code}"])[0][:120])
+        for row in _tool_findings("pyscn", code, out):
+            row["id"] = f"P{len(findings) + 1}"
+            findings.append(row)
+    else:
+        # One ``pyscn check`` with all targets — per-file loops are ~30s each on Windows.
+        if len(targets) == 1:
+            cmd = _pyscn_check_command(pyscn, target=targets[0])
+        elif pyscn[:1] == ["pyscn"] or (pyscn and str(pyscn[0]).endswith("pyscn")):
+            cmd = ["pyscn", "check", *targets]
+        elif pyscn and pyscn[0] in ("uvx", "uv"):
+            cmd = [pyscn[0], "pyscn@latest", "check", *targets]
+        else:
+            cmd = [*pyscn, "check", *targets]
+        commands.append(cmd)
+        _probe_progress(
+            f"structural Pass B — pyscn check ({len(targets)} path(s))…"
+        )
         code, out = _run_cmd(cmd, cwd=repo_root, timeout=timeout)
         if code != 0:
             failed = True

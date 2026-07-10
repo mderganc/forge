@@ -48,7 +48,7 @@ Do **not** run every framing method or fill all 20 technique rows on simple inci
 
 Before applying or skipping a technique, read **`templates/diagnose-execution-playbooks.md`** for that technique’s phase, minimum artifact, anti-patterns, and done criteria.
 
-Persist coverage in **`.diagnose-technique-coverage.json`** (one row per **activated** technique; exact catalog names below).
+Persist coverage in **`{{STATE_DIR}}/.diagnose-technique-coverage.json`** (one row per **activated** technique; exact catalog names below).
 
 ## Deprioritized techniques (default skip)
 

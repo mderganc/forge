@@ -22,13 +22,26 @@ def collect_environment_checks() -> tuple[dict[str, object], list[str]]:
 def check_codex_anchor(repo_root: Path) -> tuple[dict[str, object], list[str]]:
     warnings: list[str] = []
     codex_anchor = repo_root / ".codex"
+    forge_runtime = repo_root / ".forge"
+    legacy_forge = codex_anchor / "forge"
+    legacy_fc = codex_anchor / "forge-codex"
     checks = {
         "codex_anchor_exists": codex_anchor.exists(),
         "codex_anchor_is_dir": codex_anchor.is_dir(),
+        "forge_runtime_exists": forge_runtime.is_dir(),
+        "legacy_codex_forge_exists": legacy_forge.is_dir(),
+        "legacy_forge_codex_exists": legacy_fc.is_dir(),
     }
     if codex_anchor.exists() and not codex_anchor.is_dir():
         warnings.append(
-            "`.codex` exists but is not a directory; forge will fall back to legacy `.forge` runtime."
+            "`.codex` exists but is not a directory; Forge still writes under `.forge/`."
+        )
+    if legacy_forge.is_dir() or legacy_fc.is_dir():
+        warnings.append(
+            "Legacy `.codex/forge*` runtime tree(s) still present alongside `.forge/`. "
+            "Run any workflow step 1 (or `forge doctor` after a skill start) to migrate "
+            "and archive them under `.forge/_archive/`. "
+            "Set FORGE_KEEP_LEGACY_RUNTIME=1 to keep them."
         )
     return checks, warnings
 

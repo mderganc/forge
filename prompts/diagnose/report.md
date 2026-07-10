@@ -40,7 +40,7 @@ If a technique was never activated, do not fabricate its sidecar — note “not
 
 ## Technique Coverage Matrix (final)
 
-Persist `.diagnose-technique-coverage.json` with a row for **each activated technique** (not all 20 by default). Orchestrator validates activated rows at step 7.
+Persist `{{STATE_DIR}}/.diagnose-technique-coverage.json` with a row for **each activated technique** (not all 20 by default). Orchestrator validates activated rows at step 7.
 
 Summary: {{TECHNIQUE_COVERAGE_SUMMARY}}
 

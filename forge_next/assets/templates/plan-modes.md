@@ -20,14 +20,14 @@ Used by `forge plan`, planner/architect agents, and `templates/writing-plans.md`
 
 1. CLI `--mode <default|lite>`
 2. Interactive user choice (when CLI omitted on new session)
-3. Persisted preference in `.codex/forge/memory/plan-preference.json`
+3. Persisted preference in `.forge/memory/plan-preference.json`
 4. System fallback: `default`
 
 Legacy sessions without `plan_mode` in state hydrate as `default` with a one-time note.
 
 ## Preference file
 
-Path: `.codex/forge/memory/plan-preference.json`
+Path: `.forge/memory/plan-preference.json`
 
 ```json
 {

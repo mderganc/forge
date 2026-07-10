@@ -196,16 +196,28 @@ def has_matching_handoff(skill: str, search_dir: Path | None = None) -> bool:
     return False
 
 
-def is_step1_abandoned(state: SkillState, path: Path) -> bool:
-    if state.current_step > 1 or state.last_completed_step > 1:
-        return False
+def _session_idle_seconds(state: SkillState, path: Path) -> float:
     touched = (
         parse_iso_timestamp(state.last_touched_at)
         or parse_iso_timestamp(state.started_at)
         or datetime.fromtimestamp(path.stat().st_mtime, tz=timezone.utc)
     )
-    age_seconds = (datetime.now(timezone.utc) - touched).total_seconds()
-    return age_seconds > step1_abandon_threshold_seconds()
+    return (datetime.now(timezone.utc) - touched).total_seconds()
+
+
+def is_step1_abandoned(state: SkillState, path: Path) -> bool:
+    if state.current_step > 1 or state.last_completed_step > 1:
+        return False
+    return _session_idle_seconds(state, path) > step1_abandon_threshold_seconds()
+
+
+def is_pipeline_session_abandoned(state: SkillState, path: Path) -> bool:
+    """True when any incomplete pipeline session has been idle past the abandon threshold.
+
+    Mid-pipeline leaks (e.g. code-review stuck at step 3) used to survive forever
+    because only step-1-only sessions were considered abandoned.
+    """
+    return _session_idle_seconds(state, path) > step1_abandon_threshold_seconds()
 
 
 def _auto_close_reason(
@@ -220,6 +232,18 @@ def _auto_close_reason(
         session_handoff_path,
         session_id_from_state_path,
     )
+
+    if skills_match(session_skill, starting_skill):
+        # Same-skill leftovers: only close when clearly superseded (handoff / step-1 idle).
+        if is_session_state_path(path):
+            sid = state.session_id or session_id_from_state_path(path)
+            if sid and session_handoff_path(sid, search_dir).is_file():
+                return f"sessions/{sid}/handoff.md exists"
+        elif has_matching_handoff(session_skill, search_dir):
+            return f"handoff-{session_skill}.md exists"
+        if is_step1_abandoned(state, path):
+            return "step-1-only session abandoned past threshold"
+        return None
 
     if is_session_state_path(path):
         sid = state.session_id or session_id_from_state_path(path)
@@ -239,6 +263,15 @@ def _auto_close_reason(
 
     if is_step1_abandoned(state, path):
         return "step-1-only session abandoned past threshold"
+
+    # Different pipeline skill idle mid-flight (implement/code-review leftovers when
+    # starting design, etc.) — close instead of forcing a "start fresh?" pause.
+    if (
+        starting_skill in PIPELINE_SKILLS
+        and session_skill in PIPELINE_SKILLS
+        and is_pipeline_session_abandoned(state, path)
+    ):
+        return "abandoned pipeline session past idle threshold"
 
     return None
 
@@ -292,11 +325,25 @@ def auto_close_superseded_sessions(
             continue
         if is_state_effectively_complete(state):
             continue
-        if is_state_stale(state, path):
-            continue
 
         session_skill = state.skill_name
         if session_skill == starting_skill and resolved in preserve:
+            continue
+
+        # Stale different-skill pipeline leftovers: archive instead of leaving them
+        # to trip later step-1 warnings after a brief re-touch / index refresh.
+        if (
+            is_state_stale(state, path)
+            and not skills_match(session_skill, starting_skill)
+            and session_skill in PIPELINE_SKILLS
+            and starting_skill in PIPELINE_SKILLS
+        ):
+            if not dry_run:
+                clear_state_file(path)
+            closed.append((path, "stale pipeline session"))
+            continue
+
+        if is_state_stale(state, path):
             continue
 
         reason = _auto_close_reason(starting_skill, session_skill, state, path, search_dir)
@@ -453,7 +500,7 @@ def format_active_session_warning(sessions: list[dict], starting_skill: str) -> 
         "ACTIVE SESSION DETECTED",
         "━" * 60,
         "",
-        f"You are starting `{starting_skill}` but other active sessions exist:",
+        f"You are starting `{starting_skill}` but other recently active sessions remain:",
         "",
     ]
     for s in sessions:
@@ -470,14 +517,16 @@ def format_active_session_warning(sessions: list[dict], starting_skill: str) -> 
         )
     lines.extend([
         "",
-        "Eligible sessions may have been **auto-closed** on this step-1 start "
-        "(handoff present, upstream in pipeline, or step-1 abandoned). "
-        "See `AUTO-CLOSED:` lines above.",
+        "Idle / handoff / upstream sessions were already **auto-closed** when eligible "
+        "(see `AUTO-CLOSED:` lines above). Do **not** ask the user to start "
+        f"`{starting_skill}` fresh and leave leftover sessions untouched.",
         "",
-        "**PAUSE.** Ask the user a concise question before proceeding:",
-        f'- Resume `{sessions[0]["skill"]}` and continue the in-progress session',
-        f'- Start `{starting_skill}` fresh and leave the existing session alone',
-        "- Cancel and let the user decide manually",
+        f"**Default:** continue with this new `{starting_skill}` session.",
+        "Only ask the user if a listed session was touched very recently and they may "
+        "want to resume it instead:",
+        f'- Resume `{sessions[0]["skill"]}` (continue that session)',
+        f'- Continue `{starting_skill}` (default — leftover idle sessions stay closed)',
+        f"- Run `{takeover_invocation_hint(cleanup=True)}` to inspect remaining sessions",
         "",
         "━" * 60,
         "",

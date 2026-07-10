@@ -128,6 +128,29 @@ def write_memory_synthesis(
         else:
             handoff_block = "_No `handoff-*.md` files with content._"
 
+        # Active sessions table (multi-session aware)
+        sessions_block = "_No active sessions listed._"
+        try:
+            from scripts.shared.session_store import list_active_sessions
+            from scripts.shared.resume_context import load_resume_snapshot
+
+            active = list_active_sessions(search_dir)
+            snap, _ = load_resume_snapshot(search_dir)
+            focus = (snap or {}).get("focus", "")
+            if active:
+                rows = [
+                    "| Session | Skill | Step | Focus |",
+                    "|---------|-------|------|-------|",
+                ]
+                for s in active[:12]:
+                    mark = "yes" if s.session_id == focus else ""
+                    rows.append(
+                        f"| `{s.session_id}` | {s.skill} | {s.current_step} | {mark} |"
+                    )
+                sessions_block = "\n".join(rows)
+        except Exception:
+            pass
+
         lines = [
             "---",
             f"forge_synthesis_skill: {skill_name}",
@@ -140,6 +163,10 @@ def write_memory_synthesis(
             "This file is **auto-generated** when workflow state is saved. It rolls up",
             "existing memory files so resume and new chats can open **one** narrative",
             "summary without replacing `current-step.md` or handoffs.",
+            "",
+            "## Active sessions",
+            "",
+            sessions_block,
             "",
             "## Active workflow (from last state save)",
             "",

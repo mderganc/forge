@@ -30,6 +30,7 @@ def find_state_file(*, include_stale: bool = False) -> Path | None:
         candidates.extend(sorted(dir_path.glob(".evaluate-state-*.json")))
 
     _collect(cwd)
+    _collect(repo_root / ".forge" / "state")
     _collect(repo_root / ".codex" / "forge" / "state")
     _collect(repo_root / ".codex" / "forge-codex" / "state")
 

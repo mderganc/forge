@@ -15,9 +15,9 @@ from scripts.shared.state_lifecycle import (
     now_iso,
 )
 
-CANONICAL_RUNTIME_PARTS = (".codex", "forge")
-LEGACY_FORGE_CODEX_RUNTIME_PARTS = (".codex", "forge-codex")
-LEGACY_RUNTIME_DIRNAME = ".forge"
+CANONICAL_RUNTIME_PARTS = (".codex", "forge")  # legacy (pre-.forge primary)
+LEGACY_FORGE_CODEX_RUNTIME_PARTS = (".codex", "forge-codex")  # older legacy name
+LEGACY_RUNTIME_DIRNAME = ".forge"  # historical flat-root alias (same as primary today)
 PRIMARY_RUNTIME_DIRNAME = ".forge"
 EVALUATE_STATE_FILENAME = ".evaluate-state.json"
 RUN_HISTORY_MAX_ENTRIES = 30

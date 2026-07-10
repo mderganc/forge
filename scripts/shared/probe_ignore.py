@@ -6,6 +6,8 @@ name checks only (no per-path ``git check-ignore`` — too slow on large repos).
 
 ``for_scope=True`` applies the full policy for explicit probe targets: hard skips,
 ``.graphifyignore`` (graphify semantics when installed), and ``git check-ignore``.
+``filter_paths`` batches ``git check-ignore --stdin`` so large diffs do not spawn
+one subprocess per path (N×10s hangs after the inventory progress line).
 """
 
 from __future__ import annotations
@@ -14,6 +16,9 @@ import subprocess
 from dataclasses import dataclass, field
 from functools import lru_cache
 from pathlib import Path
+
+GIT_CHECK_IGNORE_TIMEOUT_SEC = 15
+GIT_CHECK_IGNORE_BATCH = 400
 
 
 def _is_vendored_forge_snapshot_dir(part: str) -> bool:
@@ -69,6 +74,56 @@ class ProbeIgnorePolicy:
                 return True
         return False
 
+    def _batch_gitignored(self, rels: list[str]) -> set[str]:
+        """Return the subset of ``rels`` that git reports as ignored.
+
+        Prefers multi-arg ``git check-ignore`` (reliable on Windows). Falls back
+        to ``--stdin`` with bytes when the argv would be too long.
+        """
+        if not rels or not self._git_available:
+            return set()
+        ignored: set[str] = set()
+        # Keep argv under Windows CreateProcess ~8k limit.
+        max_chunk = min(GIT_CHECK_IGNORE_BATCH, 80)
+        for start in range(0, len(rels), max_chunk):
+            chunk = rels[start : start + max_chunk]
+            argv_len = sum(len(r) + 1 for r in chunk)
+            try:
+                if argv_len > 6000:
+                    proc = subprocess.run(
+                        ["git", "-C", str(self.repo_root), "check-ignore", "--stdin"],
+                        input=("\n".join(chunk) + "\n").encode("utf-8"),
+                        capture_output=True,
+                        timeout=GIT_CHECK_IGNORE_TIMEOUT_SEC,
+                    )
+                else:
+                    proc = subprocess.run(
+                        [
+                            "git",
+                            "-C",
+                            str(self.repo_root),
+                            "check-ignore",
+                            "--",
+                            *chunk,
+                        ],
+                        capture_output=True,
+                        timeout=GIT_CHECK_IGNORE_TIMEOUT_SEC,
+                    )
+            except (OSError, subprocess.TimeoutExpired):
+                for rel in chunk:
+                    self._git_cache.setdefault(rel, False)
+                continue
+            out = (proc.stdout or b"").decode("utf-8", errors="replace")
+            chunk_ignored: set[str] = set()
+            for line in out.splitlines():
+                tok = line.strip().replace("\\", "/")
+                if tok:
+                    chunk_ignored.add(tok)
+            ignored.update(chunk_ignored)
+            for rel in chunk:
+                self._git_cache[rel] = rel in chunk_ignored
+        return ignored
+
     def is_gitignored(self, path: Path) -> bool:
         rel = self._rel_posix(path)
         if rel is None:
@@ -78,16 +133,7 @@ class ProbeIgnorePolicy:
         if not self._git_available:
             self._git_cache[rel] = False
             return False
-        try:
-            proc = subprocess.run(
-                ["git", "-C", str(self.repo_root), "check-ignore", "-q", "--", rel],
-                capture_output=True,
-                timeout=10,
-            )
-        except (OSError, subprocess.TimeoutExpired):
-            self._git_cache[rel] = False
-            return False
-        ignored = proc.returncode == 0
+        ignored = rel in self._batch_gitignored([rel])
         self._git_cache[rel] = ignored
         return ignored
 
@@ -138,17 +184,31 @@ class ProbeIgnorePolicy:
         return self.is_ignored(self.repo_root / rel, for_scope=for_scope)
 
     def filter_paths(self, paths: list[str], *, for_scope: bool = True) -> list[str]:
-        out: list[str] = []
+        """Keep non-ignored paths. Batches git check-ignore when ``for_scope`` is True."""
+        candidates: list[str] = []
         seen: set[str] = set()
         for raw in paths:
             tok = str(raw).strip().replace("\\", "/").lstrip("./")
             if not tok or tok in seen:
                 continue
-            if self.rel_is_ignored(tok, for_scope=for_scope):
-                continue
             seen.add(tok)
-            out.append(tok)
-        return out
+            if self._hard_skip_rel(tok):
+                continue
+            if for_scope and self._fast_graphify_dir_skip(tok):
+                continue
+            if for_scope and self._graphify_patterns:
+                if self.is_graphifyignored(self.repo_root / tok):
+                    continue
+            candidates.append(tok)
+
+        if not for_scope or not candidates:
+            return candidates
+
+        uncached = [r for r in candidates if r not in self._git_cache]
+        if uncached:
+            self._batch_gitignored(uncached)
+
+        return [r for r in candidates if not self._git_cache.get(r, False)]
 
     def skylos_exclude_folders(self, defaults: tuple[str, ...]) -> list[str]:
         """Folder names for skylos ``--exclude-folder`` on broad scans."""

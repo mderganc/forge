@@ -231,11 +231,20 @@ def _load_or_init_state(
     quick: bool = False,
     *,
     parallel: bool = False,
+    resolved_path: Path | None = None,
 ) -> tuple[SkillState, Path]:
     """Load existing state or initialize a new one.
 
-    Returns (state, state_path).
+    Returns (state, state_path). When ``resolved_path`` is set (step 1 after
+    ``resolve_step1_state_path``), always use that path — never fall back to
+    flat ``.forge/state/implement.json``.
     """
+    if resolved_path is not None:
+        sp = resolved_path
+        if sp.exists():
+            return load_state(sp), sp
+        return _init_state(quick=quick), sp
+
     # Explicit/custom path handling for step 1.
     if state_file or parallel:
         sp = resolve_step1_state_path(SKILL_NAME, state_file, parallel=parallel)
@@ -243,14 +252,14 @@ def _load_or_init_state(
             return load_state(sp), sp
         return _init_state(quick=quick), sp
 
-    # Search for existing state
+    # Search for existing state (steps 2+ without --session/--state)
     found = find_state_file(SKILL_NAME)
     if found:
         return load_state(found), found
 
-    # Initialize fresh
+    # Initialize fresh at a new session path (should be rare outside step 1)
     state = _init_state(quick=quick)
-    sp = _get_state_path()
+    sp = resolve_step1_state_path(SKILL_NAME, None, parallel=True)
     return state, sp
 
 
@@ -442,7 +451,13 @@ def _wave_scoped_todos(step: int, wave: int | None) -> list[dict]:
     return todos
 
 
-def _next_command(current_step: int, quick: bool = False, target_step: int | None = None) -> str:
+def _next_command(
+    current_step: int,
+    quick: bool = False,
+    target_step: int | None = None,
+    *,
+    state_path: Path | None = None,
+) -> str:
     """Build agent-facing continuation for the next step, bounded by MAX_STEP.
 
     Returns "" when the requested next step would exceed MAX_STEP. Use
@@ -453,19 +468,22 @@ def _next_command(current_step: int, quick: bool = False, target_step: int | Non
     if nxt > MAX_STEP:
         return ""
     fl = ("quick",) if quick else ()
+    extra: dict[str, object] = {"flags": fl}
+    if state_path is not None:
+        extra["state"] = str(state_path)
     if target_step is not None:
         return build_next_command(
             SCRIPT_DIR / "implement.py",
             current_step,
             MAX_STEP,
             next_step=target_step,
-            flags=fl,
+            **extra,
         )
     return build_next_command(
         SCRIPT_DIR / "implement.py",
         current_step,
         MAX_STEP,
-        flags=fl,
+        **extra,
     )
 
 
@@ -524,6 +542,7 @@ def handle_step_1(args) -> None:
         args.state,
         quick=args.quick,
         parallel=getattr(args, "parallel", False),
+        resolved_path=sp,
     )
 
     # Load template before mutating state — a missing template must not leave
@@ -574,7 +593,7 @@ def handle_step_1(args) -> None:
     state.mark_step_complete(1)
     save_state(state, sp)
 
-    _emit(1, body, _next_command(1, quick=args.quick), state=state, state_path=sp)
+    _emit(1, body, _next_command(1, quick=args.quick, state_path=sp), state=state, state_path=sp)
 
 
 def handle_step_2(state: SkillState, sp: Path) -> None:
@@ -591,7 +610,7 @@ def handle_step_2(state: SkillState, sp: Path) -> None:
     state.mark_step_complete(2)
     save_state(state, sp)
 
-    _emit(2, body, _next_command(2, quick=state.quick_mode), state=state, state_path=sp)
+    _emit(2, body, _next_command(2, quick=state.quick_mode, state_path=sp), state=state, state_path=sp)
 
 
 def handle_step_3(state: SkillState, sp: Path) -> None:
@@ -620,7 +639,7 @@ def handle_step_3(state: SkillState, sp: Path) -> None:
     state.mark_step_complete(3)
     save_state(state, sp)
 
-    _emit(3, body, _next_command(3, quick=state.quick_mode), wave=current_wave, state=state, state_path=sp)
+    _emit(3, body, _next_command(3, quick=state.quick_mode, state_path=sp), wave=current_wave, state=state, state_path=sp)
 
 
 def handle_step_4(state: SkillState, sp: Path) -> None:
@@ -657,7 +676,7 @@ def handle_step_4(state: SkillState, sp: Path) -> None:
     _emit(
         4,
         body,
-        _next_command(4, quick=state.quick_mode),
+        _next_command(4, quick=state.quick_mode, state_path=sp),
         wave=current_wave,
         state=state,
         state_path=sp,
@@ -690,7 +709,7 @@ def handle_step_5(state: SkillState, sp: Path) -> None:
     else:
         next_step = 6
 
-    next_cmd = _next_command(5, quick=state.quick_mode, target_step=next_step)
+    next_cmd = _next_command(5, quick=state.quick_mode, target_step=next_step, state_path=sp)
 
     phase_label = PHASE_NAMES[5]
     if waves_completed < total_waves:
@@ -716,7 +735,7 @@ def handle_step_6(state: SkillState, sp: Path) -> None:
     state.mark_step_complete(6)
     save_state(state, sp)
 
-    _emit(6, body, _next_command(6, quick=state.quick_mode), state=state, state_path=sp)
+    _emit(6, body, _next_command(6, quick=state.quick_mode, state_path=sp), state=state, state_path=sp)
 
 
 def handle_step_7(state: SkillState, sp: Path) -> None:
@@ -731,7 +750,7 @@ def handle_step_7(state: SkillState, sp: Path) -> None:
     state.mark_step_complete(7)
     save_state(state, sp)
 
-    _emit(7, body, _next_command(7, quick=state.quick_mode), state=state, state_path=sp)
+    _emit(7, body, _next_command(7, quick=state.quick_mode, state_path=sp), state=state, state_path=sp)
 
 
 def handle_step_8(state: SkillState, sp: Path, args: argparse.Namespace | None = None) -> None:

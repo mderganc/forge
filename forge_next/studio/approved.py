@@ -107,7 +107,7 @@ def _write_index(repo_root: Path, manifest: dict[str, Any]) -> Path:
     lines = [
         "# Approved Studio screens (locked reference)",
         "",
-        "> **Do not edit** files under `.codex/forge/studio/approved/`. "
+        "> **Do not edit** files under `.forge/studio/approved/`. "
         "These are the UI snapshots the user approved. "
         "Use them when planning, implementing, and reviewing — not the live session `content/` copies.",
         "",

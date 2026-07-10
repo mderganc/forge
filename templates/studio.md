@@ -39,7 +39,7 @@ Record in `state.custom`: `studio_enabled`, `studio_declined`, or neither until 
 
 ## One session per repo
 
-Only one active Studio session per repository (`active-session.json` under `.codex/forge/studio/`). Stop at develop/plan handoff.
+Only one active Studio session per repository (`active-session.json` under `.forge/studio/`). Stop at develop/plan handoff.
 
 ## Agent commands (internal)
 
@@ -49,7 +49,7 @@ From repo root (agents only — **do not** tell users to run these):
 2. Tell the user: open the URL, review design notes, pick options, add feedback on the page, click **Done reviewing**, then continue in chat.
 3. Write HTML to `screen_dir` or `forge studio push --file gate1.html` (start from `screen-example.html`)
 4. `forge studio events --json` — read raw events (optional; log is canonical)
-5. Read **`studio-log.md`** in runtime memory (`.codex/forge/memory/studio-log.md`) — auto-appended on every browser action; also injected as `{{STUDIO_LOG}}` in develop/plan steps
+5. Read **`studio-log.md`** in runtime memory (`.forge/memory/studio-log.md`) — auto-appended on every browser action; also injected as `{{STUDIO_LOG}}` in develop/plan steps
 6. Summarize gate outcomes into `project.md` / plan when the gate closes
 7. `forge studio stop` at handoff
 
@@ -72,18 +72,18 @@ Ignore empty `submit` with `choices: []`.
 
 | Path | Purpose |
 |------|---------|
-| `.codex/forge/memory/studio-log.md` | Append-only feedback log (`{{STUDIO_LOG}}`) |
-| `.codex/forge/memory/studio-approved-index.md` | Index of **locked** approved screens (`{{STUDIO_APPROVED}}`) |
-| `.codex/forge/studio/approved/<gate>.html` | **Immutable** HTML the user approved — use for plan/implement |
-| `.codex/forge/studio/approved/manifest.json` | Machine-readable lock registry |
-| `.codex/forge/studio/<session-id>/content/*.html` | **Draft** screens (editable until approved) |
+| `.forge/memory/studio-log.md` | Append-only feedback log (`{{STUDIO_LOG}}`) |
+| `.forge/memory/studio-approved-index.md` | Index of **locked** approved screens (`{{STUDIO_APPROVED}}`) |
+| `.forge/studio/approved/<gate>.html` | **Immutable** HTML the user approved — use for plan/implement |
+| `.forge/studio/approved/manifest.json` | Machine-readable lock registry |
+| `.forge/studio/<session-id>/content/*.html` | **Draft** screens (editable until approved) |
 
 Bundled HTML examples for agents to copy: `forge_next/assets/studio/` (`screen-example.html`, `frame.html`, `studio.js`, `feedback-panel.html`).
 
 ### Approval (lock)
 
 1. User clicks **Approve screen** on the gate (or agent runs `forge studio approve --repo .` after explicit chat confirmation).
-2. Newest session HTML is copied to `.codex/forge/studio/approved/<gate>.html` and registered in `manifest.json`.
+2. Newest session HTML is copied to `.forge/studio/approved/<gate>.html` and registered in `manifest.json`.
 3. `studio-approved-index.md` is regenerated; develop/plan/implement inject it as `{{STUDIO_APPROVED}}`.
 4. **`forge studio push` is rejected** for HTML whose `data-studio-gate` is already locked (use a new gate id for drafts).
 5. Re-lock same gate: `forge studio approve --replace` or browser approve after `--replace` policy in chat.

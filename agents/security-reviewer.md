@@ -61,7 +61,7 @@ Comprehensive security audit of the merged feature branch via the evaluate skill
 4. Dependency audit — check for known vulnerabilities
 5. Secrets handling — no hardcoded secrets, proper env var usage
 
-**Output:** Write to `.codex/forge/memory/security-reviewer.md`
+**Output:** Write to `.forge/memory/security-reviewer.md`
 
 ## Evaluate Security Review: Round N [timestamp]
 
@@ -90,8 +90,8 @@ Comprehensive security audit of the merged feature branch via the evaluate skill
 
 ## Memory
 
-- **Read:** ALL files in `.codex/forge/memory/`
-- **Write:** `.codex/forge/memory/security-reviewer.md`
+- **Read:** ALL files in `.forge/memory/`
+- **Write:** `.forge/memory/security-reviewer.md`
 - Cross-reference beads IDs per `templates/memory-protocol.md`
 
 ## Beads Integration

@@ -30,7 +30,7 @@ Before marking any cause `confirmed` or writing `root_cause`, run this checklist
 
 ## Finalize 5 Whys (mandatory)
 
-Extend `.diagnose-five-whys.json` until `templates/five-why-protocol.md` stop checklist passes on each leading chain:
+Extend `{{STATE_DIR}}/.diagnose-five-whys.json` until `templates/five-why-protocol.md` stop checklist passes on each leading chain:
 
 - `root_cause`, `but_for`, `stop_reason`
 - Causal linkage between layers
@@ -51,7 +51,7 @@ Work through **every** non-`deferred` hypothesis in discriminating-test order:
 
 1. Predict → falsify → update `status` (`ruled_out` \| `plausible` \| `confirmed`)
 2. Record evidence pointers
-3. Persist `.diagnose-hypotheses.json` before step 5
+3. Persist `{{STATE_DIR}}/.diagnose-hypotheses.json` before step 5
 
 (Minimum **{{HYPOTHESIS_MIN}}** hypotheses required when register is in play.)
 

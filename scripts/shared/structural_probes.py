@@ -56,7 +56,11 @@ _SKIP_PROBE_PARTS = frozenset({
     ".pytest_cache",
     "graphify-out",
     ".pyscn",
+    ".skylos",
     ".forge",
+    ".codex",
+    ".cursor",
+    ".claude",
     "htmlcov",
     ".eggs",
     "site-packages",
@@ -95,6 +99,11 @@ def _is_vendored_forge_snapshot_dir(part: str) -> bool:
 
 PROBE_GIT_TIMEOUT_SEC = 8
 PROBE_INVENTORY_WALK_MAX = 8000
+PROBE_SCOPE_PATH_MAX = 200
+PROBE_PYSCN_MAX_FILES = 40
+# Per-tool / per-file subprocess budget (pyscn runs one file per invocation).
+PROBE_TOOL_TIMEOUT_SEC = 90
+PROBE_PYSCN_FILE_TIMEOUT_SEC = 90
 
 
 def _probe_progress(message: str) -> None:
@@ -236,7 +245,7 @@ def filter_python_scope_paths(repo_root: Path, paths: list[str]) -> list[str]:
     """Keep review-relevant Python paths; drop gitignored/graphifyignored trees."""
     root = repo_root.resolve()
     policy = _probe_ignore_policy(root)
-    out: list[str] = []
+    candidates: list[str] = []
     seen: set[str] = set()
     for raw in paths:
         tok = _normalize_scope_token(str(raw))
@@ -244,8 +253,6 @@ def filter_python_scope_paths(repo_root: Path, paths: list[str]) -> list[str]:
             continue
         candidate = (root / tok).resolve()
         if not candidate.exists():
-            continue
-        if policy.is_ignored(candidate, for_scope=True):
             continue
         if candidate.is_file() and candidate.suffix != ".py":
             continue
@@ -253,15 +260,15 @@ def filter_python_scope_paths(repo_root: Path, paths: list[str]) -> list[str]:
         if rel in seen:
             continue
         seen.add(rel)
-        out.append(rel)
-    return out
+        candidates.append(rel)
+    return policy.filter_paths(candidates, for_scope=True)
 
 
 def filter_javascript_scope_paths(repo_root: Path, paths: list[str]) -> list[str]:
     """Keep review-relevant JS/TS paths; drop gitignored/graphifyignored trees."""
     root = repo_root.resolve()
     policy = _probe_ignore_policy(root)
-    out: list[str] = []
+    candidates: list[str] = []
     seen: set[str] = set()
     for raw in paths:
         tok = _normalize_scope_token(str(raw))
@@ -270,16 +277,14 @@ def filter_javascript_scope_paths(repo_root: Path, paths: list[str]) -> list[str
         candidate = (root / tok).resolve()
         if not candidate.exists():
             continue
-        if policy.is_ignored(candidate, for_scope=True):
-            continue
         if candidate.is_file() and candidate.suffix.lower() not in _JS_SUFFIXES:
             continue
         rel = _rel_path(candidate, root).replace("\\", "/")
         if rel in seen:
             continue
         seen.add(rel)
-        out.append(rel)
-    return out
+        candidates.append(rel)
+    return policy.filter_paths(candidates, for_scope=True)
 
 
 def _git_run_names(repo_root: Path, args: list[str], *, timeout: int | None = None) -> list[str]:
@@ -354,6 +359,20 @@ def _git_changed_paths_for_review(
     # Untracked and ignored-from-index paths (e.g. new modules not yet `git add`ed).
     add_paths(_git_run_names(repo_root, ["ls-files", "--others", "--exclude-standard"]))
 
+    # Prefer source files before ignore filtering — avoids N×git on docs/binaries.
+    source_suffixes = (".py", ".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs")
+    preferred = [
+        p for p in paths if Path(p).suffix.lower() in source_suffixes or p.endswith("/")
+    ]
+    if preferred:
+        paths = preferred
+    if len(paths) > PROBE_SCOPE_PATH_MAX:
+        _probe_progress(
+            f"structural Pass B — capping git scope candidates "
+            f"({len(paths)} → {PROBE_SCOPE_PATH_MAX})"
+        )
+        paths = paths[:PROBE_SCOPE_PATH_MAX]
+
     return _probe_ignore_policy(repo_root).filter_paths(paths, for_scope=True)
 
 
@@ -416,6 +435,7 @@ def ensure_primary_probe_plan(
     step: int,
     scope_paths: list[str] | None = None,
     mode: str | None = None,
+    scope_note: str | None = None,
 ) -> dict[str, Any]:
     """Code-review/evaluate: applicable tools; scoped pyscn/skylos when Python is present."""
     merged = dict(plan or {})
@@ -429,13 +449,18 @@ def ensure_primary_probe_plan(
         return merged
 
     repo_root = Path(str(inventory.get("repo_root") or ".")).resolve()
-    effective_scope, scope_note = resolve_effective_scope_paths(
-        repo_root,
-        scope_paths or merged.get("scope_paths"),
-        skill_name=skill_name,
-        step=step,
-        mode=mode,
-    )
+    # Reuse caller-resolved scope when provided (avoids a second git+check-ignore pass).
+    if scope_note is not None:
+        effective_scope = list(scope_paths or [])
+        resolved_note = scope_note
+    else:
+        effective_scope, resolved_note = resolve_effective_scope_paths(
+            repo_root,
+            scope_paths or merged.get("scope_paths"),
+            skill_name=skill_name,
+            step=step,
+            mode=mode,
+        )
 
     node_capable, python_capable = inventory_stack_capabilities(inventory)
     tools = filter_applicable_probe_tools(
@@ -485,8 +510,8 @@ def ensure_primary_probe_plan(
         "Gitignored and graphifyignored paths are never scanned. "
         "Skylos uses dead-code scan unless FORGE_SKYLOS_AUDIT=1."
     )
-    if scope_note:
-        note = f"{scope_note} {note}"
+    if resolved_note:
+        note = f"{resolved_note} {note}"
     merged["reasoning"] = _merge_plan_reasoning(
         str(merged.get("reasoning") or ""),
         note,
@@ -524,13 +549,17 @@ def _walk_repo_files(
     *,
     suffix: str | None = None,
     basename: str | None = None,
+    max_files: int | None = None,
 ) -> Iterator[Path]:
     """Walk the repo without descending into gitignored/graphifyignored trees.
 
     ``Path.rglob`` matches files inside ignored trees first (very slow on ``.venv``).
     This prunes directory names in ``os.walk`` before recursion.
+    ``max_files`` caps yields (default ``PROBE_INVENTORY_WALK_MAX``).
     """
     root = repo_root.resolve()
+    limit = PROBE_INVENTORY_WALK_MAX if max_files is None else max_files
+    yielded = 0
     for dirpath, dirnames, filenames in os.walk(root, topdown=True, followlinks=False):
         current = Path(dirpath)
         if _should_prune_walk_path(current, root):
@@ -548,6 +577,9 @@ def _walk_repo_files(
             if _should_prune_walk_path(path, root):
                 continue
             yield path
+            yielded += 1
+            if limit > 0 and yielded >= limit:
+                return
 
 
 def _source_suffix_counts(
@@ -688,7 +720,8 @@ def python_probe_root(repo_root: Path) -> Path:
     if (root / "pyproject.toml").is_file() or (root / "setup.py").is_file():
         return root
     per_dir: dict[Path, int] = {}
-    for path in _walk_repo_files(repo_root, suffix=".py"):
+    # Sample only — full-tree .py walks hang on large monorepos without pyproject.
+    for path in _walk_repo_files(repo_root, suffix=".py", max_files=500):
         per_dir[path.parent] = per_dir.get(path.parent, 0) + 1
     if not per_dir:
         return root
@@ -842,22 +875,124 @@ def merge_plan_with_scope(
     return merged
 
 
-def _run_cmd(cmd: list[str], *, cwd: Path, timeout: int) -> tuple[int, str]:
+def _kill_process_tree(proc: Any) -> None:
+    """Best-effort kill of ``proc`` and any children (Windows pyscn spawns a helper)."""
+    import subprocess
+
+    if proc.poll() is not None:
+        return
+    try:
+        if sys.platform == "win32":
+            subprocess.run(
+                ["taskkill", "/F", "/T", "/PID", str(proc.pid)],
+                capture_output=True,
+                timeout=10,
+            )
+        else:
+            import os
+            import signal
+
+            try:
+                os.killpg(proc.pid, signal.SIGKILL)
+            except (OSError, ProcessLookupError, AttributeError):
+                proc.kill()
+    except (OSError, subprocess.TimeoutExpired):
+        try:
+            proc.kill()
+        except OSError:
+            pass
+
+
+def _cleanup_orphaned_pyscn_workers() -> None:
+    """Kill leftover pyscn helper processes that block later probe runs on Windows."""
+    if sys.platform != "win32":
+        return
     import subprocess
 
     try:
-        proc = subprocess.run(
-            cmd,
-            cwd=str(cwd),
+        listing = subprocess.run(
+            ["tasklist", "/FI", "IMAGENAME eq pyscn-windows-amd64.exe"],
             capture_output=True,
             text=True,
-            timeout=timeout,
+            timeout=5,
             encoding="utf-8",
             errors="replace",
         )
-    except (OSError, subprocess.TimeoutExpired) as exc:
+    except (OSError, subprocess.TimeoutExpired):
+        return
+    text = (listing.stdout or "") + (listing.stderr or "")
+    if "pyscn-windows-amd64.exe" not in text.lower() and "pyscn.exe" not in text.lower():
+        # Also check wrapper name
+        try:
+            listing2 = subprocess.run(
+                ["tasklist", "/FI", "IMAGENAME eq pyscn.exe"],
+                capture_output=True,
+                text=True,
+                timeout=5,
+                encoding="utf-8",
+                errors="replace",
+            )
+        except (OSError, subprocess.TimeoutExpired):
+            return
+        text2 = (listing2.stdout or "") + (listing2.stderr or "")
+        if "pyscn.exe" not in text2.lower():
+            return
+
+    for image in ("pyscn-windows-amd64.exe", "pyscn.exe"):
+        try:
+            subprocess.run(
+                ["taskkill", "/F", "/T", "/IM", image],
+                capture_output=True,
+                timeout=10,
+            )
+        except (OSError, subprocess.TimeoutExpired):
+            pass
+
+
+def _run_cmd(cmd: list[str], *, cwd: Path, timeout: int) -> tuple[int, str]:
+    """Run a probe tool with a hard timeout that kills the full process tree.
+
+    On Windows, ``pyscn`` launches ``pyscn-windows-amd64``; ``subprocess.run(...,
+    timeout=)`` only kills the parent, leaving orphans that stall later probes.
+    """
+    import subprocess
+
+    # Clear orphans before pyscn so a prior Ctrl-C / timeout does not serialize forever.
+    if any("pyscn" in str(part).lower() for part in cmd):
+        _cleanup_orphaned_pyscn_workers()
+
+    popen_kwargs: dict[str, Any] = {
+        "cwd": str(cwd),
+        "stdout": subprocess.PIPE,
+        "stderr": subprocess.PIPE,
+        "text": True,
+        "encoding": "utf-8",
+        "errors": "replace",
+    }
+    if sys.platform != "win32":
+        popen_kwargs["start_new_session"] = True
+
+    try:
+        proc = subprocess.Popen(cmd, **popen_kwargs)
+    except OSError as exc:
         return 1, str(exc)
-    out = (proc.stdout or "") + (proc.stderr or "")
+
+    try:
+        stdout, stderr = proc.communicate(timeout=timeout)
+    except subprocess.TimeoutExpired:
+        _kill_process_tree(proc)
+        if any("pyscn" in str(part).lower() for part in cmd):
+            _cleanup_orphaned_pyscn_workers()
+        try:
+            stdout, stderr = proc.communicate(timeout=5)
+        except (subprocess.TimeoutExpired, OSError, ValueError):
+            stdout, stderr = "", ""
+        return 1, f"TimeoutExpired: command exceeded {timeout}s: {' '.join(cmd)}"
+    except OSError as exc:
+        _kill_process_tree(proc)
+        return 1, str(exc)
+
+    out = (stdout or "") + (stderr or "")
     return proc.returncode, out.strip()
 
 
@@ -1074,12 +1209,20 @@ def _pyscn_probe_targets(
     if effective_scope:
         py_paths = filter_python_scope_paths(repo_root, effective_scope)
         if py_paths:
+            if len(py_paths) > PROBE_PYSCN_MAX_FILES:
+                _probe_progress(
+                    f"structural Pass B — capping pyscn targets "
+                    f"({len(py_paths)} → {PROBE_PYSCN_MAX_FILES})"
+                )
+                return py_paths[:PROBE_PYSCN_MAX_FILES]
             return py_paths
         scoped = [
             p
             for p in (_normalize_scope_token(x) for x in effective_scope if str(x).strip())
             if p and p not in (".", "./") and not policy.rel_is_ignored(p, for_scope=True)
         ]
+        if len(scoped) > PROBE_PYSCN_MAX_FILES:
+            return scoped[:PROBE_PYSCN_MAX_FILES]
         return scoped
 
     if repo_has_large_ignored_dirs(repo_root):
@@ -1219,7 +1362,7 @@ def run_probes(
     *,
     scope_paths: list[str] | None = None,
     state_dir: Path | None = None,
-    timeout_per_tool: int = 300,
+    timeout_per_tool: int = PROBE_TOOL_TIMEOUT_SEC,
     quick_mode: bool = False,
     tools: list[str] | None = None,
     plan: dict[str, Any] | None = None,
@@ -1259,13 +1402,30 @@ def run_probes(
             state_dir=state_dir,
         )
 
+    # Write an in-progress sidecar early so Ctrl-C / hangs still leave a trail.
+    if state_dir is not None:
+        _write_sidecar(
+            state_dir,
+            {
+                "generated_at": datetime.now(timezone.utc).isoformat(),
+                "status": "IN_PROGRESS",
+                "stack": detect_stack(root),
+                "plan": merged_plan,
+                "selected_tools": selected,
+                "probe_roots": {"node": str(node_root), "python": str(python_root)},
+                "probes": [],
+            },
+        )
+
     probes: list[dict[str, Any]] = []
     if "knip" in selected:
+        _probe_progress("structural Pass B — running knip…")
         probes.append(run_knip_probe(node_root=node_root, timeout=timeout_per_tool))
     else:
         probes.append(_skip_probe("knip", "not selected in probe plan"))
 
     if "madge" in selected:
+        _probe_progress("structural Pass B — running madge…")
         probes.append(
             run_madge_probe(
                 node_root=node_root,
@@ -1277,6 +1437,7 @@ def run_probes(
         probes.append(_skip_probe("madge", "not selected in probe plan"))
 
     if "jscn" in selected:
+        _probe_progress("structural Pass B — running jscn…")
         probes.append(
             run_jscn_probe(
                 repo_root=root,
@@ -1293,18 +1454,20 @@ def run_probes(
         exclude_paths = None
 
     if "pyscn" in selected:
+        _probe_progress("structural Pass B — running pyscn…")
         probes.append(
             run_pyscn_probe(
                 repo_root=root,
                 python_root=python_root,
                 effective_scope=effective_scope,
-                timeout=timeout_per_tool,
+                timeout=min(timeout_per_tool, PROBE_PYSCN_FILE_TIMEOUT_SEC),
             )
         )
     else:
         probes.append(_skip_probe("pyscn", "not selected in probe plan"))
 
     if "skylos" in selected:
+        _probe_progress("structural Pass B — running skylos…")
         probes.append(
             run_skylos_probe(
                 repo_root=root,
@@ -1320,6 +1483,7 @@ def run_probes(
     else:
         probes.append(_skip_probe("skylos", "not selected in probe plan"))
 
+    _probe_progress("structural Pass B — writing results sidecar…")
     payload = {
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "stack": detect_stack(root),
@@ -1649,12 +1813,25 @@ def inject_structural_probes_section(
         f"structural Pass B — scanning repo inventory ({skill_name} step {step})…"
     )
     inventory = build_stack_inventory(scan_root)
-    effective_scope, _scope_note = resolve_effective_scope_paths(
+    counts = inventory.get("counts") or {}
+    hints = inventory.get("stack_hints") or {}
+    _probe_progress(
+        "structural Pass B — inventory ready "
+        f"(py={counts.get('py')} ts={counts.get('ts')} "
+        f"node={hints.get('node')} python={hints.get('python')})"
+    )
+    _probe_progress("structural Pass B — resolving changed-file scope…")
+    effective_scope, scope_note = resolve_effective_scope_paths(
         scan_root,
         scope_paths,
         skill_name=skill_name,
         step=step,
         mode=mode,
+    )
+    scope_suffix = f"; {scope_note[:80]}" if scope_note else ""
+    _probe_progress(
+        f"structural Pass B — scope resolved "
+        f"({len(effective_scope or [])} path(s){scope_suffix})"
     )
     suggestion = suggest_probe_plan(inventory, scope_paths=effective_scope or scope_paths)
     write_stack_inventory(write_dir, inventory, suggestion)
@@ -1667,6 +1844,7 @@ def inject_structural_probes_section(
         step=step,
         scope_paths=effective_scope or scope_paths,
         mode=mode,
+        scope_note=scope_note or "",
     )
     write_probe_plan(write_dir, draft_plan)
 

@@ -17,7 +17,7 @@ You are the backend developer on a forge-codex team. You implement backend compo
 
 ## When You're Dispatched
 
-You receive a task assignment via the implement skill, referencing a specific task in the plan file under `.codex/forge/memory/plans/` (owned by the planner). Tasks may be dispatched in parallel waves per `templates/parallel-dispatch.md`. Your job:
+You receive a task assignment via the implement skill, referencing a specific task in the plan file under `.forge/memory/plans/` (owned by the planner). Tasks may be dispatched in parallel waves per `templates/parallel-dispatch.md`. Your job:
 
 1. **Read the plan** — understand your assigned task from the plan file (path provided in dispatch), its dependencies, file paths, and acceptance criteria
 2. **Read project context** — check AGENTS.md and any project rules for conventions, patterns, and test commands
@@ -64,8 +64,8 @@ Before declaring your task complete:
 
 ## Memory
 
-- **Read:** `project.md`, the plan file in `.codex/forge/memory/plans/` (your task section, owned by planner), peer dev files if integration needed
-- **Write:** `.codex/forge/memory/backend-dev.md`
+- **Read:** `project.md`, the plan file in `.forge/memory/plans/` (your task section, owned by planner), peer dev files if integration needed
+- **Write:** `.forge/memory/backend-dev.md`
 
 ## Task: [title] [beads-id]
 ### Stage 5: IN_PROGRESS [timestamp]

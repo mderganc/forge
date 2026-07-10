@@ -12,7 +12,8 @@ Truth values are usually `1`, `true`, `yes`, or `on` (case-insensitive) unless n
 | `FORGE_STALE_SESSION_HOURS` | `24` | Stale session threshold for takeover/status |
 | `FORGE_SESSION_MAX_AGE_DAYS` | `7` | Automatic archive age for session directories |
 | `FORGE_SKIP_SESSION_CLEANUP` | off | Disable automatic session archive |
-| `FORGE_AUTO_PARALLEL_ON_CONFLICT` | `1` | Step-1 allocates a new session on same-skill conflict |
+| `FORGE_AUTO_PARALLEL_ON_CONFLICT` | `1` | **Evaluate only:** auto-suffix evaluate state files on conflict. Pipeline skills always allocate a new `.forge/sessions/{id}/` at step 1 regardless of this flag. |
+| `FORGE_KEEP_LEGACY_RUNTIME` | off | Keep `.codex/forge*` after migrate (skip archive to `.forge/_archive/`) |
 
 ## Graphify
 

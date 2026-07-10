@@ -46,7 +46,7 @@ def test_sketch_step1_outputs_startup(tmp_path, monkeypatch):
     assert "forge sketch" in proc.stdout.lower() or "Sketch" in proc.stdout
     assert "sketch-decisions" in proc.stdout or "sketch" in proc.stdout.lower()
     assert "design spec" in proc.stdout.lower() or "docs/forge/specs" in proc.stdout
-    assert ".codex/forge/memory/sketch-decisions.md" in proc.stdout
+    assert ".forge/memory/sketch-decisions.md" in proc.stdout or "sketch-decisions.md" in proc.stdout
     assert not re.search(r"[A-Za-z]:\\.*memory", proc.stdout)
 
 

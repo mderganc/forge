@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -41,17 +42,38 @@ def _handoff_lookup_names(name: str) -> tuple[str, ...]:
     return tuple(ordered) or (name,)
 
 
+def _resolve_handoff_body(raw: str, search_dir: Path | None = None) -> str:
+    """If ``raw`` is a pointer document, load the session handoff; else return raw."""
+    if "forge_handoff_pointer:" not in raw[:200]:
+        return raw
+    path_m = re.search(r"(?m)^path:\s*(.+)\s*$", raw)
+    if not path_m:
+        return raw
+    rel = path_m.group(1).strip().strip("`")
+    from scripts.shared.runtime_layout import detect_repo_root
+
+    root = Path(search_dir) if search_dir else detect_repo_root()
+    target = (root / rel).resolve() if not Path(rel).is_absolute() else Path(rel)
+    try:
+        if target.is_file():
+            return target.read_text(encoding="utf-8")
+    except OSError:
+        pass
+    return raw
+
+
 def read_handoff(name: str, search_dir: Path | None = None) -> str:
     """Read a handoff file from the runtime memory directory if it exists."""
     for skill_name in _handoff_lookup_names(name):
         for handoff in handoff_paths(skill_name, search_dir):
             if handoff.exists():
-                return handoff.read_text(encoding="utf-8")
+                raw = handoff.read_text(encoding="utf-8")
+                return _resolve_handoff_body(raw, search_dir)
     return ""
 
 
 def close_handoff(name: str, search_dir: Path | None = None) -> bool:
-    """Delete canonical + legacy handoff files for a skill (and aliases)."""
+    """Delete canonical + legacy *global* handoff pointers (not session handoffs)."""
     removed = False
     for skill_name in _handoff_lookup_names(name):
         for handoff in handoff_paths(skill_name, search_dir):
@@ -62,7 +84,7 @@ def close_handoff(name: str, search_dir: Path | None = None) -> bool:
 
 
 def consume_handoff(name: str, search_dir: Path | None = None) -> str:
-    """Read and close a handoff so it does not leak across later sessions."""
+    """Read handoff (resolving pointers) and clear the global pointer only."""
     content = read_handoff(name, search_dir=search_dir)
     if content:
         close_handoff(name, search_dir=search_dir)
@@ -78,12 +100,11 @@ def write_handoff(
     *,
     state_path: Path | None = None,
 ) -> Path:
-    """Write a handoff file to the runtime memory directory and per-session path."""
+    """Write full handoff under the session dir; global file is a thin pointer."""
     if memory_dir is None:
         memory_dir = runtime_memory_dir()
     memory_dir.mkdir(parents=True, exist_ok=True)
 
-    handoff_path = memory_dir / f"handoff-{skill_name}.md"
     now = datetime.now(timezone.utc).isoformat()
 
     lines = [
@@ -118,15 +139,16 @@ def write_handoff(
     ])
 
     content = "\n".join(lines)
-    handoff_path.write_text(content, encoding="utf-8")
 
     from scripts.shared.session_store import (
         is_session_state_path,
         session_handoff_path,
         session_id_from_state_path,
     )
+    from scripts.shared.runtime_layout import repo_relative_path
 
     sid = state.session_id or (session_id_from_state_path(state_path) if state_path else None)
+    session_hp: Path | None = None
     if sid:
         session_hp = session_handoff_path(sid)
         session_hp.parent.mkdir(parents=True, exist_ok=True)
@@ -134,6 +156,34 @@ def write_handoff(
     elif state_path and is_session_state_path(state_path):
         session_hp = state_path.parent / "handoff.md"
         session_hp.write_text(content, encoding="utf-8")
+        sid = session_id_from_state_path(state_path)
+
+    # Global file: thin pointer when we have a session handoff; else full content (legacy).
+    handoff_path = memory_dir / f"handoff-{skill_name}.md"
+    if session_hp is not None and sid:
+        try:
+            rel = repo_relative_path(session_hp)
+        except Exception:
+            rel = str(session_hp).replace("\\", "/")
+        pointer = "\n".join(
+            [
+                "---",
+                "forge_handoff_pointer: 1",
+                f"skill: {skill_name}",
+                f"session_id: {sid}",
+                f"path: {rel}",
+                f"updated_at: {now}",
+                "---",
+                "",
+                f"# Handoff pointer: {skill_name}",
+                "",
+                f"Full handoff: `{rel}`",
+                "",
+            ]
+        )
+        handoff_path.write_text(pointer, encoding="utf-8")
+    else:
+        handoff_path.write_text(content, encoding="utf-8")
 
     return handoff_path
 

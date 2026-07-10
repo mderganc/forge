@@ -1,6 +1,6 @@
 """Session-per-directory workflow state (parallel-first, minimal index).
 
-Layout under ``.codex/forge/sessions/``::
+Layout under ``.forge/sessions/``::
 
     {session_id}/
         session.json    # SkillState + index fields (v, label, status)
@@ -613,19 +613,28 @@ def migrate_legacy_state_files(search_dir: Path | None = None) -> list[str]:
     return migrated
 
 
-def format_sessions_table(sessions: list[SessionInfo]) -> str:
+def format_sessions_table(
+    sessions: list[SessionInfo],
+    *,
+    focus: str | None = None,
+) -> str:
     if not sessions:
         return "(none)"
     lines = [
-        f"{'ID':<8} {'SKILL':<12} {'STEP':<8} {'LABEL':<22} {'AGE':<6}",
+        f"{'ID':<8} {'SKILL':<12} {'STEP':<8} {'LABEL':<20} {'AGE':<6} {'FOCUS':<5}",
     ]
     now = datetime.now(timezone.utc)
     for s in sessions:
         ref = parse_iso_timestamp(s.last_touched_at) or parse_iso_timestamp(s.started_at)
         age = _format_age((now - ref).total_seconds()) if ref else "?"
         step = f"{s.current_step}/{s.max_step}"
-        label = (s.label[:20] + "..") if len(s.label) > 22 else s.label
-        lines.append(f"{s.session_id:<8} {s.skill:<12} {step:<8} {label:<22} {age:<6}")
+        label = (s.label[:18] + "..") if len(s.label) > 20 else s.label
+        mark = "*" if focus and s.session_id == focus else ""
+        lines.append(
+            f"{s.session_id:<8} {s.skill:<12} {step:<8} {label:<20} {age:<6} {mark:<5}"
+        )
+    if focus:
+        lines.append(f"(focus={focus} — continue with --session {focus})")
     return "\n".join(lines)
 
 

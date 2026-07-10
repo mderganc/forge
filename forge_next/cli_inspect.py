@@ -188,11 +188,16 @@ def run_status(repo_root: Path, json_output: bool = False) -> None:
         if not sessions:
             print("- (none)")
         else:
+            from scripts.shared.resume_context import load_resume_snapshot
             from scripts.shared.session_store import list_active_sessions
 
             infos = list_active_sessions(repo_root)
+            snap, _ = load_resume_snapshot(repo_root)
+            focus = (snap or {}).get("focus") if snap else None
+            if focus:
+                print(f"Focus: {focus}")
             if infos:
-                print(format_sessions_table(infos))
+                print(format_sessions_table(infos, focus=focus))
             else:
                 for s in sessions:
                     skill = s.get("skill")

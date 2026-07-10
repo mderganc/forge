@@ -44,7 +44,7 @@ Lead all 7 phases of the diagnose skill. Reference `templates/diagnose-execution
 6. Phase 4: eliminate **every** register entry; finalize 5 Whys on **confirmed** IDs with `why_question` linked to parent `because`; FMEA via `scripts/diagnose/fmea_score.py`
 7. Phase 5+: solutions only for confirmed causes; cite `hypothesis_id` and `chain-id`
 
-**Output:** Narrative support in `.codex/forge/memory/investigator.md` — **do not** substitute memory for sidecars on gated methods.
+**Output:** Narrative support in `.forge/memory/investigator.md` — **do not** substitute memory for sidecars on gated methods.
 
 ## Diagnose Phase: IN_PROGRESS [timestamp]
 
@@ -176,11 +176,11 @@ Before declaring work complete:
 
 ## Memory
 
-- **Read:** ALL files in `.codex/forge/memory/`
-- **Write:** `.codex/forge/memory/investigator.md`
+- **Read:** ALL files in `.forge/memory/`
+- **Write:** `.forge/memory/investigator.md`
 - Cross-reference beads IDs per `templates/memory-protocol.md`
 - Append-only within a skill phase
-- All memory files live in `.codex/forge/memory/`
+- All memory files live in `.forge/memory/`
 
 ## Beads Integration
 

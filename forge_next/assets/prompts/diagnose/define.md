@@ -14,7 +14,7 @@ Read `templates/diagnose-execution-playbooks.md` for the entry technique you cho
 
 ## Problem specification sidecar (mandatory)
 
-Persist **before step 2** to `.diagnose-problem-spec.json` beside diagnose state:
+Persist **before step 2** to `{{STATE_DIR}}/.diagnose-problem-spec.json` (under `.forge/`, never `.codex/forge*`):
 
 | Field | Required |
 |-------|----------|
@@ -46,7 +46,7 @@ Use when the main question is *how* to investigate, not yet *what* broke.
 
 ### C. `first_principles` — assumptions need challenging
 
-- Set `first_principles_snapshot.invariants[]` (or start `.diagnose-first-principles.json`)
+- Set `first_principles_snapshot.invariants[]` (or start `{{STATE_DIR}}/.diagnose-first-principles.json`)
 - Add **First-principles thinking** to `activated_techniques` only if you will use the sidecar in later phases
 
 ### D. `evidence_snapshot` — repro/logs already tell the story
@@ -56,7 +56,7 @@ Use when the main question is *how* to investigate, not yet *what* broke.
 
 ### E. `mece_sketch` — large ambiguous problem space
 
-- Set `mece_sketch.nodes[]` with ≥2 nodes **or** plan `.diagnose-mece-tree.json` in Phase 3
+- Set `mece_sketch.nodes[]` with ≥2 nodes **or** plan `{{STATE_DIR}}/.diagnose-mece-tree.json` in Phase 3
 - Add **MECE issue tree** to `activated_techniques` only when you will build the tree
 
 ## Follow-on routing (not mandatory upfront)
@@ -72,7 +72,7 @@ Do **not** add MECE, hypothesis register, or first-principles sidecars in Phase 
 
 ## Technique coverage (start small)
 
-Create `.diagnose-technique-coverage.json` with a row per **activated** technique only (not all 20). Minimum: **5 Whys** + your framing technique when it maps to a catalog name.
+Create `{{STATE_DIR}}/.diagnose-technique-coverage.json` with a row per **activated** technique only (not all 20). Minimum: **5 Whys** + your framing technique when it maps to a catalog name.
 
 | technique | status (applied/skip/defer) | rationale |
 |-----------|-----------------------------|-----------|

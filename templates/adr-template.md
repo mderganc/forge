@@ -14,9 +14,9 @@ Do NOT create an ADR for trivial decisions (variable naming, formatting, single-
 
 ## Location
 
-Store in `.codex/forge/adr/` with sequential numbering:
+Store in `.forge/adr/` with sequential numbering:
 ```
-.codex/forge/adr/
+.forge/adr/
 ├── 0001-use-event-sourcing-for-audit.md
 ├── 0002-adopt-repository-pattern.md
 └── 0003-jwt-over-session-cookies.md

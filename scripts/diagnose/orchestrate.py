@@ -262,10 +262,13 @@ def _build_variables(
     repro_loop_summary = "(Not evaluated yet)"
     diagnose_artifact_gate = ""
 
+    state_dir_rel = ""
     if state_path is not None:
         from scripts.diagnose.diagnose_registers import state_dir_from_state_path
+        from scripts.shared.runtime_layout import repo_relative_path
 
         sd = state_dir_from_state_path(state_path)
+        state_dir_rel = repo_relative_path(sd)
         reg_file = register_path(sd)
         reg_data = load_register(reg_file)
         hypothesis_summary = summarize_register(reg_data)
@@ -361,6 +364,7 @@ def _build_variables(
         "DISPATCH_HISTORY": dispatch_text.strip(),
         "PLUGIN_ROOT": str(REPO_ROOT),
         "SCRIPT_DIR": str(SCRIPT_DIR),
+        "STATE_DIR": state_dir_rel or ".forge/sessions/<id>",
         "HYPOTHESIS_MIN": str(hypothesis_min),
         "HYPOTHESIS_GATE": hypothesis_gate,
         "HYPOTHESIS_REGISTER_SUMMARY": hypothesis_summary,
@@ -424,7 +428,8 @@ def handle_step_1(args) -> None:
     session_label = getattr(args, "label", None)
     save_state(state, sp, label=session_label)
 
-    print(f"STATE FILE: {sp}\n", file=sys.stderr)
+    print(f"STATE FILE: {sp}", file=sys.stderr)
+    print(f"STATE DIR: {sp.parent}  (write .diagnose-*.json here)\n", file=sys.stderr)
 
     template = load_template(PHASE_TEMPLATES[1])
     variables = _build_variables(state, state_path=sp, step=1)
@@ -453,6 +458,7 @@ def handle_step_1(args) -> None:
     next_cmd = build_next_command(
         SCRIPT_DIR / "orchestrate.py", 1, MAX_STEP,
         mode=mode,
+        state=str(sp),
     )
     print(format_step_output(
         SKILL_NAME, 1, MAX_STEP, PHASE_NAMES[1], body,

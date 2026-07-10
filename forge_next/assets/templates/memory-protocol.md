@@ -1,6 +1,6 @@
 # Memory Protocol
 
-Defines conventions for the `.codex/forge/memory/` directory used by all agents.
+Defines conventions for the `.forge/memory/` directory used by all agents.
 
 ## Memory Files
 
@@ -53,9 +53,9 @@ If beads is unavailable, use sequential IDs with the same format:
 
 ## Architecture Decision Records
 
-The `.codex/forge/adr/` directory stores Architecture Decision Records for significant design decisions:
+The `.forge/adr/` directory stores Architecture Decision Records for significant design decisions:
 
-- **Location:** `.codex/forge/adr/NNNN-title.md`
+- **Location:** `.forge/adr/NNNN-title.md`
 - **Format:** Follow `templates/adr-template.md`
 - **Owner:** Doc-writer creates and maintains ADRs
 - **Cross-reference:** Every ADR is referenced in beads via `[bd-xxx.adrN]` format
@@ -79,7 +79,7 @@ Within a stage, memory files are append-only. New review rounds, remediation bat
 
 When any skill starts, it should:
 1. Read `project.md` for the Skill Flow section to understand where in the flow the session is
-2. Check for its own state file (`.codex/forge/state/{skill}.json`) — if exists, offer to resume
+2. Check for its own state file (`.forge/state/{skill}.json`) — if exists, offer to resume
 3. Check for handoff files from the previous skill — if the previous skill completed but this one hasn't started, pick up from there
 4. If no handoff and no state file, start fresh (ask user for context if needed)
 
@@ -88,7 +88,7 @@ When any skill starts, it should:
 Agents read memory files in this order:
 1. Read handoff file from previous skill (if exists) before other memory files
 2. project.md first (shared context, current state)
-3. Upstream stage files (e.g., implementation agents read the plan file from `.codex/forge/memory/plans/` before starting)
+3. Upstream stage files (e.g., implementation agents read the plan file from `.forge/memory/plans/` before starting)
 4. Peer memory files when needed for cross-review
 
 For actual inspection and editing, follow `templates/codex-runtime.md`.

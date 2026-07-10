@@ -31,7 +31,7 @@ Use when helpful; skip what conversation already settled:
 
 ## Session artifact
 
-Maintain **`sketch-decisions.md`** in Forge runtime memory (path from orchestrator output — typically `.codex/forge/memory/` or `.forge/memory/` when `.codex` is read-only):
+Maintain **`sketch-decisions.md`** in Forge runtime memory (path from orchestrator output — typically `.forge/memory/` or `.forge/memory/` when `.codex` is read-only):
 
 ```md
 # Sketch decisions

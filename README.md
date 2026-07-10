@@ -29,7 +29,7 @@ This repository is the **source tree** for prompts, templates, agent briefs, and
 ## Overview
 
 - **App-first:** Cursor and Claude Code use `/forge:…`; Codex uses `$forge:…`. See [OpenAI Codex](#openai-codex).
-- **Session-safe:** Repo state lives under `.codex/forge/` by default. Older trees may still use `.codex/forge-codex/` until migrated. If `.codex` is a file, read-only (common in Codex sandboxes), or otherwise not writable, Forge falls back to `.forge/`. Stop anytime; continue with `forge takeover`, `/forge:takeover` (Cursor/Claude), or `$forge:takeover` (Codex). Each skill save also updates **`state/resume-context.json`** (continuity snapshot for new chats) and **`memory/forge-memory-synthesis.md`** (rollup of `project.md`, `current-step.md`, and recent handoffs). Takeover infers the next skill from sessions, handoffs, and specs; if the snapshot disagrees with live JSON state, output asks you to pick **state-based** vs **snapshot-based** continuation before auto-running the next step.
+- **Session-safe:** Repo state lives under **`.forge/`**. Older `.codex/forge/` and `.codex/forge-codex/` trees are copied into `.forge/` on the next workflow step 1, then archived under `.forge/_archive/` (set `FORGE_KEEP_LEGACY_RUNTIME=1` to leave them in place). Stop anytime; continue with `forge takeover`, `/forge:takeover` (Cursor/Claude), or `$forge:takeover` (Codex). Each skill save also updates **`state/resume-context.json`** (continuity snapshot for new chats) and **`memory/forge-memory-synthesis.md`** (rollup of `project.md`, `current-step.md`, and recent handoffs). Takeover infers the next skill from sessions, handoffs, and specs; if the snapshot disagrees with live JSON state, output asks you to pick **state-based** vs **snapshot-based** continuation before auto-running the next step.
 - **Handoffs:** On the last step, the orchestrator emits a **`handoff-multiselect`** block (for Cursor/Claude **AskQuestion** with `allow_multiple: true`) plus a text fallback. Labels use `/forge:…` (Cursor/Claude) or `$forge:…` (Codex). Reply `yes`, `1`, or pick options; see [AGENTS.md](AGENTS.md). Downstream step-1 intake consumes handoffs (read + close).
 - **Per-skill run memory:** Every workflow run appends an auditable entry to `memory/<skill>-runs.jsonl` (for example `plan-runs.jsonl`), retaining the most recent 30 entries with timestamp, phase/step, short summary, session linkage, and handoff linkage when present.
 - **Integrations:** `forge install` and `forge uninstall` lay down Cursor, Claude, and Codex wrappers. Install output includes optional **Graphify** setup (CLI or `FORGE_GRAPHIFY_COMMAND`, `forge graphify refresh`, `install-hook` / `uninstall-hook`) for codebase context during **takeover** — see [`docs/graphify.md`](docs/graphify.md).
@@ -157,7 +157,7 @@ When intent is fuzzy, run [sketch](#sketch) before [design](#design).
 
 **When to use:** Before design when requirements are unclear. Optional **`--with-domain-docs`** updates `CONTEXT.md` and sparse `docs/adr/`.
 
-**Artifacts:** `memory/sketch-decisions.md` under `.codex/forge/memory/`.
+**Artifacts:** `memory/sketch-decisions.md` under `.forge/memory/`.
 
 **Default handoff:** [design](#design). Protocol: `templates/sketch-protocol.md`.
 
@@ -173,7 +173,7 @@ When intent is fuzzy, run [sketch](#sketch) before [design](#design).
 
 **When to use:** After sketch (if needed) or when you have a defined feature/problem. Read-only on the codebase unless the user explicitly allows edits.
 
-**Artifacts:** Session memory under `.codex/forge/memory/`; **`memory/design-scope.json`** (legacy `develop-scope.json` still read); for **medium/large** scope, named spec **`docs/forge/specs/YYYY-MM-DD-<slug>-design.md`** and gate **`.design-spec-gate.json`** (legacy `.develop-spec-gate.json` still read).
+**Artifacts:** Session memory under `.forge/memory/`; **`memory/design-scope.json`** (legacy `develop-scope.json` still read); for **medium/large** scope, named spec **`docs/forge/specs/YYYY-MM-DD-<slug>-design.md`** and gate **`.design-spec-gate.json`** (legacy `.develop-spec-gate.json` still read).
 
 **Notable flags:** `--quick`; step 7 bypass: `--allow-spec-incomplete` with override reason/follow-up.
 
@@ -361,7 +361,7 @@ forge uninstall
 pipx uninstall forge-next
 ```
 
-**Project state** (optional): `forge takeover --cleanup` (terminal), or `/forge:takeover` / `$forge:takeover` with cleanup if exposed, or delete `.codex/forge/` (and legacy `.codex/forge-codex/` if present) and `.forge/` in that repo as needed.
+**Project state** (optional): `forge takeover --cleanup` (terminal), or `/forge:takeover` / `$forge:takeover` with cleanup if exposed, or delete `.forge/` (and any leftover `.codex/forge*` trees) in that repo as needed.
 
 ---
 
@@ -377,9 +377,9 @@ pipx uninstall forge-next
 
 ## Session + handoff audit lifecycle
 
-**Primary layout** (new runs): under `.codex/forge/sessions/` each workflow gets a directory with `session.json`, optional `handoff.md`, and `sidecars/` for step artifacts. `index.json` lists active sessions; completed or auto-closed sessions move to `sessions/_archive/`. See [`docs/sessions.md`](docs/sessions.md).
+**Primary layout** (new runs): under `.forge/sessions/` each workflow gets a directory with `session.json`, optional `handoff.md`, and `sidecars/` for step artifacts. `index.json` lists active sessions; completed or auto-closed sessions move to `sessions/_archive/`. See [`docs/sessions.md`](docs/sessions.md).
 
-**Legacy layout** (still supported): flat JSON under `.codex/forge/state/` (for example `plan.json`, `plan-foo.json`) and global `memory/handoff-{skill}.md`. Takeover and cleanup understand both layouts.
+**Legacy layout** (still readable until archived): flat JSON under `.codex/forge*/state/` or `.forge/state/` (for example `plan.json`, `plan-foo.json`) and global `memory/handoff-{skill}.md`. Takeover and cleanup understand both layouts; step 1 migrates then archives `.codex/forge*`.
 
 - **Run memory files:** Each skill appends a short record on every step run to `memory/<skill>-runs.jsonl` and keeps only the last ~30 records.
 - **Continuity snapshot:** On every skill state save (and evaluate saves), Forge writes **`state/resume-context.json`** with skill, steps, invocation hint, state path, and pointers to the latest handoff / `current-step.md` for `forge takeover` and new chat pickup.

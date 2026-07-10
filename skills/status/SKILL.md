@@ -7,7 +7,7 @@ description: |
 
 Routing for suggested next: [AGENTS.md](../../AGENTS.md) § Process-first.
 
-Runtime root: `.codex/forge/` (legacy `.codex/forge-codex/`).
+Runtime root: `.forge/` (legacy `.codex/forge*` is migrated then archived).
 
 ## Report format
 

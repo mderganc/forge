@@ -503,6 +503,17 @@ def parse_continuation_command(cmd: str) -> tuple[int | None, str | None]:
             state_path = parts[i + 1]
             i += 2
             continue
+        if token == "--session" and i + 1 < len(parts):
+            # Resolve to session.json path for resume hints
+            sid = parts[i + 1]
+            try:
+                from scripts.shared.session_store import session_json_path
+
+                state_path = str(session_json_path(sid))
+            except Exception:
+                state_path = sid
+            i += 2
+            continue
         i += 1
     if next_step is None and phase_raw and skill_token:
         try:

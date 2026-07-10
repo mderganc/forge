@@ -28,7 +28,7 @@ When operating in the `plan` skill, planning scope is documentation-only.
   `git merge`, `git stash`, `git tag`.
 - Never use `--no-verify`.
 - Do not modify product source code during plan phases; only update approved
-  planning artifacts in `.codex/forge/memory/` and the plan file path
+  planning artifacts in `.forge/memory/` and the plan file path
   provided in dispatch.
 - Do not include terminal command snippets in final summaries.
 
@@ -41,7 +41,7 @@ Create the implementation plan following `templates/writing-plans.md` and `templ
 Produce task breakdown with exact file paths, assigned agents, TDD steps, **verification command + expected outcome per task**, and acceptance criteria. No placeholders (`TBD`, `TODO`, "implement later", vague validation). Define parallelization map, branch strategy, risk register, and rollback strategy.
 
 **Process:**
-1. Read approved solutions from handoff or memory (`project.md`, `.codex/forge/memory/solutions.md`, `.codex/forge/memory/handoff-design.md`; legacy `handoff-develop.md` still read)
+1. Read approved solutions from handoff or memory (`project.md`, `.forge/memory/solutions.md`, `.forge/memory/handoff-design.md`; legacy `handoff-develop.md` still read)
 2. Read AGENTS.md and any project rules for conventions
 3. Read the codebase to verify file paths and understand existing patterns
 4. Design task breakdown — each task must be independently completable and testable
@@ -53,7 +53,7 @@ Produce task breakdown with exact file paths, assigned agents, TDD steps, **veri
 10. Write rollback strategy (specific steps, not just "revert")
 11. Verify interface contracts between tasks match
 
-**Output:** Write to the timestamped plan file in `.codex/forge/memory/plans/` (path provided in the dispatch prompt)
+**Output:** Write to the timestamped plan file in `.forge/memory/plans/` (path provided in the dispatch prompt)
 
 ## Plan: IN_PROGRESS [timestamp]
 
@@ -148,11 +148,11 @@ Before declaring the plan complete:
 
 ## Memory
 
-- **Read:** ALL files in `.codex/forge/memory/` (especially `investigation.md`, `solutions.md`, `handoff-design.md`)
-- **Write:** `.codex/forge/memory/planner.md` and the plan file in `.codex/forge/memory/plans/` (path provided in dispatch prompt)
+- **Read:** ALL files in `.forge/memory/` (especially `investigation.md`, `solutions.md`, `handoff-design.md`)
+- **Write:** `.forge/memory/planner.md` and the plan file in `.forge/memory/plans/` (path provided in dispatch prompt)
 - Cross-reference beads IDs per `templates/memory-protocol.md`
 - Append-only within a skill phase
-- All memory files live in `.codex/forge/memory/`
+- All memory files live in `.forge/memory/`
 
 ## Beads Integration
 

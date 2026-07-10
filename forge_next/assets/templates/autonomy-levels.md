@@ -41,7 +41,7 @@ Best for: Well-understood tasks, trusted codebase, time-sensitive work.
 
 ### Stage 2 Level 3 Defaults (Deterministic)
 
-When Level 3 skips the brainstorming gates, the PM must log these defaults in `.codex/forge/memory/project.md` so the decision is reproducible:
+When Level 3 skips the brainstorming gates, the PM must log these defaults in `.forge/memory/project.md` so the decision is reproducible:
 
 - **Driver HMW:** the Architect's suggested driver from `solution-requirements.md`
 - **Advanced divergent techniques:** none additional — the Architect runs only the always-on core (SCAMPER + Reverse Brainstorming + Constraint Removal), plus any task-type auto-adds from `templates/brainstorming.md` Method Selection Guide:

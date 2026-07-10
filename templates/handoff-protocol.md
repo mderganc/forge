@@ -9,14 +9,14 @@ Skills in the forge-codex pipeline run sequentially: develop → plan → implem
 ## File Location
 
 ```
-.codex/forge/memory/handoff-{skill-name}.md
+.forge/memory/handoff-{skill-name}.md
 ```
 
 Examples:
-- `.codex/forge/memory/handoff-design.md` — written by design, read by plan (legacy `handoff-develop.md` still read)
-- `.codex/forge/memory/handoff-plan.md` — written by plan, read by implement
-- `.codex/forge/memory/handoff-implement.md` — written by implement, read by test
-- `.codex/forge/memory/handoff-diagnose.md` — written by diagnose, read by develop
+- `.forge/memory/handoff-design.md` — written by design, read by plan (legacy `handoff-develop.md` still read)
+- `.forge/memory/handoff-plan.md` — written by plan, read by implement
+- `.forge/memory/handoff-implement.md` — written by implement, read by test
+- `.forge/memory/handoff-diagnose.md` — written by diagnose, read by develop
 
 ## Required Sections
 
@@ -112,7 +112,7 @@ Append the skill completion dashboard as defined in `templates/dashboard.md`.
 
 The **first thing** a skill does when it starts is check for a handoff file from the previous skill:
 
-1. Read `.codex/forge/memory/handoff-{previous-skill}.md`.
+1. Read `.forge/memory/handoff-{previous-skill}.md`.
 2. If it exists and status is COMPLETE or PARTIAL, extract the context and proceed.
 3. If it exists and status is BLOCKED, report the blocker to the user and stop.
 4. If it doesn't exist, proceed without handoff context (first skill in chain, or manual invocation).
@@ -130,7 +130,7 @@ If a skill is interrupted and restarted:
 
 - Handoff files are **preserved** after the next skill reads them. They serve as an audit trail of the full pipeline execution.
 - Handoff files are only cleared when the user passes the `--new` flag, which signals a fresh session.
-- When `--new` is passed, all files in `.codex/forge/memory/handoff-*.md` are deleted before the skill starts.
+- When `--new` is passed, all files in `.forge/memory/handoff-*.md` are deleted before the skill starts.
 
 ## Rules
 

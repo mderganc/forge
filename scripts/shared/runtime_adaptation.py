@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 import shutil
 import sys
 from pathlib import Path
@@ -16,7 +17,9 @@ LEGACY_RUNTIME_SOURCES = (
     (".codex", "forge"),
     (".codex", "forge-codex"),
 )
-MIGRATE_SUBDIRS = ("sessions", "memory", "state")
+# Prefer copying known runtime subtrees first; remaining top-level items follow.
+MIGRATE_SUBDIRS = ("sessions", "memory", "state", "studio", "adr")
+KEEP_LEGACY_ENV = "FORGE_KEEP_LEGACY_RUNTIME"
 
 
 def writable_repo_root(search_dir: Path | None = None) -> Path:
@@ -31,8 +34,88 @@ def _legacy_runtime_sources(repo: Path) -> list[Path]:
     return [repo.joinpath(*parts) for parts in LEGACY_RUNTIME_SOURCES]
 
 
+def _copy_item(src: Path, dst: Path) -> None:
+    if dst.exists():
+        return
+    if src.is_dir():
+        shutil.copytree(src, dst)
+    else:
+        shutil.copy2(src, dst)
+
+
+def _merge_tree_into(src: Path, dst: Path) -> list[str]:
+    """Copy missing items from ``src`` into ``dst``. Returns relative paths copied."""
+    copied: list[str] = []
+    dst.mkdir(parents=True, exist_ok=True)
+    for item in sorted(src.iterdir(), key=lambda p: p.name):
+        dst_item = dst / item.name
+        if item.is_dir():
+            if not dst_item.exists():
+                shutil.copytree(item, dst_item)
+                copied.append(item.name)
+            else:
+                for nested in _merge_tree_into(item, dst_item):
+                    copied.append(f"{item.name}/{nested}")
+        elif not dst_item.exists():
+            shutil.copy2(item, dst_item)
+            copied.append(item.name)
+    return copied
+
+
+def archive_legacy_runtime_trees(
+    search_dir: Path | None = None,
+    *,
+    force: bool = False,
+) -> list[dict[str, str]]:
+    """Move ``.codex/forge*`` trees under ``.forge/_archive/`` after migration.
+
+    Set ``FORGE_KEEP_LEGACY_RUNTIME=1`` to leave legacy trees in place (tests / debug).
+    """
+    if not force and os.environ.get(KEEP_LEGACY_ENV, "").strip() in {
+        "1",
+        "true",
+        "yes",
+        "on",
+    }:
+        return []
+
+    repo = writable_repo_root(search_dir)
+    target = repo / ".forge"
+    if not target.is_dir():
+        return []
+
+    archive_root = target / "_archive"
+    archived: list[dict[str, str]] = []
+    stamp = now_iso().replace(":", "").replace("+", "")
+
+    for src in _legacy_runtime_sources(repo):
+        if not src.is_dir():
+            continue
+        archive_root.mkdir(parents=True, exist_ok=True)
+        dest = archive_root / f"legacy-{src.name}-{stamp}"
+        # Avoid clobbering an existing archive slot (same-second double call).
+        n = 0
+        while dest.exists():
+            n += 1
+            dest = archive_root / f"legacy-{src.name}-{stamp}-{n}"
+        try:
+            shutil.move(str(src), str(dest))
+        except OSError as exc:
+            print(
+                f"FORGE_ADAPT: could not archive {src}: {exc}",
+                file=sys.stderr,
+            )
+            continue
+        archived.append({"from": str(src), "to": str(dest)})
+        print(
+            f"FORGE_ADAPT: archived legacy runtime {src} → {dest}",
+            file=sys.stderr,
+        )
+    return archived
+
+
 def migrate_legacy_runtime_trees(search_dir: Path | None = None) -> dict[str, Any]:
-    """Copy ``.codex/forge*`` trees into ``.forge/`` before new writes."""
+    """Copy ``.codex/forge*`` trees into ``.forge/``, then archive the sources."""
     repo = writable_repo_root(search_dir)
     target = repo / ".forge"
     target.mkdir(parents=True, exist_ok=True)
@@ -43,29 +126,33 @@ def migrate_legacy_runtime_trees(search_dir: Path | None = None) -> dict[str, An
         "migrated_at": now_iso(),
         "target": str(target),
         "sources": [],
+        "archived": [],
     }
 
     for src in _legacy_runtime_sources(repo):
         if not src.is_dir():
             continue
         entry: dict[str, Any] = {"path": str(src), "copied": []}
+        # Prefer known subdirs for stable relative paths in the audit log.
         for sub in MIGRATE_SUBDIRS:
             src_sub = src / sub
             if not src_sub.is_dir():
                 continue
-            dst_sub = target / sub
-            dst_sub.mkdir(parents=True, exist_ok=True)
-            for item in src_sub.iterdir():
-                dst_item = dst_sub / item.name
-                if dst_item.exists():
-                    continue
-                if item.is_dir():
-                    shutil.copytree(item, dst_item)
-                else:
-                    shutil.copy2(item, dst_item)
-                entry["copied"].append(f"{sub}/{item.name}")
+            for rel in _merge_tree_into(src_sub, target / sub):
+                entry["copied"].append(f"{sub}/{rel}")
+        # Copy any remaining top-level items (e.g. backlog.md).
+        for item in sorted(src.iterdir(), key=lambda p: p.name):
+            if item.name in MIGRATE_SUBDIRS:
+                continue
+            dst_item = target / item.name
+            if dst_item.exists():
+                continue
+            _copy_item(item, dst_item)
+            entry["copied"].append(item.name)
         if entry["copied"]:
             audit["sources"].append(entry)
+
+    audit["archived"] = archive_legacy_runtime_trees(repo)
 
     audit_path = state_dir / MIGRATION_AUDIT_FILENAME
     try:

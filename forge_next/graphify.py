@@ -418,7 +418,7 @@ def graphify_install_notice_lines() -> list[str]:
             [
                 "  1) In each **git clone** of your app repo, run **forge graphify refresh** once from that repo",
                 "     (or `forge graphify refresh --repo \"C:/path/to/repo\"` from any directory).",
-                "     That writes **graphify-status.json** under your Forge runtime state folder (e.g. `.codex/forge/state/`).",
+                "     That writes **graphify-status.json** under your Forge runtime state folder (e.g. `.forge/state/`).",
                 "  2) Optional: **forge graphify install-hook** in the same repo adds a **post-commit** snippet so every",
                 "     commit re-runs refresh in the background (`|| true` so commits never fail).",
                 "     Remove later with **forge graphify uninstall-hook**.",
@@ -433,7 +433,7 @@ def graphify_install_notice_lines() -> list[str]:
                 "     FORGE_GRAPHIFY_COMMAND to exactly how you run it (defaults to `graphify update .`).",
                 "  2) In each **git clone** of your app repo, run **forge graphify refresh** once from that repo",
                 "     (or `forge graphify refresh --repo \"C:/path/to/repo\"` from any directory).",
-                "     That writes **graphify-status.json** under your Forge runtime state folder (e.g. `.codex/forge/state/`).",
+                "     That writes **graphify-status.json** under your Forge runtime state folder (e.g. `.forge/state/`).",
                 "  3) Optional: **forge graphify install-hook** in the same repo adds a **post-commit** snippet so every",
                 "     commit re-runs refresh in the background (`|| true` so commits never fail).",
                 "     Remove later with **forge graphify uninstall-hook**.",

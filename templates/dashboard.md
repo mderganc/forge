@@ -19,7 +19,7 @@ The dashboard provides a quick-scan summary of what a skill did, how it went, an
 **Review rounds:** [N total across all review loops in this skill]
 **Findings:** [N open, M resolved]
 **Beads:** [epic link or "none", N issues]
-**Memory files updated:** [list of .codex/forge/memory/ files written or modified]
+**Memory files updated:** [list of .forge/memory/ files written or modified]
 **Next suggested:** [next-skill]
 ```
 
@@ -36,7 +36,7 @@ The dashboard provides a quick-scan summary of what a skill did, how it went, an
 | **Review rounds** | Total number of review loop rounds across all review points in the skill. |
 | **Findings** | Count of review findings: open (unresolved) and resolved. Zero open is the target. |
 | **Beads** | Link to the epic in beads (if active) and count of issues created/updated. |
-| **Memory files updated** | List of `.codex/forge/memory/` files that were created or modified during this skill. Helps the next skill know what to read. |
+| **Memory files updated** | List of `.forge/memory/` files that were created or modified during this skill. Helps the next skill know what to read. |
 | **Next suggested** | The next skill to run. |
 
 ## When to Render
@@ -79,6 +79,6 @@ The `status` skill renders a composite view of all skill dashboards from the cur
 
 1. **All fields are required.** If a field doesn't apply (e.g., no agents dispatched for a solo skill), use "none" — do not omit the field.
 2. **Findings count must be accurate.** Count from the review loop records, not from memory.
-3. **Memory files list must be complete.** Every `.codex/forge/memory/` file touched during the skill must be listed.
+3. **Memory files list must be complete.** Every `.forge/memory/` file touched during the skill must be listed.
 4. **Next suggested must be actionable.** It should be a valid next skill that the user can run immediately.
 5. **Keep it scannable.** The dashboard is meant to be read in 5 seconds. Do not add prose or explanations inside the dashboard block.

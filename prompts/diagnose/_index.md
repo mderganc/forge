@@ -23,6 +23,8 @@ Start here. Full technique list and severity rules: **`prompts/diagnose/techniqu
 
 ## Sidecar index
 
+All diagnose sidecars live under **`{{STATE_DIR}}`** (the directory containing `session.json`, always under `.forge/` — never `.codex/forge*`).
+
 | File | Phase |
 |------|-------|
 | `.diagnose-problem-spec.json` | 1 |

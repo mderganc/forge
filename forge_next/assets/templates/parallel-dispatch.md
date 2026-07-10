@@ -7,7 +7,7 @@ actual Codex tool usage.
 
 ## Prerequisite
 
-A reviewed and approved plan exists in `.codex/forge/memory/plans/` (timestamped filename) with:
+A reviewed and approved plan exists in `.forge/memory/plans/` (timestamped filename) with:
 - Task breakdown (with agents, file paths, TDD steps, acceptance criteria)
 - Parallelization map (with waves and dependencies)
 - Interface contracts (for cross-task dependencies)

@@ -42,8 +42,27 @@ def load_sidecar(path: Path) -> dict | None:
 
 
 def state_dir_from_state_path(state_path: Path) -> Path:
-    """Directory containing diagnose state.json and sidecars."""
-    return state_path.parent
+    """Directory for diagnose sidecars (prefer ``sidecars/`` when present)."""
+    parent = state_path.parent
+    sidecars = parent / "sidecars"
+    if sidecars.is_dir():
+        return sidecars
+    return parent
+
+
+def resolve_sidecar_path(state_path: Path, filename: str) -> Path:
+    """Path for a diagnose sidecar: prefer sidecars/, fall back to session root."""
+    parent = state_path.parent
+    sidecars = parent / "sidecars"
+    preferred = sidecars / filename
+    legacy = parent / filename
+    if preferred.exists():
+        return preferred
+    if legacy.exists():
+        return legacy
+    if sidecars.is_dir():
+        return preferred
+    return legacy
 
 
 def has_override(state_custom: dict, key: str) -> bool:

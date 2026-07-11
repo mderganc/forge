@@ -1604,6 +1604,7 @@ def test_skill_chain_default_for_each_skill():
         "implement",
         "code-review",
         "test",
+        "ux-review",
         "diagnose",
         "takeover",
     }
@@ -2010,6 +2011,46 @@ def test_flows_step_8_over_cap_friendly(fresh_state_dir):
     output = result2.stderr + result2.stdout
     assert "nothing left to do" in output or "ends at step 7" in output, \
         f"Expected 'nothing left to do' or 'ends at step 7' in output, got: {output}"
+
+
+def test_ux_mode_step1_sets_mode_and_base_url(fresh_state_dir):
+    """UX mode step 1 persists mode=ux, max_step=6, and --base-url."""
+    import json
+    import subprocess
+
+    result = subprocess.run(
+        ["python3", str(SCRIPTS / "test" / "test.py"),
+         "--mode", "ux", "--base-url", "http://localhost:4173", "--step", "1"],
+        cwd=str(fresh_state_dir),
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+    )
+    assert result.returncode == 0, result.stderr
+    out = result.stdout + result.stderr
+    assert "App Understanding" in out
+
+    state = None
+    for path in (fresh_state_dir / ".forge").rglob("session.json"):
+        state = json.loads(path.read_text(encoding="utf-8"))
+        break
+    if state is None:
+        for path in (fresh_state_dir / ".forge").rglob("test.json"):
+            state = json.loads(path.read_text(encoding="utf-8"))
+            break
+    assert state is not None, "expected UX session state"
+    assert state["custom"]["mode"] == "ux"
+    assert state["max_step"] == 6
+    assert state["custom"]["base_url"] == "http://localhost:4173"
+
+
+def test_test_skill_handoff_includes_ux_alternative(monkeypatch):
+    """Handoff menu lists test --mode ux from SKILL_CHAIN."""
+    from scripts.shared.orchestrator import build_skill_handoff_menu
+
+    monkeypatch.setenv("FORGE_WORKFLOW_INVOCATION", "dollar")
+    menu = build_skill_handoff_menu("test")
+    assert "$forge:test --mode ux" in menu
 
 
 # ---------------------------------------------------------------------------

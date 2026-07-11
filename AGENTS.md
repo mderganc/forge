@@ -78,7 +78,7 @@ Sketch does **not** investigate the codebase for solutions or author design spec
 
 Invoking a Forge workflow skill is itself permission to dispatch the Forge agent team required by that workflow.
 
-- `forge:sketch` is a lightweight 1:1 dialogue skill (no agent-team requirement); `forge:design`, `forge:plan`, `forge:implement`, `forge:code-review`, `forge:test`, `forge:diagnose`, and `forge:takeover` imply automatic delegation to the relevant Forge agents (`forge:develop` is a deprecated alias for `forge:design`).
+- `forge:sketch` is a lightweight 1:1 dialogue skill (no agent-team requirement); `forge:ux-review` is a 1:1 real-browser product UX audit (no agent-team requirement unless the user asks); `forge:design`, `forge:plan`, `forge:implement`, `forge:code-review`, `forge:test`, `forge:diagnose`, and `forge:takeover` imply automatic delegation to the relevant Forge agents (`forge:develop` is a deprecated alias for `forge:design`).
 - `forge:evaluate` implies automatic delegation when team/review mode is active.
 - The user should not have to separately say "use sub-agents", "delegate", or "parallelize" after invoking a Forge skill.
 - If the active Codex session policy still blocks `spawn_agent`, surface that as an environment-policy limitation rather than silently falling back to single-agent execution.
@@ -156,6 +156,20 @@ All reads use `.get(key, default)` pattern for backward compatibility with legac
 The recommendation sidecar persists at `<state-dir>/.test-recommendation-step2.json` (step-numbered, mirrors evaluate's findings sidecar convention). Schema: `{"chosen": "<type>", "reasoning": "...", "confidence": 0.0-1.0, "alternatives": [...]}`. Ingested at step 3; malformed sidecar aborts with `sys.exit(1)` and stderr message.
 
 The scenario-index update at `<scenarios_dir>/README.md` is parser-gated; on parse failure, report step aborts and leaves file unchanged. Backup written to `<runtime>/memory/scenario-index.bak` before any rewrite (runtime default `.forge/`; legacy `.codex/forge*` still read during migration).
+
+### Test Skill — UX Mode State
+
+When `--mode ux` is used, the skill drives **real-browser** goal-based QA (not suite runs or mock-flow authoring). State keys in `state.custom`:
+- `mode` set to `"ux"`
+- `base_url` (from `--base-url` or discovered in step 1)
+- `app_map` (purpose, features, roles, critical workflows — step 1)
+- `ux_plan` (user_goals + scenarios with categories and persistence checks — step 2)
+- `ux_results` (`passed` / `failed` / `blocked` / `total` + per-scenario status — steps 3–4)
+- `ux_issues` (structured defects per `templates/ux-issue-report.md` — step 5)
+- `ux_coverage` (`covered` / `untested` / `risks` / `recommendations` — step 6)
+- `roles` / `entry_point` / `framework` (shared detection overrides)
+
+Sidecars beside the session: `.test-ux-app-map.json`, `.test-ux-plan.json`, `.test-ux-issues.json`. Report: `<runtime>/memory/ux-test-report.md`. Rubric: `templates/ux-test-criteria.md`.
 
 ### Diagnose — Methodology sidecars and gates
 

@@ -11,7 +11,7 @@ Verifies for each orchestrator:
   - Same-skill clobber abort fires when step 1 is rerun (where applicable)
   - --cleanup --all-stale --force removes the state file
   - Flows mode: walks all 7 steps with override sidecar and executes flows
-  - UX mode: initializes real-browser QA mode with --base-url
+  - test --mode ux redirects to forge ux-review
 """
 
 import json
@@ -472,45 +472,16 @@ def smoke_test_flows_mode():
     return fails[0]
 
 
-def smoke_test_ux_mode():
-    """Smoke: --mode ux initializes and walks steps without crashing."""
-    print(f"\n=== test (ux mode smoke test) ===")
+def smoke_test_ux_mode_redirect():
+    """Smoke: --mode ux exits 2 and points at forge ux-review."""
+    print(f"\n=== test (ux mode redirect smoke) ===")
     cleanup_repo()
     fails = [0]
 
-    r = run([str(SCRIPTS["test"]), "--mode", "ux",
-             "--base-url", "http://127.0.0.1:9", "--step", "1"])
-    assert_eq(r.returncode, 0, "ux step 1 ran", fails)
-    out1 = (r.stdout or "") + (r.stderr or "")
-    assert_contains(out1, "App Understanding", "ux phase 1 name", fails)
-
-    paths = [
-        REPO / ".codex/forge-codex/state" / "test.json",
-        REPO / ".forge/state" / "test.json",
-    ]
-    state_path = next((p for p in paths if p.exists()), None)
-    if state_path is None:
-        # Session-dir layout
-        sessions = REPO / ".forge" / "sessions"
-        if sessions.is_dir():
-            for d in sessions.iterdir():
-                sj = d / "session.json"
-                if sj.is_file():
-                    state_path = sj
-                    break
-    if state_path:
-        state = json.loads(state_path.read_text(encoding="utf-8"))
-        assert_eq(state.get("custom", {}).get("mode"), "ux",
-                  "ux mode set in state", fails)
-        assert_eq(state.get("max_step"), 6, "max_step=6 in ux mode", fails)
-        assert_eq(state.get("custom", {}).get("base_url"),
-                  "http://127.0.0.1:9", "base_url persisted", fails)
-
-    for step in range(2, 7):
-        r = run([str(SCRIPTS["test"]), "--mode", "ux", "--step", str(step)])
-        if r.returncode not in (0, 1):
-            print(f"  {FAIL} step {step} returned unexpected code {r.returncode}")
-            fails[0] += 1
+    r = run([str(SCRIPTS["test"]), "--mode", "ux", "--step", "1"])
+    assert_eq(r.returncode, 2, "ux mode exits 2", fails)
+    out = (r.stdout or "") + (r.stderr or "")
+    assert_contains(out, "ux-review", "redirect mentions ux-review", fails)
 
     cleanup_repo()
     return fails[0]
@@ -526,7 +497,7 @@ def main():
     total += smoke_diagnose_five_whys_gate()
     total += smoke_diagnose_coverage_gate()
     total += smoke_test_flows_mode()
-    total += smoke_test_ux_mode()
+    total += smoke_test_ux_mode_redirect()
     cleanup_repo()  # final cleanup
 
     print(f"\n{'=' * 60}")

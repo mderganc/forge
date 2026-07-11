@@ -253,15 +253,15 @@ When intent is fuzzy, run [sketch](#sketch) before [design](#design).
 |--|-----------------|-------|----------|
 | Invoke | `/forge:test` | `$forge:test` | `forge test --step 1` |
 
-**What it does:** Run test suites (**run** mode), author mock flows (**`--mode flows`**), or exercise the live app as a real user in a browser (**`--mode ux`** — goal-based QA).
+**What it does:** Run test suites (**run** mode) or author mock flows (**`--mode flows`**).
 
-**Artifacts:** `memory/test-report.md` (run); flows mode updates scenario index when parseable; UX mode writes `memory/ux-test-report.md` plus issue sidecars.
+**Artifacts:** `memory/test-report.md` (run); flows mode updates scenario index when parseable.
 
 **Default handoff:** [diagnose](#diagnose) on failures, or [ship](#ship).
 
 **Methodologies:** discovery, execution, failure analysis, coverage gaps; flows mode — eight quality criteria and pytest reliability checks.
 
-For a full **product UX audit** (every page/control/state + prioritized findings report), use [ux-review](#ux-review) instead of `test --mode ux`.
+For a real-browser **product UX audit**, use [ux-review](#ux-review).
 
 ---
 
@@ -273,7 +273,7 @@ For a full **product UX audit** (every page/control/state + prioritized findings
 
 **What it does:** Real-browser product UX audit — map purpose/users/IA/journeys, plan coverage, walk every reachable page and control, capture empty/loading/error/success states (and viewports), then write a prioritized findings report.
 
-**When to use:** Usability / UX audits of a running web app. Distinct from [`test --mode ux`](#test) (goal-based QA after implement).
+**When to use:** Usability / UX audits of a running web app. Not a substitute for [`test`](#test) suite runs or mock-flow authoring.
 
 **Artifacts:** `memory/ux-review-report.md` (default) plus session sidecars (orientation, plan, coverage, findings).
 

@@ -17,8 +17,7 @@ Runs at **ship** only (`forge ship --step 1`). This workflow does not print GRAP
 
 ## What to tell the user first
 
-- **UX review** is a real-browser **product UX audit** (every page/control/state), not automated test execution.
-- Distinct from **`forge test --mode ux`** (goal-based QA after implement).
+- **UX review** is a real-browser **product UX audit** (every page/control/state), not automated test execution or mock-flow authoring.
 - Pass `--base-url` when known; capture screenshots and keep the coverage checklist live.
 
 ## What you run (agent)

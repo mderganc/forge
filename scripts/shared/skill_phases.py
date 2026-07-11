@@ -75,14 +75,6 @@ _SKILL_PHASE_NAMES: dict[str, dict[str | None, dict[int, str]]] = {
             6: "Execution + Iteration",
             7: "Report + Handoff",
         },
-        "ux": {
-            1: "App Understanding",
-            2: "Goal-Based Test Plan",
-            3: "Browser Journey Execution",
-            4: "Edge Cases & Persistence",
-            5: "Issue Documentation",
-            6: "Report + Handoff",
-        },
     },
     "diagnose": {
         None: {
@@ -350,7 +342,7 @@ def variant_from_session(session: dict[str, Any], skill_name: str) -> str | None
     if skill == "test":
         custom = session.get("custom") or {}
         mode = custom.get("mode", "run")
-        return str(mode) if mode in ("run", "flows", "ux") else "run"
+        return str(mode) if mode in ("run", "flows") else "run"
     if skill == "evaluate":
         mode = session.get("mode")
         return str(mode) if mode in ("pre", "post", "review") else "pre"

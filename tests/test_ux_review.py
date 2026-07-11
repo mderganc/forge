@@ -102,6 +102,58 @@ def test_ux_review_handoff_diagnose_on_high_findings(tmp_path: Path):
     assert "diagnose" not in alts
 
 
+def test_ux_review_findings_gate_requires_clean_or_coverage():
+    from scripts.shared.skill_state import SkillState
+    from scripts.ux_review.ux_review import _check_findings_gate
+
+    state = SkillState(skill_name="ux-review", max_step=6)
+    state.custom["findings"] = []
+    state.custom["coverage"] = {"pages": [], "controls": [], "workflows": []}
+    missing = _check_findings_gate(state)
+    assert any("clean_review" in m for m in missing)
+    assert any("pages/controls/workflows" in m for m in missing)
+
+    state.custom["coverage"] = {
+        "pages": ["/home"],
+        "controls": [],
+        "workflows": [],
+        "clean_review": True,
+    }
+    assert _check_findings_gate(state) == []
+
+
+def test_ux_review_plan_gate_blocks_without_base_url(repo_cwd: Path):
+    """Step 3 with empty plan/base_url exits 1 and prints PLAN GATE."""
+    env = os.environ.copy()
+    env["FORGE_SKIP_GRAPHIFY"] = "1"
+    env["FORGE_SKIP_SESSION_OPTIN"] = "1"
+    env["PYTHONPATH"] = str(REPO_ROOT)
+    # step 1
+    subprocess.run(
+        [sys.executable, str(UX_SCRIPT), "--step", "1"],
+        cwd=repo_cwd,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        env=env,
+        check=False,
+    )
+    sessions = list((repo_cwd / ".forge" / "sessions").glob("*/session.json"))
+    assert sessions, "expected session after step 1"
+    state_path = sessions[0]
+    proc = subprocess.run(
+        [sys.executable, str(UX_SCRIPT), "--step", "3", "--state", str(state_path)],
+        cwd=repo_cwd,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        env=env,
+        check=False,
+    )
+    assert proc.returncode == 1, proc.stderr + proc.stdout
+    assert "PLAN GATE" in (proc.stdout + proc.stderr)
+
+
 def test_commands_json_includes_ux_review():
     spec = json.loads(
         (REPO_ROOT / "integrations" / "spec" / "commands.json").read_text(encoding="utf-8")

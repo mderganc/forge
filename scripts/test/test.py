@@ -65,12 +65,6 @@ from scripts.test.test_flows import (
     prepare_flow_step_1,
     required_flow_prompts,
 )
-from scripts.test.test_ux import (
-    UX_MAX_STEP,
-    handle_ux_step,
-    initialize_ux_custom,
-    required_ux_prompts,
-)
 
 SKILL_NAME = "test"
 MAX_STEP = 6
@@ -258,10 +252,6 @@ def _build_variables(
             style=prompts_style,
         )
 
-    base_url = state.custom.get("base_url", "") or "(not set — ask user or pass --base-url)"
-    ux_results = state.custom.get("ux_results") or {}
-    ux_issues = state.custom.get("ux_issues") or []
-
     return {
         "TARGET": target or "(auto-detected from handoff or project)",
         "HANDOFF_CONTENT": handoff_section,
@@ -289,15 +279,6 @@ def _build_variables(
         "LAYOUT_CONFIDENCE_WARNING": layout_confidence_warning,
         "TEST_EXECUTION_LOG": execution_log.strip(),
         "WORKFLOW_PROMPTS_APPENDIX": workflow_prompts.strip(),
-        # UX-mode variables
-        "BASE_URL": str(base_url),
-        "UX_PASSED": str(ux_results.get("passed", 0)),
-        "UX_FAILED": str(ux_results.get("failed", 0)),
-        "UX_BLOCKED": str(ux_results.get("blocked", 0)),
-        "UX_TOTAL": str(ux_results.get("total", 0)),
-        "UX_ISSUE_COUNT": str(len(ux_issues)),
-        "UX_PLAN_GATE_FAILURES": "",
-        "UX_ISSUES_GATE_FAILURES": "",
     }
 
 
@@ -305,8 +286,6 @@ def _max_step_for_mode(mode: str | None) -> int:
     """Return max step count for a test skill mode."""
     if mode == "flows":
         return FLOWS_MAX_STEP
-    if mode == "ux":
-        return UX_MAX_STEP
     return MAX_STEP
 
 
@@ -390,8 +369,6 @@ def handle_step_1(args) -> None:
 
     if mode == "flows":
         initialize_flow_custom(state, args)
-    elif mode == "ux":
-        initialize_ux_custom(state, args)
 
     save_state(state, sp)
 
@@ -401,8 +378,6 @@ def handle_step_1(args) -> None:
     if mode == "flows":
         prepare_flow_step_1(sp, getattr(args, "flow_type", None))
         handle_flow_step(1, state, sp)
-    elif mode == "ux":
-        handle_ux_step(1, state, sp)
     else:
         # Run mode: original flow
         template = load_template("test/context")
@@ -468,11 +443,16 @@ def handle_step_n(
 
     # Dispatch based on mode
     mode = state.custom.get("mode", "run")
+    if mode == "ux":
+        print(
+            "ERROR: This session used removed `test --mode ux`.\n"
+            "       Start a new session with: forge ux-review --step 1 [--base-url URL]\n"
+            "       Or delete the state file and use --mode run / --mode flows.",
+            file=sys.stderr,
+        )
+        sys.exit(2)
     if mode == "flows":
         handle_flow_step(step, state, sp)
-        return
-    if mode == "ux":
-        handle_ux_step(step, state, sp)
         return
 
     # Run-mode path (unchanged)
@@ -634,11 +614,8 @@ def main():
     # Flow-mode flags (Fix 1)
     parser.add_argument(
         "--mode", type=str, choices=["run", "flows", "ux"], default="run",
-        help="Skill mode: run (default), flows (author mock flows), or ux (real-browser user QA)"
-    )
-    parser.add_argument(
-        "--base-url", type=str, default=None, dest="base_url",
-        help="Application base URL for UX mode (e.g. http://localhost:3000)"
+        help="Skill mode: run (default) or flows (author mock flows). "
+             "'ux' redirects to forge ux-review"
     )
     parser.add_argument(
         "--flow-type", type=str,
@@ -670,7 +647,18 @@ def main():
     )
     args = parser.parse_args()
 
-    # Atomic-delivery feature-check: if flows/ux mode, verify prompts exist
+    # Real-browser product UX lives in forge ux-review (not test --mode ux).
+    if args.mode == "ux":
+        print(
+            "ERROR: `forge test --mode ux` was removed to avoid overlapping "
+            "`forge ux-review`.\n"
+            "       Use: forge ux-review --step 1 [--base-url URL]\n"
+            "       (suite runs: --mode run; mock flows: --mode flows)",
+            file=sys.stderr,
+        )
+        sys.exit(2)
+
+    # Atomic-delivery feature-check: if flows mode, verify prompts exist
     if args.mode == "flows":
         missing = []
         for p in required_flow_prompts():
@@ -685,21 +673,6 @@ def main():
                 file=sys.stderr
             )
             sys.exit(1)
-    elif args.mode == "ux":
-        missing = []
-        for p in required_ux_prompts():
-            try:
-                load_template(f"test/{p}")
-            except FileNotFoundError:
-                missing.append(p)
-        if missing:
-            prompts_root = default_prompts_root()
-            print(
-                f"ERROR: ux mode unavailable — missing prompts in active template root ({prompts_root}): {missing}",
-                file=sys.stderr
-            )
-            sys.exit(1)
-
     apply_resolved_workflow_step(args, SKILL_NAME, _max_step_for_mode(args.mode), variant=args.mode)
 
     # Resume-conflict guard: if state exists and mode differs, abort

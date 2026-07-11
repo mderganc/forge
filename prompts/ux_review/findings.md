@@ -30,7 +30,10 @@ Evaluate functional correctness, ease of use, navigation, discoverability, acces
 | `evidence` | screenshot path / description |
 | `recommendation` | actionable, specific |
 
-Empty findings list is allowed only for a genuinely clean review — note that explicitly in `coverage`.
+Empty findings list is allowed only for a genuinely clean review — set
+`coverage.clean_review: true` and leave a short note in `coverage.skips` or
+`coverage.notes`. Also record at least one of pages / controls / workflows
+before the report step.
 
 ## Done when
 

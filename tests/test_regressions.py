@@ -2013,44 +2013,80 @@ def test_flows_step_8_over_cap_friendly(fresh_state_dir):
         f"Expected 'nothing left to do' or 'ends at step 7' in output, got: {output}"
 
 
-def test_ux_mode_step1_sets_mode_and_base_url(fresh_state_dir):
-    """UX mode step 1 persists mode=ux, max_step=6, and --base-url."""
-    import json
+def test_test_mode_ux_redirects_to_ux_review(fresh_state_dir):
+    """test --mode ux exits 2 and points agents at forge ux-review."""
     import subprocess
 
     result = subprocess.run(
         ["python3", str(SCRIPTS / "test" / "test.py"),
-         "--mode", "ux", "--base-url", "http://localhost:4173", "--step", "1"],
+         "--mode", "ux", "--step", "1"],
         cwd=str(fresh_state_dir),
         capture_output=True,
         text=True,
         encoding="utf-8",
     )
-    assert result.returncode == 0, result.stderr
+    assert result.returncode == 2, result.stderr
     out = result.stdout + result.stderr
-    assert "App Understanding" in out
-
-    state = None
-    for path in (fresh_state_dir / ".forge").rglob("session.json"):
-        state = json.loads(path.read_text(encoding="utf-8"))
-        break
-    if state is None:
-        for path in (fresh_state_dir / ".forge").rglob("test.json"):
-            state = json.loads(path.read_text(encoding="utf-8"))
-            break
-    assert state is not None, "expected UX session state"
-    assert state["custom"]["mode"] == "ux"
-    assert state["max_step"] == 6
-    assert state["custom"]["base_url"] == "http://localhost:4173"
+    assert "ux-review" in out
+    assert "removed" in out.lower() or "overlapping" in out.lower()
 
 
-def test_test_skill_handoff_includes_ux_alternative(monkeypatch):
-    """Handoff menu lists test --mode ux from SKILL_CHAIN."""
+def test_stale_ux_mode_session_resume_exits(fresh_state_dir):
+    """Resuming a session with custom.mode=ux exits 2 (mode removed)."""
+    import json
+    import subprocess
+    from scripts.shared.orchestrator import now_iso
+
+    sessions = fresh_state_dir / ".forge" / "sessions" / "staleux"
+    sessions.mkdir(parents=True)
+    sp = sessions / "session.json"
+    sp.write_text(
+        json.dumps(
+            {
+                "skill_name": "test",
+                "current_step": 2,
+                "last_completed_step": 1,
+                "max_step": 6,
+                "quick_mode": False,
+                "autonomy_level": 1,
+                "beads_available": False,
+                "epic_id": None,
+                "issue_ids": {},
+                "review_loops": {},
+                "dispatches": [],
+                "findings": [],
+                "phase_todos": {},
+                "started_at": now_iso(),
+                "completed_at": None,
+                "last_touched_at": now_iso(),
+                "session_id": "staleux",
+                "failure_count": 0,
+                "custom": {"mode": "ux"},
+            },
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
+    result = subprocess.run(
+        ["python3", str(SCRIPTS / "test" / "test.py"),
+         "--step", "3", "--state", str(sp)],
+        cwd=str(fresh_state_dir),
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+    )
+    assert result.returncode == 2, result.stderr + result.stdout
+    assert "ux-review" in (result.stderr + result.stdout)
+
+
+def test_test_skill_handoff_includes_ux_review_not_mode_ux(monkeypatch):
+    """Handoff offers ux-review; does not offer removed test --mode ux."""
     from scripts.shared.orchestrator import build_skill_handoff_menu
 
     monkeypatch.setenv("FORGE_WORKFLOW_INVOCATION", "dollar")
     menu = build_skill_handoff_menu("test")
-    assert "$forge:test --mode ux" in menu
+    assert "$forge:ux-review" in menu
+    assert "$forge:test --mode ux" not in menu
 
 
 # ---------------------------------------------------------------------------

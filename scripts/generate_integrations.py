@@ -76,8 +76,7 @@ COMMAND_OVERRIDES: dict[str, dict[str, str]] = {
     "ux-review": {
         "tell_user": (
             "- **UX review** is a real-browser **product UX audit** (every page/control/state), "
-            "not automated test execution.\n"
-            "- Distinct from **`forge test --mode ux`** (goal-based QA after implement).\n"
+            "not automated test execution or mock-flow authoring.\n"
             "- Pass `--base-url` when known; capture screenshots and keep the coverage checklist live."
         ),
         "agent_run": (
@@ -86,7 +85,7 @@ COMMAND_OVERRIDES: dict[str, dict[str, str]] = {
         ),
         "codex_extra": (
             "Read `templates/ux-review-criteria.md`. Maintain coverage checklist while testing.\n\n"
-            "Prefer a real browser. Do **not** treat this as `forge test --mode ux`."
+            "Prefer a real browser. Suite runs / mock flows use `forge test`, not this skill."
         ),
     },
     "graphify": {

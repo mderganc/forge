@@ -184,13 +184,8 @@ def build_parser() -> argparse.ArgumentParser:
     add_workflow_phase_flags(ts)
     ts.add_argument("--state", type=str)
     ts.add_argument("--quick", action="store_true")
-    ts.add_argument("--mode", choices=["run", "flows", "ux"])
-    ts.add_argument(
-        "--base-url",
-        type=str,
-        default=None,
-        help="Application base URL for UX mode",
-    )
+    ts.add_argument("--mode", choices=["run", "flows", "ux"],
+                    help="run|flows; 'ux' exits with redirect to forge ux-review")
     ts.add_argument(
         "--target",
         nargs="+",

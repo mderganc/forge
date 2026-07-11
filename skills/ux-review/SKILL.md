@@ -2,7 +2,7 @@
 description: |
   Real-browser UX review of a web app: map purpose/users/IA/journeys, plan
   coverage, walk every page and control, capture states/screenshots, produce a
-  prioritized findings report. Distinct from forge test --mode ux (goal-based QA).
+  prioritized findings report. Use this — not forge test — for live UI audits.
 ---
 
 # forge ux-review — Product UX audit
@@ -17,7 +17,7 @@ Criteria: [templates/ux-review-criteria.md](../../templates/ux-review-criteria.m
 Checklist: [templates/ux-review-coverage-checklist.md](../../templates/ux-review-coverage-checklist.md).  
 Report: [templates/ux-review-report.md](../../templates/ux-review-report.md).
 
-vs **`forge test --mode ux`:** that mode is goal-based QA after implement. **`ux-review`** is a full product UX audit (IA, discoverability, consistency, every reachable control/state).
+vs **`forge test`:** suite execution (`--mode run`) and mock-flow authoring (`--mode flows`). **`ux-review`** is the real-browser product UX audit (IA, discoverability, consistency, every reachable control/state).
 
 <invoke cmd="forge ux-review" />
 

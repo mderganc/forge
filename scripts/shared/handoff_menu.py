@@ -29,27 +29,18 @@ def resolve_handoff_commands(
         test_results = state.custom.get("test_results", {})
         if test_results.get("failed", 0) > 0 and "diagnose" not in alts:
             alts.insert(0, "diagnose")
-        ux_results = state.custom.get("ux_results") or {}
-        if int(ux_results.get("failed", 0) or 0) > 0 and "diagnose" not in alts:
-            alts.insert(0, "diagnose")
         mode = state.custom.get("mode", "run")
-        mode_cmds = {
-            "run": "test --mode run",
-            "flows": "test --mode flows",
-            "ux": "test --mode ux",
-        }
-        # Drop the current mode from alternatives; ensure the other modes appear.
-        current_cmd = mode_cmds.get(mode, "test --mode run")
-        alts = [a for a in alts if a != current_cmd]
-        for other, cmd in mode_cmds.items():
-            if other == mode:
-                continue
-            if cmd not in alts and f"test --mode {other}" not in alts:
-                # Prefer replacing a stale same-family entry when present
-                alts.append(cmd)
-        # Historical swap: flows session should offer run (not another flows)
+        # Drop superseded test --mode ux if present in older chain snapshots
+        alts = [a for a in alts if a != "test --mode ux"]
         if mode == "flows" and "test --mode flows" in alts:
-            alts = [a if a != "test --mode flows" else "test --mode run" for a in alts]
+            idx = alts.index("test --mode flows")
+            alts[idx] = "test --mode run"
+        elif mode == "run" and "test --mode run" in alts:
+            idx = alts.index("test --mode run")
+            alts[idx] = "test --mode flows"
+        # Ensure product UX audit is offered (not a test mode)
+        if "ux-review" not in alts:
+            alts.append("ux-review")
         return default_cmd, alts
 
     if skill_name == "ux-review" and state is not None:

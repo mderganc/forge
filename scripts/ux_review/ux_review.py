@@ -2,7 +2,7 @@
 """UX-review skill orchestrator — product UX audit in a real browser.
 
 Six steps: orient → plan → walkthrough → states/viewports → findings → report.
-Distinct from ``forge test --mode ux`` (goal-based QA).
+Suite runs and mock-flow authoring stay on ``forge test`` (``--mode run`` / ``flows``).
 """
 
 from __future__ import annotations
@@ -199,6 +199,7 @@ def _check_plan_gate(state: SkillState) -> list[str]:
 
 def _check_findings_gate(state: SkillState) -> list[str]:
     findings = state.custom.get("findings") or []
+    coverage = state.custom.get("coverage") or {}
     missing: list[str] = []
     required = ("title", "severity", "location", "impact", "steps", "recommendation")
     for i, finding in enumerate(findings):
@@ -208,6 +209,18 @@ def _check_findings_gate(state: SkillState) -> list[str]:
         for key in required:
             if not finding.get(key):
                 missing.append(f"findings[{i}] missing '{key}'")
+    if not findings and not coverage.get("clean_review"):
+        missing.append(
+            "findings is empty but coverage.clean_review is not true — "
+            "document findings or set coverage.clean_review=true for a clean pass"
+        )
+    pages = coverage.get("pages") or []
+    controls = coverage.get("controls") or []
+    workflows = coverage.get("workflows") or []
+    if not (pages or controls or workflows):
+        missing.append(
+            "coverage has no pages/controls/workflows — record what was reviewed before report"
+        )
     return missing
 
 
@@ -334,7 +347,7 @@ def _run_step(step: int, state: SkillState, sp: Path) -> None:
             state_path=sp,
         )
         print(_format(step, body, _next_command(2, state_path=str(sp))))
-        return
+        sys.exit(1)
 
     if step == 6 and gate_failures:
         body = (
@@ -355,7 +368,7 @@ def _run_step(step: int, state: SkillState, sp: Path) -> None:
             state_path=sp,
         )
         print(_format(step, body, _next_command(5, state_path=str(sp))))
-        return
+        sys.exit(1)
 
     state.current_step = step
     save_state(state, sp)

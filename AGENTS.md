@@ -157,19 +157,7 @@ The recommendation sidecar persists at `<state-dir>/.test-recommendation-step2.j
 
 The scenario-index update at `<scenarios_dir>/README.md` is parser-gated; on parse failure, report step aborts and leaves file unchanged. Backup written to `<runtime>/memory/scenario-index.bak` before any rewrite (runtime default `.forge/`; legacy `.codex/forge*` still read during migration).
 
-### Test Skill — UX Mode State
-
-When `--mode ux` is used, the skill drives **real-browser** goal-based QA (not suite runs or mock-flow authoring). State keys in `state.custom`:
-- `mode` set to `"ux"`
-- `base_url` (from `--base-url` or discovered in step 1)
-- `app_map` (purpose, features, roles, critical workflows — step 1)
-- `ux_plan` (user_goals + scenarios with categories and persistence checks — step 2)
-- `ux_results` (`passed` / `failed` / `blocked` / `total` + per-scenario status — steps 3–4)
-- `ux_issues` (structured defects per `templates/ux-issue-report.md` — step 5)
-- `ux_coverage` (`covered` / `untested` / `risks` / `recommendations` — step 6)
-- `roles` / `entry_point` / `framework` (shared detection overrides)
-
-Sidecars beside the session: `.test-ux-app-map.json`, `.test-ux-plan.json`, `.test-ux-issues.json`. Report: `<runtime>/memory/ux-test-report.md`. Rubric: `templates/ux-test-criteria.md`.
+Real-browser product UX audits use **`forge ux-review`** (not `forge test --mode ux`, which exits with a redirect).
 
 ### Diagnose — Methodology sidecars and gates
 

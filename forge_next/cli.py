@@ -184,12 +184,36 @@ def build_parser() -> argparse.ArgumentParser:
     add_workflow_phase_flags(ts)
     ts.add_argument("--state", type=str)
     ts.add_argument("--quick", action="store_true")
-    ts.add_argument("--mode", choices=["run", "flows"])
+    ts.add_argument("--mode", choices=["run", "flows", "ux"])
+    ts.add_argument(
+        "--base-url",
+        type=str,
+        default=None,
+        help="Application base URL for UX mode",
+    )
     ts.add_argument(
         "--target",
         nargs="+",
         default=None,
         help="Test command, path, or pattern to run",
+    )
+
+    # ux-review (product UX audit in a real browser)
+    ux = sub.add_parser(
+        "ux-review",
+        help="Real-browser product UX audit (pages, controls, states, prioritized report)",
+    )
+    add_common_repo_flag(ux)
+    add_common_output_flags(ux)
+    add_session_flags(ux)
+    add_workflow_phase_flags(ux)
+    ux.add_argument("--state", type=str)
+    ux.add_argument("--quick", action="store_true")
+    ux.add_argument(
+        "--base-url",
+        type=str,
+        default=None,
+        help="Application base URL to review",
     )
 
     # diagnose

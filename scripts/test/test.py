@@ -65,6 +65,12 @@ from scripts.test.test_flows import (
     prepare_flow_step_1,
     required_flow_prompts,
 )
+from scripts.test.test_ux import (
+    UX_MAX_STEP,
+    handle_ux_step,
+    initialize_ux_custom,
+    required_ux_prompts,
+)
 
 SKILL_NAME = "test"
 MAX_STEP = 6
@@ -252,6 +258,10 @@ def _build_variables(
             style=prompts_style,
         )
 
+    base_url = state.custom.get("base_url", "") or "(not set — ask user or pass --base-url)"
+    ux_results = state.custom.get("ux_results") or {}
+    ux_issues = state.custom.get("ux_issues") or []
+
     return {
         "TARGET": target or "(auto-detected from handoff or project)",
         "HANDOFF_CONTENT": handoff_section,
@@ -279,7 +289,25 @@ def _build_variables(
         "LAYOUT_CONFIDENCE_WARNING": layout_confidence_warning,
         "TEST_EXECUTION_LOG": execution_log.strip(),
         "WORKFLOW_PROMPTS_APPENDIX": workflow_prompts.strip(),
+        # UX-mode variables
+        "BASE_URL": str(base_url),
+        "UX_PASSED": str(ux_results.get("passed", 0)),
+        "UX_FAILED": str(ux_results.get("failed", 0)),
+        "UX_BLOCKED": str(ux_results.get("blocked", 0)),
+        "UX_TOTAL": str(ux_results.get("total", 0)),
+        "UX_ISSUE_COUNT": str(len(ux_issues)),
+        "UX_PLAN_GATE_FAILURES": "",
+        "UX_ISSUES_GATE_FAILURES": "",
     }
+
+
+def _max_step_for_mode(mode: str | None) -> int:
+    """Return max step count for a test skill mode."""
+    if mode == "flows":
+        return FLOWS_MAX_STEP
+    if mode == "ux":
+        return UX_MAX_STEP
+    return MAX_STEP
 
 
 def _next_command(step: int, state_path: str = "", mode: str | None = "run") -> str:
@@ -290,11 +318,10 @@ def _next_command(step: int, state_path: str = "", mode: str | None = "run") -> 
     if mode and mode != "run":
         extra["mode"] = mode
     variant = mode or "run"
-    max_s = 7 if variant == "flows" else MAX_STEP
     return build_next_command(
         SCRIPT_DIR / "test.py",
         step,
-        max_s,
+        _max_step_for_mode(variant),
         phase_variant=variant,
         **extra,
     )
@@ -333,7 +360,7 @@ def handle_step_1(args) -> None:
 
     # Determine mode and set max_step
     mode = getattr(args, "mode", "run")
-    max_step = 7 if mode == "flows" else MAX_STEP
+    max_step = _max_step_for_mode(mode)
 
     if sp.exists():
         try:
@@ -363,6 +390,8 @@ def handle_step_1(args) -> None:
 
     if mode == "flows":
         initialize_flow_custom(state, args)
+    elif mode == "ux":
+        initialize_ux_custom(state, args)
 
     save_state(state, sp)
 
@@ -372,6 +401,8 @@ def handle_step_1(args) -> None:
     if mode == "flows":
         prepare_flow_step_1(sp, getattr(args, "flow_type", None))
         handle_flow_step(1, state, sp)
+    elif mode == "ux":
+        handle_ux_step(1, state, sp)
     else:
         # Run mode: original flow
         template = load_template("test/context")
@@ -439,6 +470,9 @@ def handle_step_n(
     mode = state.custom.get("mode", "run")
     if mode == "flows":
         handle_flow_step(step, state, sp)
+        return
+    if mode == "ux":
+        handle_ux_step(step, state, sp)
         return
 
     # Run-mode path (unchanged)
@@ -575,7 +609,7 @@ def handle_step_n(
 
     phase_name = PHASE_NAMES.get(step, f"Step {step}")
     mode = state.custom.get("mode", "run")
-    effective_max = FLOWS_MAX_STEP if mode == "flows" else MAX_STEP
+    effective_max = _max_step_for_mode(mode)
     next_cmd = _next_command(step, state_path=str(sp), mode=mode) if step < effective_max else None
     print(format_step_output(
         SKILL_NAME, step, MAX_STEP, phase_name, body,
@@ -599,8 +633,12 @@ def main():
     )
     # Flow-mode flags (Fix 1)
     parser.add_argument(
-        "--mode", type=str, choices=["run", "flows"], default="run",
-        help="Skill mode: run (default) or flows (author mock flows)"
+        "--mode", type=str, choices=["run", "flows", "ux"], default="run",
+        help="Skill mode: run (default), flows (author mock flows), or ux (real-browser user QA)"
+    )
+    parser.add_argument(
+        "--base-url", type=str, default=None, dest="base_url",
+        help="Application base URL for UX mode (e.g. http://localhost:3000)"
     )
     parser.add_argument(
         "--flow-type", type=str,
@@ -632,7 +670,7 @@ def main():
     )
     args = parser.parse_args()
 
-    # Atomic-delivery feature-check: if flows mode, verify all 7 prompts exist
+    # Atomic-delivery feature-check: if flows/ux mode, verify prompts exist
     if args.mode == "flows":
         missing = []
         for p in required_flow_prompts():
@@ -647,8 +685,22 @@ def main():
                 file=sys.stderr
             )
             sys.exit(1)
+    elif args.mode == "ux":
+        missing = []
+        for p in required_ux_prompts():
+            try:
+                load_template(f"test/{p}")
+            except FileNotFoundError:
+                missing.append(p)
+        if missing:
+            prompts_root = default_prompts_root()
+            print(
+                f"ERROR: ux mode unavailable — missing prompts in active template root ({prompts_root}): {missing}",
+                file=sys.stderr
+            )
+            sys.exit(1)
 
-    apply_resolved_workflow_step(args, SKILL_NAME, MAX_STEP, variant=args.mode)
+    apply_resolved_workflow_step(args, SKILL_NAME, _max_step_for_mode(args.mode), variant=args.mode)
 
     # Resume-conflict guard: if state exists and mode differs, abort
     if args.step > 1 and args.state:
@@ -680,7 +732,7 @@ def main():
             except Exception:
                 pass
 
-    effective_max_step = 7 if mode == "flows" else MAX_STEP
+    effective_max_step = _max_step_for_mode(mode)
 
     # Allow over-cap if not a step request
     if validate_step_or_complete(args.step, effective_max_step, SKILL_NAME):

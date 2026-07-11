@@ -73,6 +73,22 @@ COMMAND_OVERRIDES: dict[str, dict[str, str]] = {
         "agent_run": "Run **diagnose** at step one. Follow playbook sidecars and gates.",
         "codex_extra": "Read `templates/diagnose-execution-playbooks.md` per phase.",
     },
+    "ux-review": {
+        "tell_user": (
+            "- **UX review** is a real-browser **product UX audit** (every page/control/state), "
+            "not automated test execution.\n"
+            "- Distinct from **`forge test --mode ux`** (goal-based QA after implement).\n"
+            "- Pass `--base-url` when known; capture screenshots and keep the coverage checklist live."
+        ),
+        "agent_run": (
+            "Run **ux-review** at step one. Orient → plan → walkthrough → states → findings → report. "
+            "Prefer cursor-ide-browser MCP. Do not fix product code unless asked."
+        ),
+        "codex_extra": (
+            "Read `templates/ux-review-criteria.md`. Maintain coverage checklist while testing.\n\n"
+            "Prefer a real browser. Do **not** treat this as `forge test --mode ux`."
+        ),
+    },
     "graphify": {
         "tell_user": (
             "- **Graphify** feeds codebase structure into `forge takeover` (optional).\n"
@@ -170,19 +186,21 @@ def generate(*, check_only: bool = False) -> list[str]:
             (cursor_path, content),
             (claude_path, content),
         ):
-            if path.read_text(encoding="utf-8") != text:
+            existing = path.read_text(encoding="utf-8") if path.is_file() else None
+            if existing != text:
                 changed.append(str(path.relative_to(REPO_ROOT)))
                 if not check_only:
                     path.parent.mkdir(parents=True, exist_ok=True)
                     path.write_text(text, encoding="utf-8")
         codex_text = _codex_skill_md(cmd)
-        if codex_path.is_file():
-            existing = codex_path.read_text(encoding="utf-8")
-            if existing != codex_text:
-                changed.append(str(codex_path.relative_to(REPO_ROOT)))
-                if not check_only:
-                    codex_path.parent.mkdir(parents=True, exist_ok=True)
-                    codex_path.write_text(codex_text, encoding="utf-8")
+        existing_codex = (
+            codex_path.read_text(encoding="utf-8") if codex_path.is_file() else None
+        )
+        if existing_codex != codex_text:
+            changed.append(str(codex_path.relative_to(REPO_ROOT)))
+            if not check_only:
+                codex_path.parent.mkdir(parents=True, exist_ok=True)
+                codex_path.write_text(codex_text, encoding="utf-8")
     return changed
 
 

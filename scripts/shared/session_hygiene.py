@@ -37,9 +37,11 @@ KNOWN_SKILLS = [
     "implement",
     "code-review",
     "test",
+    "ux-review",
     "diagnose",
     "evaluate",
     "takeover",
+    "sketch",
 ]
 
 PIPELINE_SKILLS = {

@@ -69,6 +69,15 @@
       ]
     },
     {
+      "id": "forge:ux-review",
+      "cli_subcommand": "ux-review",
+      "description": "Real-browser product UX audit: map IA/journeys, walk pages and controls, prioritized findings report.",
+      "examples": [
+        "forge ux-review --step 1",
+        "forge ux-review --step 1 --base-url http://localhost:3000"
+      ]
+    },
+    {
       "id": "forge:diagnose",
       "cli_subcommand": "diagnose",
       "description": "Deep diagnosis workflow for bugs/regressions.",

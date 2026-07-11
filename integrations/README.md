@@ -28,6 +28,7 @@ Layout for Cursor/Claude slash commands and Codex skills is enforced by `pytest 
 ### Slash command naming (Cursor / Claude)
 
 - **Supported:** `/forge:<subcommand>` (for example `/forge:diagnose`). Command files are named `<subcommand>.md`; the plugin namespace is `forge` (see `cursor-plugin/.cursor-plugin/plugin.json`).
+- **Cursor agent skills:** `forge install --cursor` also bundles `integrations/codex/skills/` under the plugin’s `skills/` directory so the agent can load workflows without installing the Codex pack into `~/.codex/skills/`.
 - **Not supported** by current Cursor plugin schema: alias fields, `/f:<subcommand>`, or unscoped `/diagnose`. Codex uses `$forge:<subcommand>` via skill `name:` in each `SKILL.md` (skill folders remain `forge-<subcommand>/` on disk).
 
 ### Graphify (optional codebase map)

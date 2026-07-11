@@ -65,6 +65,13 @@ WORKFLOW_PROMPT_TEMPLATES: tuple[str, ...] = (
     "sketch/startup",
     "sketch/session",
     "sketch/handoff",
+    # ux-review
+    "ux_review/orient",
+    "ux_review/plan",
+    "ux_review/walkthrough",
+    "ux_review/states",
+    "ux_review/findings",
+    "ux_review/report",
     # implement
     "implement/plan_detect",
     "implement/branch_setup",

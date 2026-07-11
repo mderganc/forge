@@ -2,6 +2,10 @@
 
 Defines conventions for the `.forge/memory/` directory used by all agents.
 
+When updating `project.md`, prefer **section-level** edits (do not wholesale replace the file). After changing a section, add attribution: `<!-- forge-session:{session_id} -->`.
+
+Global `handoff-{skill}.md` may be a **pointer** to `sessions/{id}/handoff.md` — use `read_handoff` / `consume_handoff` (they resolve pointers and do not delete session handoffs).
+
 ## Memory Files
 
 | File | Owner | Content |

@@ -23,9 +23,10 @@ SKILL_CHAIN: dict[str, SkillTransition] = {
     "design":      SkillTransition("plan",                 ["sketch", "evaluate --mode pre", "implement", "diagnose"]),
     "plan":        SkillTransition("evaluate --mode pre",  ["implement", "design", "code-review"]),
     "evaluate":    SkillTransition("implement",            ["plan", "code-review", "test"]),
-    "implement":   SkillTransition("code-review",          ["ship", "test", "evaluate --mode post", "diagnose"]),
-    "code-review": SkillTransition("test",                 ["ship", "implement", "diagnose"]),
-    "test":        SkillTransition("diagnose",             ["ship", "test --mode flows", "code-review", "implement"]),
+    "implement":   SkillTransition("code-review",          ["ship", "test", "ux-review", "evaluate --mode post", "diagnose"]),
+    "code-review": SkillTransition("test",                 ["ship", "implement", "ux-review", "diagnose"]),
+    "test":        SkillTransition("diagnose",             ["ship", "test --mode flows", "test --mode ux", "ux-review", "code-review", "implement"]),
+    "ux-review":   SkillTransition("ship",                 ["diagnose", "implement", "code-review", "test"]),
     "diagnose":    SkillTransition(None,                   ["plan", "implement", "design", "sketch"]),
 }
 
@@ -43,6 +44,8 @@ COMMAND_DESCRIPTIONS: dict[str, str] = {
     "code-review":           "deep code review of the changes",
     "test":                  "run tests + coverage",
     "test --mode flows":     "author end-to-end mock flows",
+    "test --mode ux":        "real-browser QA as a user",
+    "ux-review":             "product UX audit: walk every page/control, prioritized findings report",
     "sketch":                "organize intent and open decisions before design (not solution brainstorming)",
     "design":                "investigate, brainstorm solutions, write named design spec (medium/large), then plan",
     "diagnose":              "root-cause analysis on observed issues",

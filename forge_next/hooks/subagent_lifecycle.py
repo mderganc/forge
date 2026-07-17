@@ -14,6 +14,12 @@ LIFECYCLE_MSG = (
     "Cursor/Claude: resume or close completed background Task/Agent sessions — do not leave them open across tool calls."
 )
 
+PROGRESS_MSG = (
+    "forge subagents: While agents are running, Read `.forge/state/subagent-progress/*.json` "
+    "(and `~/.cursor/subagents/` when present) and relay a short status — do not stay silent "
+    "until completion. Subagents must update those files per templates/subagent-progress.md."
+)
+
 _SKIP_TOOLS = frozenset(
     {
         "close_agent",
@@ -90,14 +96,18 @@ def lifecycle_reminder_message(
     """Return a reminder when completed sub-agents may still be open."""
     if should_skip_lifecycle_reminder(data):
         return None
+    parts: list[str] = [LIFECYCLE_MSG]
     pending = pending_close_ids(state_path) if state_path else []
     if pending:
         listed = ", ".join(pending[:8])
         suffix = " …" if len(pending) > 8 else ""
-        return (
-            f"{LIFECYCLE_MSG} Pending close (from hook tracker): {listed}{suffix}."
-        )
-    return LIFECYCLE_MSG
+        parts.append(f"Pending close (from hook tracker): {listed}{suffix}.")
+    running = running_agent_ids(state_path) if state_path else []
+    if running:
+        listed = ", ".join(running[:8])
+        suffix = " …" if len(running) > 8 else ""
+        parts.append(f"{PROGRESS_MSG} Running: {listed}{suffix}.")
+    return " ".join(parts)
 
 
 def default_state_path(cwd: Path) -> Path:
@@ -139,6 +149,16 @@ def pending_close_ids(state_path: Path | None) -> list[str]:
     if not isinstance(pending, list):
         return []
     return [str(x) for x in pending if str(x).strip()]
+
+
+def running_agent_ids(state_path: Path | None) -> list[str]:
+    if state_path is None or not state_path.is_file():
+        return []
+    state = _load_state(state_path)
+    running = state.get("running")
+    if not isinstance(running, dict):
+        return []
+    return [str(k) for k in running if str(k).strip()]
 
 
 def record_subagent_start(data: dict[str, Any], *, state_path: Path) -> None:

@@ -34,6 +34,18 @@ def test_lifecycle_suppressed_by_env(monkeypatch: pytest.MonkeyPatch) -> None:
     assert lifecycle.lifecycle_reminder_message({"tool_name": "Read"}) is None
 
 
+def test_running_agents_add_progress_reminder(tmp_path: Path) -> None:
+    state_path = tmp_path / ".cursor" / "forge-subagent-lifecycle.json"
+    lifecycle.record_subagent_start({"agent_id": "a1"}, state_path=state_path)
+    msg = lifecycle.lifecycle_reminder_message(
+        {"tool_name": "Read"},
+        state_path=state_path,
+    )
+    assert msg is not None
+    assert "subagent-progress" in msg
+    assert "Running: a1" in msg
+
+
 def test_state_tracks_pending_close(tmp_path: Path) -> None:
     state_path = tmp_path / ".cursor" / "forge-subagent-lifecycle.json"
     lifecycle.record_subagent_start({"agent_id": "a1"}, state_path=state_path)

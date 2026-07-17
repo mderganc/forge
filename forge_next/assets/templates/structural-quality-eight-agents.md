@@ -62,6 +62,8 @@ and recommendations, and then implement all high confidence recommendations.
 Before you start:
 - Read templates/structural-quality-probes.md and .structural-probes.json (if present).
 - Respect review target scope: {{TARGET}} / diff paths / plan referenced files.
+- Progress: follow templates/subagent-progress.md — write
+  `.forge/state/subagent-progress/{ID}.json` on start, milestones, and done.
 
 When done, append one object to .structural-eight-agents.json → agents[]:
 {

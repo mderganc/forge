@@ -83,6 +83,7 @@ Invoking a Forge workflow skill is itself permission to dispatch the Forge agent
 - The user should not have to separately say "use sub-agents", "delegate", or "parallelize" after invoking a Forge skill.
 - If the active Codex session policy still blocks `spawn_agent`, surface that as an environment-policy limitation rather than silently falling back to single-agent execution.
 - **Agent lifecycle is part of the delegation contract.** Every `spawn_agent` must be paired with a `close_agent` as soon as the agent reports its result or is no longer useful. Never carry an open agent across a wave, step, or phase boundary — Codex caps concurrent agents and leaked sessions block later dispatch. See `templates/codex-runtime.md` → *Parallel work* for the required spawn → wait → capture → close pattern.
+- **Progress reporting is part of the delegation contract.** Sub-agents must not stay silent until completion. Follow `templates/subagent-progress.md`: write heartbeats under `.forge/state/subagent-progress/`; the parent Reads those files and relays short status while work is in flight (Cursor background Tasks do not stream interim chat).
 
 ## Versioning
 

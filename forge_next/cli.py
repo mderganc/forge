@@ -91,6 +91,22 @@ def build_parser() -> argparse.ArgumentParser:
     dn.add_argument("--auto1", action="store_true")
     dn.add_argument("--auto2", action="store_true")
     dn.add_argument("--auto3", action="store_true")
+    dn.add_argument(
+        "--allow-spec-incomplete",
+        action="store_true",
+        help="Bypass design-spec gate on step 8 (requires override reason + follow-up)",
+    )
+    dn.add_argument("--spec-override-reason", type=str, default=None)
+    dn.add_argument("--spec-override-follow-up", type=str, default=None)
+    dn.add_argument("--spec-override-requested-by", type=str, default=None)
+    dn.add_argument(
+        "--allow-issues-incomplete",
+        action="store_true",
+        help="Bypass spec→issues gate on step 8 (requires override reason + follow-up)",
+    )
+    dn.add_argument("--issues-override-reason", type=str, default=None)
+    dn.add_argument("--issues-override-follow-up", type=str, default=None)
+    dn.add_argument("--issues-override-requested-by", type=str, default=None)
 
     # develop (deprecated alias for design)
     dv = sub.add_parser("develop", help="Deprecated alias for forge design")
@@ -103,6 +119,14 @@ def build_parser() -> argparse.ArgumentParser:
     dv.add_argument("--auto1", action="store_true")
     dv.add_argument("--auto2", action="store_true")
     dv.add_argument("--auto3", action="store_true")
+    dv.add_argument("--allow-spec-incomplete", action="store_true")
+    dv.add_argument("--spec-override-reason", type=str, default=None)
+    dv.add_argument("--spec-override-follow-up", type=str, default=None)
+    dv.add_argument("--spec-override-requested-by", type=str, default=None)
+    dv.add_argument("--allow-issues-incomplete", action="store_true")
+    dv.add_argument("--issues-override-reason", type=str, default=None)
+    dv.add_argument("--issues-override-follow-up", type=str, default=None)
+    dv.add_argument("--issues-override-requested-by", type=str, default=None)
 
     # plan
     pl = sub.add_parser("plan", help="Run the plan orchestrator")
@@ -175,6 +199,13 @@ def build_parser() -> argparse.ArgumentParser:
         default=None,
         help="PR number, branch name, or paths to review",
     )
+    cr.add_argument(
+        "--allow-structural-probes-incomplete",
+        action="store_true",
+        help="Bypass structural probes gate on steps 4+ (requires override reason + follow-up)",
+    )
+    cr.add_argument("--structural-probes-override-reason", type=str, default=None)
+    cr.add_argument("--structural-probes-override-follow-up", type=str, default=None)
 
     # test
     ts = sub.add_parser("test", help="Run the test orchestrator")

@@ -32,7 +32,8 @@ You receive a task assignment via the implement skill, referencing a specific ta
    - Run it — confirm it passes AND all existing tests still pass
    - Follow `templates/tdd-protocol.md`
 7. **Commit frequently** — one commit per logical unit of work
-8. **Update beads:**
+8. **Report progress regularly** — follow `templates/subagent-progress.md`; update `.forge/state/subagent-progress/<task-id>.json` on start, each TDD milestone, blockers, and done (do not stay silent until the final report)
+9. **Update beads:**
    - Start: `bd update [task-id] --status in_progress --claim`
    - Complete: `bd close [task-id] --reason "Implemented"`
    - Blocked: `bd update [task-id] --status blocked`

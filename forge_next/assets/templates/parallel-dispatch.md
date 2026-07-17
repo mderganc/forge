@@ -73,6 +73,11 @@ Follow `templates/tdd-protocol.md` for implementation:
 **Acceptance criteria (done when):**
 - [ ] [criteria from plan]
 
+Progress reporting (required): follow `templates/subagent-progress.md`.
+Write/update `.forge/state/subagent-progress/task-[N].json` on start, at each
+TDD/milestone step, on blockers, and when done — do not stay silent until the
+final report.
+
 When done, report completion to PM.
 ```
 
@@ -82,6 +87,7 @@ When done, report completion to PM.
 2. Include the interface contract verbatim if the task depends on another task's output.
 3. For Wave 1 tasks, note explicitly that no dependencies exist yet.
 4. For Wave 2+ tasks, provide the branch names of completed dependencies so agents can merge them into their sub-branch.
+5. Include the progress-reporting requirement from `templates/subagent-progress.md` in every dispatch. The PM Reads progress files while the wave runs and surfaces short status updates — completion-only silence is a protocol violation.
 
 ## Phase 4 — Per-Task Review Loop
 

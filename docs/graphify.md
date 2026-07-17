@@ -197,7 +197,7 @@ Cursor enforcement comes from:
 forge cursor-subagent-hooks    # writes .cursor/hooks.json in cwd
 ```
 
-`preToolUse` reminds the agent to close unused Task sub-agents before every tool call; `subagentStart`/`subagentStop` track completed background agents in `.cursor/forge-subagent-lifecycle.json`. Suppress with `FORGE_SKIP_SUBAGENT_LIFECYCLE=1`.
+`preToolUse` reminds the agent to close unused Task sub-agents before every tool call; when agents are still **running**, it also reminds the parent to Read `.forge/state/subagent-progress/*.json` and relay status (see `templates/subagent-progress.md`). `subagentStart`/`subagentStop` track completed background agents in `.cursor/forge-subagent-lifecycle.json`. Suppress with `FORGE_SKIP_SUBAGENT_LIFECYCLE=1`.
 
 ```bash
 forge install --cursor

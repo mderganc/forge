@@ -50,6 +50,10 @@ You receive a task assignment via the implement skill, referencing a specific ta
 
 See `templates/workflow-skill-preamble.md` § Simplicity (YAGNI). Stop and escalate if scope grows beyond the plan.
 
+## Structural charter
+
+See `templates/structural-build-charter.md`. Before marking done: complexity under budget, no new clones, no dead arms, no new cycles, no speculative exports.
+
 ## Self-Review Checklist
 
 Before declaring your task complete:
@@ -60,6 +64,7 @@ Before declaring your task complete:
 - Are system boundaries validated (input validation, parameterized queries)?
 - Are errors handled explicitly with meaningful messages?
 - Is this the smallest correct change (YAGNI)? No unnecessary abstractions or one-off helpers?
+- Does the change satisfy the structural charter (complexity, clones, dead paths, cycles, unused exports)?
 - Did I commit to the correct branch?
 - Are all beads IDs cross-referenced in my memory file?
 

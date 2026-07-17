@@ -7,7 +7,7 @@ import json
 import os
 import re
 import sys
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -128,21 +128,34 @@ def manual_structural_probes() -> bool:
     return v in ("1", "true", "yes", "on")
 
 
+def _is_auto_probe_skill_step(slug: str, step: int) -> bool:
+    """Shared skill/step gate for structural probe auto-run and run eligibility."""
+    if slug == "code-review" and step == 3:
+        return True
+    if slug == "implement" and step == 4:
+        return True
+    if slug == "plan" and step == 2:
+        return True
+    return False
+
+
 def should_auto_run_structural_probes(
     skill_name: str,
     step: int,
     mode: str | None = None,
 ) -> bool:
-    """Whether the orchestrator runs probes before printing the step body."""
+    """Whether the orchestrator runs probes before printing the step body.
+
+    ``mode`` is accepted for API parity with ``should_run_probes`` but ignored:
+    evaluate auto-run is gated by ``FORGE_STRUCTURAL_PROBES_AUTO``, not mode.
+    """
+    _ = mode
     if manual_structural_probes() or skip_structural_probes():
         return False
     if auto_run_structural_probes():
         return True
     slug = skill_name.strip().lower()
-    # Code-review team dispatch: pyscn/knip/madge are primary Pass B inputs, not optional.
-    if slug == "code-review" and step == 3:
-        return True
-    return False
+    return _is_auto_probe_skill_step(slug, step)
 
 
 def inventory_stack_capabilities(
@@ -241,8 +254,13 @@ def _probe_ignore_policy(repo_root: Path):
     return get_probe_ignore_policy(str(repo_root.resolve()), key)
 
 
-def filter_python_scope_paths(repo_root: Path, paths: list[str]) -> list[str]:
-    """Keep review-relevant Python paths; drop gitignored/graphifyignored trees."""
+def _filter_scope_paths(
+    repo_root: Path,
+    paths: list[str],
+    *,
+    allow_file: Callable[[Path], bool],
+) -> list[str]:
+    """Keep review-relevant paths; drop gitignored/graphifyignored trees."""
     root = repo_root.resolve()
     policy = _probe_ignore_policy(root)
     candidates: list[str] = []
@@ -254,7 +272,7 @@ def filter_python_scope_paths(repo_root: Path, paths: list[str]) -> list[str]:
         candidate = (root / tok).resolve()
         if not candidate.exists():
             continue
-        if candidate.is_file() and candidate.suffix != ".py":
+        if candidate.is_file() and not allow_file(candidate):
             continue
         rel = _rel_path(candidate, root).replace("\\", "/")
         if rel in seen:
@@ -262,29 +280,22 @@ def filter_python_scope_paths(repo_root: Path, paths: list[str]) -> list[str]:
         seen.add(rel)
         candidates.append(rel)
     return policy.filter_paths(candidates, for_scope=True)
+
+
+def filter_python_scope_paths(repo_root: Path, paths: list[str]) -> list[str]:
+    """Keep review-relevant Python paths; drop gitignored/graphifyignored trees."""
+    return _filter_scope_paths(
+        repo_root, paths, allow_file=lambda p: p.suffix == ".py"
+    )
 
 
 def filter_javascript_scope_paths(repo_root: Path, paths: list[str]) -> list[str]:
     """Keep review-relevant JS/TS paths; drop gitignored/graphifyignored trees."""
-    root = repo_root.resolve()
-    policy = _probe_ignore_policy(root)
-    candidates: list[str] = []
-    seen: set[str] = set()
-    for raw in paths:
-        tok = _normalize_scope_token(str(raw))
-        if not tok or tok in (".", "./"):
-            continue
-        candidate = (root / tok).resolve()
-        if not candidate.exists():
-            continue
-        if candidate.is_file() and candidate.suffix.lower() not in _JS_SUFFIXES:
-            continue
-        rel = _rel_path(candidate, root).replace("\\", "/")
-        if rel in seen:
-            continue
-        seen.add(rel)
-        candidates.append(rel)
-    return policy.filter_paths(candidates, for_scope=True)
+    return _filter_scope_paths(
+        repo_root,
+        paths,
+        allow_file=lambda p: p.suffix.lower() in _JS_SUFFIXES,
+    )
 
 
 def _git_run_names(repo_root: Path, args: list[str], *, timeout: int | None = None) -> list[str]:
@@ -316,6 +327,62 @@ def _git_default_merge_base(repo_root: Path) -> str | None:
     return None
 
 
+def _dedupe_extend_paths(paths: list[str], seen: set[str], rows: list[str]) -> None:
+    for row in rows:
+        if row in seen:
+            continue
+        seen.add(row)
+        paths.append(row)
+
+
+def _git_collect_merge_base_diffs(repo_root: Path, base: str | None) -> list[str]:
+    if not base:
+        return []
+    rows: list[str] = []
+    rows.extend(_git_run_names(repo_root, ["diff", "--name-only", f"{base}...HEAD"]))
+    rows.extend(_git_run_names(repo_root, ["diff", "--name-only", "--cached"]))
+    rows.extend(_git_run_names(repo_root, ["diff", "--name-only"]))
+    return rows
+
+
+def _git_collect_token_diffs(
+    repo_root: Path,
+    tokens: list[str],
+    base: str | None,
+) -> list[str]:
+    rows: list[str] = []
+    for tok in tokens:
+        if tok in ("", ".", "./"):
+            continue
+        if tok.endswith(".py") or "/" in tok:
+            rows.extend(_git_run_names(repo_root, ["diff", "--name-only", "--", tok]))
+            if base:
+                rows.extend(
+                    _git_run_names(repo_root, ["diff", "--name-only", f"{base}...{tok}"])
+                )
+        elif base:
+            rows.extend(_git_run_names(repo_root, ["diff", "--name-only", f"{base}...{tok}"]))
+    return rows
+
+
+def _prefer_source_scope_paths(paths: list[str]) -> list[str]:
+    source_suffixes = (".py", ".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs")
+    preferred = [
+        p for p in paths if Path(p).suffix.lower() in source_suffixes or p.endswith("/")
+    ]
+    return preferred if preferred else paths
+
+
+def _cap_scope_paths(paths: list[str], *, max_count: int, label: str) -> list[str]:
+    if len(paths) <= max_count:
+        return paths
+    _probe_progress(
+        f"structural Pass B — capping {label} "
+        f"({len(paths)} → {max_count})"
+    )
+    return paths[:max_count]
+
+
 def _git_changed_paths_for_review(
     repo_root: Path,
     target_tokens: list[str] | None,
@@ -329,50 +396,30 @@ def _git_changed_paths_for_review(
 
     paths: list[str] = []
     seen: set[str] = set()
-
-    def add_paths(rows: list[str]) -> None:
-        for row in rows:
-            if row in seen:
-                continue
-            seen.add(row)
-            paths.append(row)
-
     base = _git_default_merge_base(repo_root)
-    if base:
-        add_paths(_git_run_names(repo_root, ["diff", "--name-only", f"{base}...HEAD"]))
-        add_paths(_git_run_names(repo_root, ["diff", "--name-only", "--cached"]))
-        add_paths(_git_run_names(repo_root, ["diff", "--name-only"]))
 
-    for tok in tokens:
-        if tok in ("", ".", "./"):
-            continue
-        if tok.endswith(".py") or "/" in tok:
-            add_paths(_git_run_names(repo_root, ["diff", "--name-only", "--", tok]))
-            if base:
-                add_paths(_git_run_names(repo_root, ["diff", "--name-only", f"{base}...{tok}"]))
-        elif base:
-            add_paths(_git_run_names(repo_root, ["diff", "--name-only", f"{base}...{tok}"]))
+    _dedupe_extend_paths(paths, seen, _git_collect_merge_base_diffs(repo_root, base))
+    _dedupe_extend_paths(paths, seen, _git_collect_token_diffs(repo_root, tokens, base))
 
     if mode == "pr" and not paths:
-        add_paths(_git_run_names(repo_root, ["diff", "--name-only", "HEAD~1..HEAD"]))
-
-    # Untracked and ignored-from-index paths (e.g. new modules not yet `git add`ed).
-    add_paths(_git_run_names(repo_root, ["ls-files", "--others", "--exclude-standard"]))
-
-    # Prefer source files before ignore filtering — avoids N×git on docs/binaries.
-    source_suffixes = (".py", ".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs")
-    preferred = [
-        p for p in paths if Path(p).suffix.lower() in source_suffixes or p.endswith("/")
-    ]
-    if preferred:
-        paths = preferred
-    if len(paths) > PROBE_SCOPE_PATH_MAX:
-        _probe_progress(
-            f"structural Pass B — capping git scope candidates "
-            f"({len(paths)} → {PROBE_SCOPE_PATH_MAX})"
+        _dedupe_extend_paths(
+            paths,
+            seen,
+            _git_run_names(repo_root, ["diff", "--name-only", "HEAD~1..HEAD"]),
         )
-        paths = paths[:PROBE_SCOPE_PATH_MAX]
 
+    _dedupe_extend_paths(
+        paths,
+        seen,
+        _git_run_names(repo_root, ["ls-files", "--others", "--exclude-standard"]),
+    )
+
+    paths = _prefer_source_scope_paths(paths)
+    paths = _cap_scope_paths(
+        paths,
+        max_count=PROBE_SCOPE_PATH_MAX,
+        label="git scope candidates",
+    )
     return _probe_ignore_policy(repo_root).filter_paths(paths, for_scope=True)
 
 
@@ -427,91 +474,37 @@ def resolve_effective_scope_paths(
     return filtered or list(tokens), " ".join(note_parts)
 
 
-def ensure_primary_probe_plan(
-    plan: dict[str, Any],
+def _ensure_plan_baseline_probe_plan(
+    merged: dict[str, Any],
     inventory: dict[str, Any],
     *,
-    skill_name: str,
-    step: int,
-    scope_paths: list[str] | None = None,
-    mode: str | None = None,
-    scope_note: str | None = None,
+    scope_paths: list[str] | None,
+    scope_note: str | None,
 ) -> dict[str, Any]:
-    """Code-review/evaluate: applicable tools; scoped pyscn/skylos when Python is present."""
-    merged = dict(plan or {})
-    slug = skill_name.strip().lower()
-    scoped = (
-        (slug == "code-review" and step == 3)
-        or (slug == "evaluate" and step == 4 and mode == "post")
-        or (slug == "evaluate" and step == 1 and mode == "review")
-    )
-    if not scoped:
-        return merged
-
-    repo_root = Path(str(inventory.get("repo_root") or ".")).resolve()
-    # Reuse caller-resolved scope when provided (avoids a second git+check-ignore pass).
-    if scope_note is not None:
-        effective_scope = list(scope_paths or [])
-        resolved_note = scope_note
-    else:
-        effective_scope, resolved_note = resolve_effective_scope_paths(
-            repo_root,
-            scope_paths or merged.get("scope_paths"),
-            skill_name=skill_name,
-            step=step,
-            mode=mode,
-        )
-
+    """Plan/2: jscn and/or pyscn only (complexity/clones baseline)."""
     node_capable, python_capable = inventory_stack_capabilities(inventory)
-    tools = filter_applicable_probe_tools(
-        normalize_probe_tools(merged.get("tools")),
-        inventory,
-    )
+    tools: list[str] = []
     if node_capable:
-        for required in ("knip", "madge", "jscn"):
-            if required not in tools:
-                tools.append(required)
-
+        tools.append("jscn")
     if python_capable:
-        for required in ("pyscn", "skylos"):
-            if required not in tools:
-                tools.append(required)
-        if not effective_scope and repo_has_large_ignored_dirs(repo_root):
-            roots = inventory.get("suggested_probe_roots") or {}
-            py_root = roots.get("python")
-            if py_root and not merged.get("python_root"):
-                merged["python_root"] = py_root
-
+        tools.append("pyscn")
     merged["tools"] = tools
     roots = inventory.get("suggested_probe_roots") or {}
-    if tools and any(t in PYTHON_PROBE_TOOLS for t in tools):
-        if effective_scope:
-            merged["python_root"] = "."
-        elif not merged.get("python_root") and roots.get("python"):
-            merged["python_root"] = roots["python"]
-    if tools and any(t in NODE_PROBE_TOOLS for t in tools):
-        if not merged.get("node_root") and roots.get("node"):
-            merged["node_root"] = roots["node"]
-    if effective_scope:
-        merged["scope_paths"] = list(effective_scope)
+    if "pyscn" in tools and not merged.get("python_root") and roots.get("python"):
+        merged["python_root"] = roots["python"]
+    if "jscn" in tools and not merged.get("node_root") and roots.get("node"):
+        merged["node_root"] = roots["node"]
+    if scope_paths:
+        merged["scope_paths"] = list(scope_paths)
     elif "scope_paths" in merged and is_broad_probe_scope(merged.get("scope_paths")):
         merged["scope_paths"] = []
-
-    exclude_paths = merged.get("exclude_paths")
-    if not isinstance(exclude_paths, list) or not exclude_paths:
-        merged["exclude_paths"] = list(_SKYLOS_DEFAULT_EXCLUDE_FOLDERS)
-
-    skill_label = "Code-review step 3" if slug == "code-review" else "Evaluate"
     note = (
-        f"{skill_label} runs stack-applicable probes only "
-        "(knip/madge/jscn when Node; pyscn/skylos when Python). "
-        "Python probes prefer changed-file scope; repo-root scans are skipped when "
-        "large ignored dirs exist (.venv, node_modules, graphify-out, .pyscn). "
-        "Gitignored and graphifyignored paths are never scanned. "
-        "Skylos uses dead-code scan unless FORGE_SKYLOS_AUDIT=1."
+        "Plan step 2 baseline: jscn and/or pyscn only (complexity/clones). "
+        "Advisory — does not block architecture. "
+        "Full stack probes run at implement wave review and code-review."
     )
-    if resolved_note:
-        note = f"{resolved_note} {note}"
+    if scope_note:
+        note = f"{scope_note} {note}"
     merged["reasoning"] = _merge_plan_reasoning(
         str(merged.get("reasoning") or ""),
         note,
@@ -525,15 +518,246 @@ def ensure_primary_probe_plan(
     return merged
 
 
+def _is_review_stack_scope(skill_name: str, step: int, mode: str | None) -> bool:
+    slug = skill_name.strip().lower()
+    return (
+        (slug == "code-review" and step == 3)
+        or (slug == "evaluate" and step == 4 and mode == "post")
+        or (slug == "evaluate" and step == 1 and mode == "review")
+    )
+
+
+def _resolve_review_stack_scope(
+    repo_root: Path,
+    merged: dict[str, Any],
+    *,
+    skill_name: str,
+    step: int,
+    mode: str | None,
+    scope_paths: list[str] | None,
+    scope_note: str | None,
+) -> tuple[list[str], str]:
+    if scope_note is not None:
+        return list(scope_paths or []), scope_note
+    return resolve_effective_scope_paths(
+        repo_root,
+        scope_paths or merged.get("scope_paths"),
+        skill_name=skill_name,
+        step=step,
+        mode=mode,
+    )
+
+
+def _assemble_review_stack_tools(
+    merged: dict[str, Any],
+    inventory: dict[str, Any],
+    *,
+    node_capable: bool,
+    python_capable: bool,
+) -> list[str]:
+    tools = filter_applicable_probe_tools(
+        normalize_probe_tools(merged.get("tools")),
+        inventory,
+    )
+    if node_capable:
+        for required in ("knip", "madge", "jscn"):
+            if required not in tools:
+                tools.append(required)
+    if python_capable:
+        for required in ("pyscn", "skylos"):
+            if required not in tools:
+                tools.append(required)
+    return tools
+
+
+def _maybe_assign_fallback_python_root(
+    merged: dict[str, Any],
+    roots: dict[str, Any],
+    *,
+    effective_scope: list[str],
+    repo_root: Path,
+    python_capable: bool,
+) -> None:
+    if not (python_capable and not effective_scope and repo_has_large_ignored_dirs(repo_root)):
+        return
+    py_root = roots.get("python")
+    if py_root and not merged.get("python_root"):
+        merged["python_root"] = py_root
+
+
+def _assign_python_probe_root(
+    merged: dict[str, Any],
+    roots: dict[str, Any],
+    tools: list[str],
+    effective_scope: list[str],
+) -> None:
+    if not tools or not any(t in PYTHON_PROBE_TOOLS for t in tools):
+        return
+    if effective_scope:
+        merged["python_root"] = "."
+    elif not merged.get("python_root") and roots.get("python"):
+        merged["python_root"] = roots["python"]
+
+
+def _assign_node_probe_root(
+    merged: dict[str, Any],
+    roots: dict[str, Any],
+    tools: list[str],
+) -> None:
+    if not tools or not any(t in NODE_PROBE_TOOLS for t in tools):
+        return
+    if not merged.get("node_root") and roots.get("node"):
+        merged["node_root"] = roots["node"]
+
+
+def _assign_review_scope_paths(
+    merged: dict[str, Any],
+    effective_scope: list[str],
+) -> None:
+    if effective_scope:
+        merged["scope_paths"] = list(effective_scope)
+    elif "scope_paths" in merged and is_broad_probe_scope(merged.get("scope_paths")):
+        merged["scope_paths"] = []
+
+
+def _ensure_skylos_exclude_paths(merged: dict[str, Any]) -> None:
+    exclude_paths = merged.get("exclude_paths")
+    if not isinstance(exclude_paths, list) or not exclude_paths:
+        merged["exclude_paths"] = list(_SKYLOS_DEFAULT_EXCLUDE_FOLDERS)
+
+
+def _assign_review_stack_roots(
+    merged: dict[str, Any],
+    inventory: dict[str, Any],
+    *,
+    tools: list[str],
+    effective_scope: list[str],
+    repo_root: Path,
+    python_capable: bool,
+) -> None:
+    roots = inventory.get("suggested_probe_roots") or {}
+    _maybe_assign_fallback_python_root(
+        merged,
+        roots,
+        effective_scope=effective_scope,
+        repo_root=repo_root,
+        python_capable=python_capable,
+    )
+    _assign_python_probe_root(merged, roots, tools, effective_scope)
+    _assign_node_probe_root(merged, roots, tools)
+    _assign_review_scope_paths(merged, effective_scope)
+    _ensure_skylos_exclude_paths(merged)
+
+
+def _review_stack_reasoning_note(slug: str, resolved_note: str) -> str:
+    skill_label = "Code-review step 3" if slug == "code-review" else "Evaluate"
+    note = (
+        f"{skill_label} runs stack-applicable probes only "
+        "(knip/madge/jscn when Node; pyscn/skylos when Python). "
+        "Python probes prefer changed-file scope; repo-root scans are skipped when "
+        "large ignored dirs exist (.venv, node_modules, graphify-out, .pyscn). "
+        "Gitignored and graphifyignored paths are never scanned. "
+        "Skylos uses dead-code scan unless FORGE_SKYLOS_AUDIT=1."
+    )
+    if resolved_note:
+        return f"{resolved_note} {note}"
+    return note
+
+
+def _ensure_review_stack_probe_plan(
+    merged: dict[str, Any],
+    inventory: dict[str, Any],
+    *,
+    skill_name: str,
+    step: int,
+    scope_paths: list[str] | None,
+    mode: str | None,
+    scope_note: str | None,
+) -> dict[str, Any]:
+    """Code-review/evaluate: stack-applicable full probe tool set."""
+    if not _is_review_stack_scope(skill_name, step, mode):
+        return merged
+
+    repo_root = Path(str(inventory.get("repo_root") or ".")).resolve()
+    effective_scope, resolved_note = _resolve_review_stack_scope(
+        repo_root,
+        merged,
+        skill_name=skill_name,
+        step=step,
+        mode=mode,
+        scope_paths=scope_paths,
+        scope_note=scope_note,
+    )
+
+    node_capable, python_capable = inventory_stack_capabilities(inventory)
+    tools = _assemble_review_stack_tools(
+        merged,
+        inventory,
+        node_capable=node_capable,
+        python_capable=python_capable,
+    )
+    merged["tools"] = tools
+    _assign_review_stack_roots(
+        merged,
+        inventory,
+        tools=tools,
+        effective_scope=effective_scope,
+        repo_root=repo_root,
+        python_capable=python_capable,
+    )
+
+    slug = skill_name.strip().lower()
+    merged["reasoning"] = _merge_plan_reasoning(
+        str(merged.get("reasoning") or ""),
+        _review_stack_reasoning_note(slug, resolved_note),
+        replace=True,
+    )
+    merged["source"] = "orchestrator"
+    merged["stack_applicable"] = {
+        "node": node_capable,
+        "python": python_capable,
+    }
+    return merged
+
+
+def ensure_primary_probe_plan(
+    plan: dict[str, Any],
+    inventory: dict[str, Any],
+    *,
+    skill_name: str,
+    step: int,
+    scope_paths: list[str] | None = None,
+    mode: str | None = None,
+    scope_note: str | None = None,
+) -> dict[str, Any]:
+    """Dispatch to plan baseline or review-stack helpers."""
+    merged = dict(plan or {})
+    slug = skill_name.strip().lower()
+    if slug == "plan" and step == 2:
+        return _ensure_plan_baseline_probe_plan(
+            merged,
+            inventory,
+            scope_paths=scope_paths,
+            scope_note=scope_note,
+        )
+    return _ensure_review_stack_probe_plan(
+        merged,
+        inventory,
+        skill_name=skill_name,
+        step=step,
+        scope_paths=scope_paths,
+        mode=mode,
+        scope_note=scope_note,
+    )
+
+
 def should_run_probes(skill_name: str, step: int, mode: str | None = None) -> bool:
     slug = skill_name.strip().lower()
-    if slug == "code-review" and step == 3:
+    if _is_auto_probe_skill_step(slug, step):
         return True
     if slug == "evaluate" and step == 4 and mode == "post":
         return True
     if slug == "evaluate" and step == 1 and mode == "review":
-        return True
-    if slug == "implement" and step == 4:
         return True
     return False
 
@@ -903,15 +1127,12 @@ def _kill_process_tree(proc: Any) -> None:
             pass
 
 
-def _cleanup_orphaned_pyscn_workers() -> None:
-    """Kill leftover pyscn helper processes that block later probe runs on Windows."""
-    if sys.platform != "win32":
-        return
+def _windows_image_listed(image: str) -> bool:
     import subprocess
 
     try:
         listing = subprocess.run(
-            ["tasklist", "/FI", "IMAGENAME eq pyscn-windows-amd64.exe"],
+            ["tasklist", "/FI", f"IMAGENAME eq {image}"],
             capture_output=True,
             text=True,
             timeout=5,
@@ -919,24 +1140,22 @@ def _cleanup_orphaned_pyscn_workers() -> None:
             errors="replace",
         )
     except (OSError, subprocess.TimeoutExpired):
-        return
+        return False
     text = (listing.stdout or "") + (listing.stderr or "")
-    if "pyscn-windows-amd64.exe" not in text.lower() and "pyscn.exe" not in text.lower():
-        # Also check wrapper name
-        try:
-            listing2 = subprocess.run(
-                ["tasklist", "/FI", "IMAGENAME eq pyscn.exe"],
-                capture_output=True,
-                text=True,
-                timeout=5,
-                encoding="utf-8",
-                errors="replace",
-            )
-        except (OSError, subprocess.TimeoutExpired):
-            return
-        text2 = (listing2.stdout or "") + (listing2.stderr or "")
-        if "pyscn.exe" not in text2.lower():
-            return
+    return image.lower() in text.lower()
+
+
+def _cleanup_orphaned_pyscn_workers() -> None:
+    """Kill leftover pyscn helper processes that block later probe runs on Windows."""
+    if sys.platform != "win32":
+        return
+    import subprocess
+
+    if not any(
+        _windows_image_listed(image)
+        for image in ("pyscn-windows-amd64.exe", "pyscn.exe")
+    ):
+        return
 
     for image in ("pyscn-windows-amd64.exe", "pyscn.exe"):
         try:
@@ -1198,6 +1417,41 @@ def _pyscn_analyze_command(
     return [*resolved, *args]
 
 
+def _cap_pyscn_targets(paths: list[str]) -> list[str]:
+    if len(paths) <= PROBE_PYSCN_MAX_FILES:
+        return paths
+    _probe_progress(
+        f"structural Pass B — capping pyscn targets "
+        f"({len(paths)} → {PROBE_PYSCN_MAX_FILES})"
+    )
+    return paths[:PROBE_PYSCN_MAX_FILES]
+
+
+def _relative_probe_root_path(repo_root: Path, probe_root: Path) -> list[str]:
+    if probe_root.resolve() != repo_root.resolve():
+        try:
+            return [str(probe_root.relative_to(repo_root))]
+        except ValueError:
+            return [str(probe_root)]
+    return ["."]
+
+
+def _pyscn_effective_scope_targets(
+    repo_root: Path,
+    effective_scope: list[str],
+) -> list[str]:
+    py_paths = filter_python_scope_paths(repo_root, effective_scope)
+    if py_paths:
+        return _cap_pyscn_targets(py_paths)
+    policy = _probe_ignore_policy(repo_root)
+    scoped = [
+        p
+        for p in (_normalize_scope_token(x) for x in effective_scope if str(x).strip())
+        if p and p not in (".", "./") and not policy.rel_is_ignored(p, for_scope=True)
+    ]
+    return _cap_pyscn_targets(scoped)
+
+
 def _pyscn_probe_targets(
     repo_root: Path,
     *,
@@ -1205,40 +1459,15 @@ def _pyscn_probe_targets(
     effective_scope: list[str] | None,
 ) -> list[str]:
     """Resolve pyscn path arguments; never return repo root when unsafe."""
-    policy = _probe_ignore_policy(repo_root)
     if effective_scope:
-        py_paths = filter_python_scope_paths(repo_root, effective_scope)
-        if py_paths:
-            if len(py_paths) > PROBE_PYSCN_MAX_FILES:
-                _probe_progress(
-                    f"structural Pass B — capping pyscn targets "
-                    f"({len(py_paths)} → {PROBE_PYSCN_MAX_FILES})"
-                )
-                return py_paths[:PROBE_PYSCN_MAX_FILES]
-            return py_paths
-        scoped = [
-            p
-            for p in (_normalize_scope_token(x) for x in effective_scope if str(x).strip())
-            if p and p not in (".", "./") and not policy.rel_is_ignored(p, for_scope=True)
-        ]
-        if len(scoped) > PROBE_PYSCN_MAX_FILES:
-            return scoped[:PROBE_PYSCN_MAX_FILES]
-        return scoped
+        return _pyscn_effective_scope_targets(repo_root, effective_scope)
 
     if repo_has_large_ignored_dirs(repo_root):
         if python_root.resolve() != repo_root.resolve():
-            try:
-                return [str(python_root.relative_to(repo_root))]
-            except ValueError:
-                return [str(python_root)]
+            return _relative_probe_root_path(repo_root, python_root)
         return []
 
-    if python_root.resolve() != repo_root.resolve():
-        try:
-            return [str(python_root.relative_to(repo_root))]
-        except ValueError:
-            return [str(python_root)]
-    return ["."]
+    return _relative_probe_root_path(repo_root, python_root)
 
 
 def _jscn_analyze_command(
@@ -1357,6 +1586,19 @@ def _skip_probe(tool: str, reason: str) -> dict[str, Any]:
     }
 
 
+def _append_probe_or_skip(
+    probes: list[dict[str, Any]],
+    selected: list[str],
+    tool: str,
+    run_fn: Callable[[], dict[str, Any]],
+) -> None:
+    if tool in selected:
+        _probe_progress(f"structural Pass B — running {tool}…")
+        probes.append(run_fn())
+    else:
+        probes.append(_skip_probe(tool, "not selected in probe plan"))
+
+
 def run_probes(
     repo_root: Path,
     *,
@@ -1418,70 +1660,64 @@ def run_probes(
         )
 
     probes: list[dict[str, Any]] = []
-    if "knip" in selected:
-        _probe_progress("structural Pass B — running knip…")
-        probes.append(run_knip_probe(node_root=node_root, timeout=timeout_per_tool))
-    else:
-        probes.append(_skip_probe("knip", "not selected in probe plan"))
-
-    if "madge" in selected:
-        _probe_progress("structural Pass B — running madge…")
-        probes.append(
-            run_madge_probe(
-                node_root=node_root,
-                effective_scope=effective_scope,
-                timeout=timeout_per_tool,
-            )
-        )
-    else:
-        probes.append(_skip_probe("madge", "not selected in probe plan"))
-
-    if "jscn" in selected:
-        _probe_progress("structural Pass B — running jscn…")
-        probes.append(
-            run_jscn_probe(
-                repo_root=root,
-                node_root=node_root,
-                effective_scope=effective_scope,
-                timeout=timeout_per_tool,
-            )
-        )
-    else:
-        probes.append(_skip_probe("jscn", "not selected in probe plan"))
+    _append_probe_or_skip(
+        probes,
+        selected,
+        "knip",
+        lambda: run_knip_probe(node_root=node_root, timeout=timeout_per_tool),
+    )
+    _append_probe_or_skip(
+        probes,
+        selected,
+        "madge",
+        lambda: run_madge_probe(
+            node_root=node_root,
+            effective_scope=effective_scope,
+            timeout=timeout_per_tool,
+        ),
+    )
+    _append_probe_or_skip(
+        probes,
+        selected,
+        "jscn",
+        lambda: run_jscn_probe(
+            repo_root=root,
+            node_root=node_root,
+            effective_scope=effective_scope,
+            timeout=timeout_per_tool,
+        ),
+    )
 
     exclude_paths = merged_plan.get("exclude_paths")
     if not isinstance(exclude_paths, list):
         exclude_paths = None
 
-    if "pyscn" in selected:
-        _probe_progress("structural Pass B — running pyscn…")
-        probes.append(
-            run_pyscn_probe(
-                repo_root=root,
-                python_root=python_root,
-                effective_scope=effective_scope,
-                timeout=min(timeout_per_tool, PROBE_PYSCN_FILE_TIMEOUT_SEC),
-            )
-        )
-    else:
-        probes.append(_skip_probe("pyscn", "not selected in probe plan"))
-
-    if "skylos" in selected:
-        _probe_progress("structural Pass B — running skylos…")
-        probes.append(
-            run_skylos_probe(
-                repo_root=root,
-                python_root=python_root,
-                effective_scope=effective_scope,
-                timeout=timeout_per_tool,
-                quick_mode=quick_mode,
-                skill_name=skill_name,
-                step=step,
-                exclude_paths=exclude_paths,
-            )
-        )
-    else:
-        probes.append(_skip_probe("skylos", "not selected in probe plan"))
+    _append_probe_or_skip(
+        probes,
+        selected,
+        "pyscn",
+        lambda: run_pyscn_probe(
+            repo_root=root,
+            python_root=python_root,
+            effective_scope=effective_scope,
+            timeout=min(timeout_per_tool, PROBE_PYSCN_FILE_TIMEOUT_SEC),
+        ),
+    )
+    _append_probe_or_skip(
+        probes,
+        selected,
+        "skylos",
+        lambda: run_skylos_probe(
+            repo_root=root,
+            python_root=python_root,
+            effective_scope=effective_scope,
+            timeout=timeout_per_tool,
+            quick_mode=quick_mode,
+            skill_name=skill_name,
+            step=step,
+            exclude_paths=exclude_paths,
+        ),
+    )
 
     _probe_progress("structural Pass B — writing results sidecar…")
     payload = {
@@ -1631,31 +1867,16 @@ def resolve_probe_summary_for_state(
     return format_probe_summary_markdown(sidecar, payload, style=style)
 
 
-def format_probe_results_banner(
-    payload: dict[str, Any],
-    sidecar: Path | None,
-    *,
-    state_dir: Path | None = None,
-) -> str:
-    from scripts.shared.structural_probes_gate import (
-        finalize_probe_outcome,
-        resolve_probe_status_from_payload,
-    )
+def _probe_results_banner_bar() -> str:
+    return ("=" * 60) if os.environ.get("FORGE_ASCII") == "1" else ("━" * 60)
 
-    probe_status, reason = resolve_probe_status_from_payload(payload)
-    if payload is not None:
-        payload["status"] = probe_status
-        payload["status_reason"] = reason
-    gate_dir = state_dir or (sidecar.parent if sidecar else Path.cwd())
-    extra, _ = finalize_probe_outcome(
-        gate_dir,
-        status=probe_status,
-        reason=reason,
-        sidecar=sidecar,
-    )
-    bar = ("=" * 60) if os.environ.get("FORGE_ASCII") == "1" else ("━" * 60)
+
+def _probe_results_banner_header(
+    sidecar: Path | None,
+    payload: dict[str, Any],
+) -> list[str]:
+    bar = _probe_results_banner_bar()
     lines = [
-        extra.rstrip(),
         bar,
         "STRUCTURAL PROBES — results detail (Pass B)",
         bar,
@@ -1669,13 +1890,21 @@ def format_probe_results_banner(
     if plan.get("reasoning"):
         lines.append(f"Plan reasoning: {plan['reasoning'][:300]}")
     lines.append(f"Selected tools: {', '.join(payload.get('selected_tools') or []) or '(none)'}")
+    return lines
+
+
+def _probe_results_banner_probe_lines(payload: dict[str, Any]) -> list[str]:
+    lines: list[str] = []
     for probe in payload.get("probes") or []:
         tool = probe.get("tool", "?")
         status = probe.get("status", "?")
         summary = probe.get("summary", "")
         n = len(probe.get("findings") or [])
         lines.append(f"- {tool}: {status} ({n} finding(s)) — {summary[:120]}")
-    lines.append("")
+    return lines
+
+
+def _insert_primary_review_hints(lines: list[str], payload: dict[str, Any]) -> None:
     js_rows = [
         p
         for p in (payload.get("probes") or [])
@@ -1698,6 +1927,36 @@ def format_probe_results_banner(
             "**Primary (Python):** review **pyscn** and **skylos** output first; "
             "cite `P*` / `Y*` finding IDs in Pass B.",
         )
+
+
+def format_probe_results_banner(
+    payload: dict[str, Any],
+    sidecar: Path | None,
+    *,
+    state_dir: Path | None = None,
+    advisory: bool = False,
+) -> str:
+    from scripts.shared.structural_probes_gate import (
+        finalize_probe_outcome,
+        resolve_probe_status_from_payload,
+    )
+
+    probe_status, reason = resolve_probe_status_from_payload(payload)
+    if payload is not None:
+        payload["status"] = probe_status
+        payload["status_reason"] = reason
+    gate_dir = state_dir or (sidecar.parent if sidecar else Path.cwd())
+    extra, _ = finalize_probe_outcome(
+        gate_dir,
+        status=probe_status,
+        reason=reason,
+        sidecar=sidecar,
+        advisory=advisory,
+    )
+    lines = [extra.rstrip(), *_probe_results_banner_header(sidecar, payload)]
+    lines.extend(_probe_results_banner_probe_lines(payload))
+    lines.append("")
+    _insert_primary_review_hints(lines, payload)
     lines.append("_Suppress: `FORGE_SKIP_STRUCTURAL_TOOLS=1`._")
     lines.append("_Planning-only (no auto-run): `FORGE_STRUCTURAL_PROBES_MANUAL=1`._")
     lines.append("")
@@ -1708,6 +1967,8 @@ def format_probe_planning_banner(
     state_dir: Path,
     inventory: dict[str, Any],
     suggestion: dict[str, Any],
+    *,
+    advisory: bool = False,
 ) -> str:
     from scripts.shared.structural_probes_gate import (
         STATUS_DEFERRED,
@@ -1719,6 +1980,7 @@ def format_probe_planning_banner(
         status=STATUS_DEFERRED,
         reason="probe plan drafted; run `forge structural-probes run` or enable auto-run",
         policy="manual",
+        advisory=advisory,
     )
     bar = ("=" * 60) if os.environ.get("FORGE_ASCII") == "1" else ("━" * 60)
     inv_file = Path(state_dir) / INVENTORY_NAME
@@ -1785,8 +2047,13 @@ def inject_structural_probes_section(
     mode: str | None = None,
     scope_paths: list[str] | None = None,
     quick_mode: bool = False,
+    advisory: bool = False,
 ) -> tuple[str, Path | None, dict[str, Any] | None]:
-    """Append planning or results banner; code-review step 3 auto-runs probes (pyscn when Python)."""
+    """Append planning or results banner; auto-run when policy says so.
+
+    ``advisory=True`` (plan step 2): non-OK probe status does not write a pending
+    gate or request confirmation — architecture continues with a banner only.
+    """
     if not should_run_probes(skill_name, step, mode):
         return body, None, None
 
@@ -1794,18 +2061,21 @@ def inject_structural_probes_section(
     from scripts.shared.structural_probes_gate import (
         STATUS_SKIPPED,
         finalize_probe_outcome,
-        resolve_probe_status_from_payload,
     )
 
     scan_root = resolve_repo_root(repo_root)
     write_dir = equivalent_path_in_repo(Path(state_dir), scan_root)
     write_dir.mkdir(parents=True, exist_ok=True)
 
+    if skill_name.strip().lower() == "plan" and step == 2:
+        advisory = True
+
     if skip_structural_probes():
         extra, _ = finalize_probe_outcome(
             write_dir,
             status=STATUS_SKIPPED,
             reason="FORGE_SKIP_STRUCTURAL_TOOLS=1",
+            advisory=advisory,
         )
         return body + "\n\n" + extra, None, None
 
@@ -1875,10 +2145,14 @@ def inject_structural_probes_section(
             step=step,
         )
         sc = sidecar_path(write_dir)
-        banner = format_probe_results_banner(payload, sc, state_dir=write_dir)
+        banner = format_probe_results_banner(
+            payload, sc, state_dir=write_dir, advisory=advisory
+        )
         return body + "\n\n" + banner + eight_banner, sc, payload
 
-    banner = format_probe_planning_banner(write_dir, inventory, draft_plan)
+    banner = format_probe_planning_banner(
+        write_dir, inventory, draft_plan, advisory=advisory
+    )
     return body + "\n\n" + banner + eight_banner, None, None
 
 

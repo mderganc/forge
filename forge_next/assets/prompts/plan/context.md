@@ -26,6 +26,7 @@ Read context for plan creation.
 4. When a design spec exists, read it **and** map plan tasks to the issue rows from `.design-spec-issues.json` (do not re-decompose scope from scratch unless the sidecar is missing)
 5. If no handoff, ask the user what needs to be planned
 6. Capture scope signals in `plan_context` for mode recommendation (modules touched, risk, size)
+7. Note any known complexity/clone hotspots from handoff or memory (see `templates/structural-build-charter.md`)
 
 Record the planning context in `{{MEMORY_DIR}}/planner.md`.
 Include **`plan_mode`** (`default` or `lite`) once confirmed.

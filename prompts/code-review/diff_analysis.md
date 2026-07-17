@@ -38,7 +38,7 @@ Dispatch all reviewers to analyze the PR diff in parallel.
 
 
 
-The orchestrator **already ran** knip/madge/pyscn on this step (see **STRUCTURAL PROBES — results** banner).
+The orchestrator **already ran** knip/madge/jscn/pyscn on this step (see **STRUCTURAL PROBES — results** banner). These probes **verify** the upstream structural charter (`templates/structural-build-charter.md`) — prefer residual findings over rediscovering build-time debt.
 
 
 

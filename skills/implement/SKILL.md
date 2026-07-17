@@ -12,6 +12,8 @@ Shared runtime: [templates/workflow-skill-preamble.md](../../templates/workflow-
 
 Preamble § Simplicity (YAGNI). Smallest diff per task; escalate scope creep—no drive-by refactors.
 
+Structural charter (`templates/structural-build-charter.md`) applies while writing; probes verify at wave review (step 4).
+
 <invoke cmd="forge implement" />
 
 | Argument | Required | Description |

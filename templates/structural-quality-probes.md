@@ -1,8 +1,18 @@
 # Structural quality probes (knip, madge, jscn, pyscn, skylos)
 
-Use during **code-review** and **evaluate** Pass B (engineering quality). Pass A (spec/intent) is unchanged.
+**Build first:** follow `templates/structural-build-charter.md` during design, plan, and implement. Probes **verify** those lenses (complexity, clones, dead code, cycles, unused exports).
+
+Use tools during **plan step 2** (jscn/pyscn baseline), **implement step 4** (wave review), **code-review**, and **evaluate** Pass B. Pass A (spec/intent) is unchanged.
 
 Install tools once: `forge install` (default) or `forge structural-tools install`. Skip with `forge install --skip-structural-tools` or `FORGE_SKIP_STRUCTURAL_TOOLS=1`.
+
+## Plan step 2 (architecture baseline)
+
+Orchestrator auto-runs **jscn and/or pyscn** only (complexity/clones). Results are **advisory** — architecture continues even if tools are missing or status is non-OK. Full stack probes run later at implement wave review and code-review.
+
+## Implement step 4 (wave review)
+
+Orchestrator auto-runs stack-applicable probes and writes **`.structural-probes.json`**. Triage findings against the charter; fix high-confidence complexity/clone hits before the next wave.
 
 ## Code-review step 3 (default: orchestrator runs probes)
 

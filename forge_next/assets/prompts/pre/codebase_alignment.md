@@ -13,7 +13,7 @@ You are checking whether the plan is consistent with the existing codebase.
 
 ## Your Task
 
-Read the existing code and check:
+Read the existing code and check (also note charter fit — `templates/structural-build-charter.md`):
 
 1. **Pattern consistency:** Does the plan follow the conventions already in the codebase? Naming patterns, file organization, error handling style, test structure?
 2. **Architecture fit:** Does the plan work with the existing architecture or fight against it? Would the changes create inconsistencies in how the system is structured?

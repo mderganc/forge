@@ -37,3 +37,7 @@ When unsure which skill to run next, see [AGENTS.md](../AGENTS.md) § Process-fi
 - **One-liners where readable:** Prefer inline expressions (ternaries, comprehensions, small lambdas, guard clauses) over one-off helpers, wrapper classes, or new files—when clarity is preserved.
 - **No premature generalization:** One caller → implement at the call site; three similar call sites → then extract.
 - **When in doubt:** Ship the simpler option; escalate breadth to design/plan, not implementation.
+
+## Structural quality (build charter)
+
+While designing, planning, and implementing, follow **`templates/structural-build-charter.md`**: complexity budget, no clones, no dead arms, no new cycles, no speculative exports. jscn/pyscn (and related probes) **verify** those rules later — they are not the first time agents should hear them.

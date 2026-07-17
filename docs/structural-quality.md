@@ -1,6 +1,17 @@
 # Structural quality tools (knip, madge, jscn, pyscn, skylos)
 
-Forge can install CLI probes used during **code-review** and **evaluate** Pass B (engineering quality): unused exports, circular dependencies, and Python structural analysis.
+Forge installs CLI probes and teaches the same lenses earlier via **`templates/structural-build-charter.md`** (design → plan → evaluate-pre → implement). Probes **verify** charter compliance; code-review is residual, not the first discovery of complexity/clone debt.
+
+## Skill-chain roles
+
+| Skill | Role |
+|-------|------|
+| **design** | Prefer shapes that satisfy the charter when scoring solutions |
+| **plan** | Heavy charter callouts on steps 2–4; **step 2** auto-runs jscn/pyscn baseline (advisory, non-blocking) |
+| **evaluate pre** | Critique the plan against the charter (completeness) |
+| **implement** | Charter while writing; **step 4** (wave review) auto-runs full stack probes |
+| **evaluate post / code-review** | Residual Pass B; eight agents on code-review step 3 / evaluate review step 1 |
+| **test** | verification-protocol Level 5 names knip/madge/jscn/pyscn |
 
 ## Install
 
@@ -83,9 +94,18 @@ Override commands if needed:
 
 ## Usage in workflows
 
-During **forge code-review** step 3, the orchestrator **runs** stack-applicable probes and writes **`.structural-probes.json`** (**pyscn+skylos** when Python is present; **knip+madge+jscn** when Node is present). Planning-only: `FORGE_STRUCTURAL_PROBES_MANUAL=1`. **Evaluate** (post step 4, review step 1) still uses inventory/plan unless `FORGE_STRUCTURAL_PROBES_AUTO=1`. The **eight Civil Learning subagents** dispatch on **code-review step 3** and **evaluate review step 1** only (default **S3/S4/S8**). See [`templates/structural-quality-probes.md`](../templates/structural-quality-probes.md).
+**Teach then verify:** agents follow `templates/structural-build-charter.md` during design/plan/implement. Probes measure those lenses.
 
-Skip probes: `FORGE_SKIP_STRUCTURAL_TOOLS=1`. Planning-only on code-review step 3: `FORGE_STRUCTURAL_PROBES_MANUAL=1`. Skip eight subagents: `FORGE_SKIP_STRUCTURAL_EIGHT_AGENTS=1`. Full eight-agent dispatch: `FORGE_STRUCTURAL_EIGHT_AGENTS_FULL=1`.
+| When | Behavior |
+|------|----------|
+| **plan step 2** | Auto-runs **jscn and/or pyscn** only (complexity/clones). Advisory — does not block architecture |
+| **implement step 4** | Auto-runs stack-applicable probes (full set). Soft confirmation if probes fail to run |
+| **code-review step 3** | Auto-runs stack-applicable probes; hard gate for steps 4+ until complete |
+| **evaluate** post step 4 / review step 1 | Inventory/plan by default; auto with `FORGE_STRUCTURAL_PROBES_AUTO=1` |
+
+The **eight Civil Learning subagents** dispatch on **code-review step 3** and **evaluate review step 1** only (default **S3/S4/S8**). See [`templates/structural-quality-probes.md`](../templates/structural-quality-probes.md).
+
+Skip probes: `FORGE_SKIP_STRUCTURAL_TOOLS=1`. Planning-only: `FORGE_STRUCTURAL_PROBES_MANUAL=1`. Skip eight subagents: `FORGE_SKIP_STRUCTURAL_EIGHT_AGENTS=1`. Full eight-agent dispatch: `FORGE_STRUCTURAL_EIGHT_AGENTS_FULL=1`.
 
 Example commands:
 

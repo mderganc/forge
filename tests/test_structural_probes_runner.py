@@ -11,12 +11,37 @@ import pytest
 from scripts.shared import structural_probes as sp
 
 
+def _setup_inject_tmp(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+    state_dir = tmp_path / "state"
+    state_dir.mkdir()
+    (tmp_path / "package.json").write_text("{}", encoding="utf-8")
+    monkeypatch.delenv("FORGE_SKIP_STRUCTURAL_EIGHT_AGENTS", raising=False)
+    return state_dir
+
+
 def test_should_run_probes_matrix() -> None:
     assert sp.should_run_probes("code-review", 3)
     assert not sp.should_run_probes("code-review", 2)
     assert sp.should_run_probes("evaluate", 4, mode="post")
     assert sp.should_run_probes("evaluate", 1, mode="review")
     assert not sp.should_run_probes("evaluate", 4, mode="pre")
+    assert sp.should_run_probes("implement", 4)
+    assert not sp.should_run_probes("implement", 3)
+    assert sp.should_run_probes("plan", 2)
+    assert not sp.should_run_probes("plan", 3)
+
+
+def test_should_auto_run_structural_probes_matrix(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("FORGE_STRUCTURAL_PROBES_AUTO", raising=False)
+    monkeypatch.delenv("FORGE_STRUCTURAL_PROBES_MANUAL", raising=False)
+    monkeypatch.delenv("FORGE_SKIP_STRUCTURAL_TOOLS", raising=False)
+    assert sp.should_auto_run_structural_probes("code-review", 3)
+    assert sp.should_auto_run_structural_probes("implement", 4)
+    assert sp.should_auto_run_structural_probes("plan", 2)
+    assert not sp.should_auto_run_structural_probes("implement", 3)
+    assert not sp.should_auto_run_structural_probes("evaluate", 4, mode="post")
 
 
 def test_detect_stack_python_only(tmp_path: Path) -> None:
@@ -42,13 +67,25 @@ def test_detect_stack_ts_primary_with_few_python_scripts(tmp_path: Path) -> None
     assert stack["python"] is False
 
 
+def _make_pruned_noise_tree(
+    tmp_path: Path,
+    *,
+    keep_name: str = "module.py",
+    noise_dir: Path | None = None,
+    noise_count: int = 100,
+) -> Path:
+    """Keep one top-level .py and fill an ignored subtree with noise files."""
+    (tmp_path / keep_name).write_text("x = 1\n", encoding="utf-8")
+    target = noise_dir or (tmp_path / ".venv" / "lib" / "python3.12" / "site-packages")
+    target.mkdir(parents=True, exist_ok=True)
+    for i in range(noise_count):
+        (target / f"noise{i}.py").write_text("pass\n", encoding="utf-8")
+    return target
+
+
 def test_source_counts_skip_venv_without_descending(tmp_path: Path) -> None:
     """Regression: rglob walked .venv and timed out; pruned os.walk must not."""
-    (tmp_path / "module.py").write_text("x = 1\n", encoding="utf-8")
-    venv_pkg = tmp_path / ".venv" / "lib" / "python3.12" / "site-packages"
-    venv_pkg.mkdir(parents=True)
-    for i in range(500):
-        (venv_pkg / f"dep{i}.py").write_text("pass\n", encoding="utf-8")
+    _make_pruned_noise_tree(tmp_path, keep_name="module.py", noise_count=500)
 
     assert sp._count_source_files(tmp_path, ".py") == 1
     inv = sp.build_stack_inventory(tmp_path)
@@ -151,10 +188,7 @@ def test_run_probes_skip_without_node(tmp_path: Path, monkeypatch: pytest.Monkey
 
 
 def test_inject_post_evaluate_step4_omits_eight_agents(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    state_dir = tmp_path / "state"
-    state_dir.mkdir()
-    (tmp_path / "package.json").write_text("{}", encoding="utf-8")
-    monkeypatch.delenv("FORGE_SKIP_STRUCTURAL_EIGHT_AGENTS", raising=False)
+    state_dir = _setup_inject_tmp(tmp_path, monkeypatch)
 
     body, _, _ = sp.inject_structural_probes_section(
         "body",
@@ -169,10 +203,7 @@ def test_inject_post_evaluate_step4_omits_eight_agents(tmp_path: Path, monkeypat
 
 
 def test_inject_code_review_step3_includes_eight_agents(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    state_dir = tmp_path / "state"
-    state_dir.mkdir()
-    (tmp_path / "package.json").write_text("{}", encoding="utf-8")
-    monkeypatch.delenv("FORGE_SKIP_STRUCTURAL_EIGHT_AGENTS", raising=False)
+    state_dir = _setup_inject_tmp(tmp_path, monkeypatch)
 
     body, _, _ = sp.inject_structural_probes_section(
         "body",
@@ -550,6 +581,47 @@ def test_ensure_primary_probe_plan_python_only(tmp_path: Path) -> None:
     assert plan["scope_paths"] == ["scripts/shared/structural_probes.py"]
 
 
+def test_ensure_primary_probe_plan_plan_step2_jscn_pyscn_only(tmp_path: Path) -> None:
+    (tmp_path / "pyproject.toml").write_text("[project]\nname='x'\n", encoding="utf-8")
+    (tmp_path / "package.json").write_text("{}", encoding="utf-8")
+    (tmp_path / "src").mkdir()
+    (tmp_path / "src" / "a.ts").write_text("export const x = 1\n", encoding="utf-8")
+    inv = sp.build_stack_inventory(tmp_path)
+    plan = sp.ensure_primary_probe_plan(
+        {"tools": ["knip", "madge", "skylos"], "reasoning": "heuristic"},
+        inv,
+        skill_name="plan",
+        step=2,
+    )
+    assert set(plan["tools"]) <= {"jscn", "pyscn"}
+    assert "knip" not in plan["tools"]
+    assert "madge" not in plan["tools"]
+    assert "skylos" not in plan["tools"]
+    assert "baseline" in plan["reasoning"].lower() or "Plan step 2" in plan["reasoning"]
+
+
+def test_finalize_probe_outcome_advisory_skips_gate(
+    tmp_path: Path,
+) -> None:
+    from scripts.shared.structural_probes_gate import (
+        STATUS_FAILED,
+        finalize_probe_outcome,
+        probe_gate_is_pending,
+    )
+
+    state_dir = tmp_path / "state"
+    state_dir.mkdir()
+    extra, confirm = finalize_probe_outcome(
+        state_dir,
+        status=STATUS_FAILED,
+        reason="tools missing",
+        advisory=True,
+    )
+    assert confirm is False
+    assert "Advisory" in extra
+    assert not probe_gate_is_pending(state_dir)
+
+
 def test_inject_auto_mode_runs_probes(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     state_dir = tmp_path / "state"
     state_dir.mkdir()
@@ -802,16 +874,18 @@ def test_probe_ignore_filter_paths_batches_check_ignore(tmp_path: Path) -> None:
 
 
 def test_walk_repo_files_respects_max_and_prunes_codex(tmp_path: Path) -> None:
-    (tmp_path / "keep.py").write_text("x=1\n", encoding="utf-8")
-    codex = tmp_path / ".codex" / "forge" / "sessions" / "abc"
-    codex.mkdir(parents=True)
-    for i in range(100):
-        (codex / f"noise{i}.py").write_text("pass\n", encoding="utf-8")
+    noise = _make_pruned_noise_tree(
+        tmp_path,
+        keep_name="keep.py",
+        noise_dir=tmp_path / ".codex" / "forge" / "sessions" / "abc",
+        noise_count=100,
+    )
 
     assert sp._should_prune_walk_path(tmp_path / ".codex", tmp_path) is True
     walked = list(sp._walk_repo_files(tmp_path, suffix=".py", max_files=10))
     assert len(walked) == 1
     assert walked[0].name == "keep.py"
+    assert noise.is_dir()
 
 
 def test_pyscn_probe_targets_caps_large_scope(tmp_path: Path) -> None:

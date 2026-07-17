@@ -6,6 +6,8 @@ Fixed Fowler smell heuristics for **Pass B — Standards** review. Use alongside
 
 For a broader catalog (architecture mode, systemic patterns), see `templates/code-smells.md`.
 
+Proactive build form of Duplicated Code / Divergent Change / Speculative Generality: `templates/structural-build-charter.md` (complexity, clones, cycles, unused exports during plan/implement).
+
 ## Rules
 
 1. **The repo overrides.** A documented repo standard always wins. Where the repo endorses something the baseline would flag, suppress the smell.

@@ -29,6 +29,31 @@ def is_noninteractive() -> bool:
     return os.environ.get("CI", "").strip().lower() in ("1", "true", "yes")
 
 
+def _probe_banner_bar() -> str:
+    return ("=" * 60) if os.environ.get("FORGE_ASCII") == "1" else ("━" * 60)
+
+
+def _format_probe_status_line(label: str, value: str) -> str:
+    return f"**{label}:** {value}"
+
+
+def _format_probe_optional_lines(
+    *,
+    reason: str = "",
+    policy: str = "",
+    sidecar: Path | str | None = None,
+    sidecar_label: str = "Sidecar",
+) -> list[str]:
+    lines: list[str] = []
+    if reason:
+        lines.append(_format_probe_status_line("Reason", reason))
+    if policy:
+        lines.append(_format_probe_status_line("Policy", policy))
+    if sidecar:
+        lines.append(f"**{sidecar_label}:** `{sidecar}`")
+    return lines
+
+
 def format_loud_probe_status_banner(
     status: str,
     *,
@@ -37,20 +62,17 @@ def format_loud_probe_status_banner(
     policy: str = "",
 ) -> str:
     """Always print — never return empty for a probe step."""
-    bar = ("=" * 60) if os.environ.get("FORGE_ASCII") == "1" else ("━" * 60)
+    bar = _probe_banner_bar()
     lines = [
         bar,
         f"STRUCTURAL PROBES — {status}",
         bar,
         "",
-        f"**Status:** {status}",
+        _format_probe_status_line("Status", status),
     ]
-    if reason:
-        lines.append(f"**Reason:** {reason}")
-    if policy:
-        lines.append(f"**Policy:** {policy}")
-    if sidecar:
-        lines.append(f"**Sidecar:** `{sidecar}`")
+    lines.extend(
+        _format_probe_optional_lines(reason=reason, policy=policy, sidecar=sidecar)
+    )
     lines.extend(["", ""])
     return "\n".join(lines)
 
@@ -65,7 +87,7 @@ def format_probe_gate_body(
     """Pause block when probes did not reach OK."""
     if status == STATUS_OK:
         return ""
-    bar = ("=" * 60) if os.environ.get("FORGE_ASCII") == "1" else ("━" * 60)
+    bar = _probe_banner_bar()
     lines = [
         "",
         bar,
@@ -75,12 +97,15 @@ def format_probe_gate_body(
         "Structural probes did not complete with status **OK**. This step is **paused**",
         "until you choose how to proceed.",
         "",
-        f"**Probe status:** {status}",
+        _format_probe_status_line("Probe status", status),
     ]
-    if reason:
-        lines.append(f"**Reason:** {reason}")
-    if sidecar:
-        lines.append(f"**Probe sidecar:** `{sidecar}`")
+    lines.extend(
+        _format_probe_optional_lines(
+            reason=reason,
+            sidecar=sidecar,
+            sidecar_label="Probe sidecar",
+        )
+    )
     if gate_sidecar:
         lines.append(f"**Gate sidecar:** `{gate_sidecar}`")
     lines.extend(
@@ -230,8 +255,12 @@ def finalize_probe_outcome(
     reason: str = "",
     sidecar: Path | None = None,
     policy: str = "",
+    advisory: bool = False,
 ) -> tuple[str, bool]:
-    """Return (extra body to append, require_confirmation)."""
+    """Return (extra body to append, require_confirmation).
+
+    Advisory mode (plan step 2 baseline) prints the banner without a pending gate.
+    """
     banner = format_loud_probe_status_banner(
         status, reason=reason, sidecar=sidecar, policy=policy
     )
@@ -240,6 +269,13 @@ def finalize_probe_outcome(
         if gate_path.is_file():
             gate_path.unlink(missing_ok=True)
         return banner, False
+
+    if advisory:
+        note = (
+            "\n_Advisory only — architecture continues without confirmation "
+            "(plan step 2 baseline)._\n"
+        )
+        return banner + note, False
 
     gate_path = write_probe_gate_sidecar(
         state_dir,
@@ -381,20 +417,23 @@ def run_ship_deferred_probe_passes(repo_root: Path) -> list[str]:
     return lines
 
 
-def resolve_probe_status_from_payload(payload: dict[str, Any] | None) -> tuple[str, str]:
-    """Derive top-level status from probe run payload."""
-    if payload is None:
-        return STATUS_SKIPPED, "no probe payload"
+def _explicit_payload_status(payload: dict[str, Any]) -> tuple[str, str] | None:
     explicit = str(payload.get("status") or "").strip().upper()
     if explicit in {STATUS_OK, *NON_OK_STATUSES}:
         return explicit, str(payload.get("status_reason") or payload.get("reason") or "")
+    return None
 
-    probes = payload.get("probes") or []
-    if not probes:
-        if payload.get("deferred_to_ship"):
-            return STATUS_DEFERRED, str(payload.get("status_reason") or "deferred to ship")
-        return STATUS_SKIPPED, str(payload.get("status_reason") or "no probes ran")
 
+def _status_when_no_probes(payload: dict[str, Any]) -> tuple[str, str]:
+    if payload.get("deferred_to_ship"):
+        return STATUS_DEFERRED, str(payload.get("status_reason") or "deferred to ship")
+    return STATUS_SKIPPED, str(payload.get("status_reason") or "no probes ran")
+
+
+def _status_from_probe_rows(
+    probes: list[Any],
+    payload: dict[str, Any],
+) -> tuple[str, str]:
     failed = [p for p in probes if p.get("status") == "fail"]
     if failed:
         return STATUS_FAILED, f"{len(failed)} probe(s) failed"
@@ -409,3 +448,19 @@ def resolve_probe_status_from_payload(payload: dict[str, Any] | None) -> tuple[s
         return STATUS_DEFERRED, str(payload.get("status_reason") or "deferred to ship")
 
     return STATUS_OK, ""
+
+
+def resolve_probe_status_from_payload(payload: dict[str, Any] | None) -> tuple[str, str]:
+    """Derive top-level status from probe run payload."""
+    if payload is None:
+        return STATUS_SKIPPED, "no probe payload"
+
+    explicit = _explicit_payload_status(payload)
+    if explicit is not None:
+        return explicit
+
+    probes = payload.get("probes") or []
+    if not probes:
+        return _status_when_no_probes(payload)
+
+    return _status_from_probe_rows(probes, payload)

@@ -16,7 +16,7 @@ Read the plan file from implement state (`plan_path`): especially **§ Documenta
    - **Architect / expert** audience: ADRs, architecture, interfaces, tradeoffs.
 4. Cover **tracked paths** and **wiki mirrors** listed in the plan (`wiki/`, `.wiki/`, `docs/wiki/` when present).
 5. For **each applicable** audience row, ensure there is shippable documentation matching `acceptance_check` in the plan.
-6. Follow existing project documentation patterns; inline comments only where logic is non-obvious.
+6. Follow existing project documentation patterns; inline comments only where logic is non-obvious. Docs must match real surfaces (no documenting unused/speculative exports — `templates/structural-build-charter.md`).
 7. Summarize doc-writer activity in `{{MEMORY_DIR}}/doc-writer.md`.
 
 ## Documentation gate file (required)

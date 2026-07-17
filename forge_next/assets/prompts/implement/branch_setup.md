@@ -1,6 +1,6 @@
 # Phase 2: Branch Setup
 
-Set up branch context and identify implementation waves.
+Set up branch context and identify implementation waves. Skip deep structural lenses here; charter applies at wave dispatch/review (`templates/structural-build-charter.md`).
 
 ## Parsed plan metadata
 

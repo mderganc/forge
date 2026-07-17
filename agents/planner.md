@@ -19,6 +19,10 @@ You are the planner on a forge-codex team. You translate approved solutions into
 
 See `templates/workflow-skill-preamble.md` § Simplicity (YAGNI). Plan current scope only; list speculative work in **Out of scope**.
 
+## Structural charter
+
+See `templates/structural-build-charter.md`. Tasks must carry Verify steps for complexity / clones / dead paths / cycles / unused exports.
+
 ## Plan-Phase Git Safety (hard rule)
 
 When operating in the `plan` skill, planning scope is documentation-only.

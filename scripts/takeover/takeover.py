@@ -25,7 +25,9 @@ from scripts.shared.orchestrator import (
     load_state,
     now_iso,
     resolve_step1_state_path,
+    runtime_dir_relative,
     runtime_memory_dir,
+    runtime_root,
     save_state,
     validate_step_or_complete,
 )
@@ -64,11 +66,40 @@ TAKEOVER_PHASE_TODOS = {
 
 
 def gates_dir(search_dir: Path | None = None) -> Path:
+    """Canonical gate directory: ``.forge/.takeover-gates/``."""
+    return runtime_root(search_dir) / GATE_SUBDIR
+
+
+def gates_dir_relative(search_dir: Path | None = None) -> str:
+    """Repo-relative gate directory (e.g. ``.forge/.takeover-gates``)."""
+    return f"{runtime_dir_relative(search_dir)}/{GATE_SUBDIR}"
+
+
+def _legacy_gates_dir(search_dir: Path | None = None) -> Path:
+    """Former location under ``.forge/memory/.takeover-gates/``."""
     return runtime_memory_dir(search_dir) / GATE_SUBDIR
+
+
+def _ensure_gates_dir(search_dir: Path | None = None) -> Path:
+    """Create canonical gates dir; migrate files from legacy memory path if needed."""
+    gd = gates_dir(search_dir)
+    gd.mkdir(parents=True, exist_ok=True)
+    legacy = _legacy_gates_dir(search_dir)
+    if legacy.is_dir() and legacy.resolve() != gd.resolve():
+        for src in legacy.glob("*.json"):
+            dest = gd / src.name
+            if not dest.exists():
+                dest.write_text(src.read_text(encoding="utf-8"), encoding="utf-8")
+    return gd
 
 
 def _gate_path(name: str, search_dir: Path | None = None) -> Path:
     return gates_dir(search_dir) / f"{name}.json"
+
+
+def _gate_ref(name: str, search_dir: Path | None = None) -> str:
+    """Agent-facing path for a gate file under ``.forge/.takeover-gates/``."""
+    return f"`{gates_dir_relative(search_dir)}/{name}`"
 
 
 def _read_gate(path: Path) -> dict[str, Any] | None:
@@ -241,7 +272,7 @@ def handle_step_1(args: argparse.Namespace, sp: Path) -> None:
         run_cleanup(force=getattr(args, "force", False), all_stale=getattr(args, "all_stale", False))
         return
 
-    gates_dir().mkdir(parents=True, exist_ok=True)
+    _ensure_gates_dir()
     state = load_state(sp) if sp.exists() else _init_state()
 
     goal = (getattr(args, "goal", None) or "").strip() or "ship-ready"
@@ -283,7 +314,7 @@ def handle_step_1(args: argparse.Namespace, sp: Path) -> None:
         [
             "",
             "Run the child skill commands emitted on subsequent steps until ship-ready gates pass.",
-            f"Gate directory: `{GATE_SUBDIR}/`",
+            f"Gate directory: `{gates_dir_relative()}/`",
         ]
     )
 
@@ -305,8 +336,7 @@ def handle_step_1(args: argparse.Namespace, sp: Path) -> None:
 
 def handle_step_n(step: int, sp: Path, _args: argparse.Namespace) -> None:
     state = load_state(sp)
-    gd = gates_dir()
-    gd.mkdir(parents=True, exist_ok=True)
+    gd = _ensure_gates_dir()
     plan = _route_plan_from_custom(state.custom)
     max_inner = int(state.custom.get("max_inner", DEFAULT_MAX_INNER))
     goal = str(state.custom.get("goal", "ship-ready"))
@@ -327,7 +357,8 @@ def handle_step_n(step: int, sp: Path, _args: argparse.Namespace) -> None:
             cmd = _child_resume_command(plan.entry_skill, plan.active_session_path, plan.active_session_id)
             body = (
                 f"## Continue active session\n\nRun:\n\n`{cmd}`\n\n"
-                "When the child skill completes its handoff, write `upstream.json` with "
+                "When the child skill completes its handoff, write "
+                f"{_gate_ref('upstream.json')} with "
                 '`{"status": "pass"}` and re-run **step 2**.'
             )
             _save()
@@ -339,7 +370,7 @@ def handle_step_n(step: int, sp: Path, _args: argparse.Namespace) -> None:
                 body = (
                     f"## Upstream ({skills})\n\n"
                     f"Complete upstream skills: **{skills}**. "
-                    "Write `upstream.json` with `status: pass` when intent/design is ready."
+                    f"Write {_gate_ref('upstream.json')} with `status: pass` when intent/design is ready."
                 )
                 _save()
                 _log("Await upstream gate")
@@ -359,7 +390,7 @@ def handle_step_n(step: int, sp: Path, _args: argparse.Namespace) -> None:
             gd,
             state,
             primary_gate="plan.json",
-            primary_body="## Plan\n\nComplete **plan**. Write `plan.json` with `status: pass`.",
+            primary_body=f"## Plan\n\nComplete **plan**. Write {_gate_ref('plan.json')} with `status: pass`.",
             secondary_gate="evaluate-pre.json",
             metric_key="open_findings_total",
             inner_key="inner_eval_pre",
@@ -368,7 +399,7 @@ def handle_step_n(step: int, sp: Path, _args: argparse.Namespace) -> None:
             cap_body=f"## Evaluate (pre) — inner cap ({max_inner})",
             pending_body=(
                 "## Evaluate (pre)\n\nRun **evaluate** pre mode. "
-                "Write `evaluate-pre.json` with `open_findings_total: 0`."
+                f"Write {_gate_ref('evaluate-pre.json')} with `open_findings_total: 0`."
             ),
             pass_body="## Plan + evaluate (pre) clean\n\nRun **step 4** for implement.",
             complete_step=3,
@@ -384,7 +415,10 @@ def handle_step_n(step: int, sp: Path, _args: argparse.Namespace) -> None:
             gd,
             state,
             primary_gate="implement.json",
-            primary_body="## Implement\n\nComplete **implement**. Write `implement.json` with `status: pass`.",
+            primary_body=(
+                f"## Implement\n\nComplete **implement**. Write {_gate_ref('implement.json')} "
+                "with `status: pass`."
+            ),
             secondary_gate="evaluate-post.json",
             metric_key="open_findings_total",
             inner_key="inner_eval_post",
@@ -393,7 +427,7 @@ def handle_step_n(step: int, sp: Path, _args: argparse.Namespace) -> None:
             cap_body="## Evaluate (post) — inner cap",
             pending_body=(
                 "## Evaluate (post)\n\nRun **evaluate** post mode. "
-                "Write `evaluate-post.json` with `open_findings_total: 0`."
+                f"Write {_gate_ref('evaluate-post.json')} with `open_findings_total: 0`."
             ),
             pass_body="## Implement + evaluate (post) clean\n\nRun **step 5**.",
             complete_step=4,
@@ -414,12 +448,15 @@ def handle_step_n(step: int, sp: Path, _args: argparse.Namespace) -> None:
             else:
                 body = (
                     "## Code review\n\nRun **code-review**. "
-                    "Write `code-review.json` with `open_findings_total: 0`."
+                    f"Write {_gate_ref('code-review.json')} with `open_findings_total: 0`."
                 )
             _save()
             _log("CR pending")
         elif _metric_gate_not_equal(gd, "test.json", "failed", 0):
-            body = "## Test\n\nRun **test** (run mode). Write `test.json` with `failed: 0`."
+            body = (
+                f"## Test\n\nRun **test** (run mode). Write {_gate_ref('test.json')} "
+                "with `failed: 0`."
+            )
             _save()
             _log("Await test gate")
         else:

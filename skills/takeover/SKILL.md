@@ -17,4 +17,4 @@ Shared runtime: [templates/workflow-skill-preamble.md](../../templates/workflow-
 | `--goal` | Override default ship-ready goal |
 | `--cleanup` | Legacy state file cleanup (dry-run) |
 
-Polls `.takeover-gates/*.json` between child skills. See `forge takeover --help`.
+Polls `.forge/.takeover-gates/*.json` between child skills. See `forge takeover --help`.

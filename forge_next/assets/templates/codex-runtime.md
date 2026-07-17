@@ -37,12 +37,21 @@ reading files, editing code, tracking progress, or asking the user questions.
   Codex enforces a hard cap on concurrent agents — leaked sessions accumulate
   across waves and eventually block all further dispatch.
 
+  **Progress reporting is mandatory.** Dispatched agents must not stay silent
+  until completion. Follow `templates/subagent-progress.md`: agents write
+  heartbeats to `.forge/state/subagent-progress/<id>.json` (or the session
+  sidecar path); the parent Reads those files and relays short status to the
+  user while work is in flight. On Codex, `send_input` may request a pulse if
+  a progress file goes stale — still require the file update.
+
   Required pattern for every dispatched agent:
-  1. `spawn_agent` to launch.
-  2. `wait_agent` (or `send_input` + `wait_agent`) until the agent reports.
-  3. Capture the agent's output into orchestrator state or a memory file.
-  4. `close_agent` immediately after — do **not** defer to "end of skill."
-  5. If an agent is no longer useful (blocker, redundant, abandoned wave),
+  1. `spawn_agent` to launch (prompt includes the subagent-progress snippet).
+  2. While running: Read progress files / optional `send_input` status pulses;
+     do not leave the parent chat silent until the final report.
+  3. `wait_agent` (or `send_input` + `wait_agent`) until the agent reports.
+  4. Capture the agent's output into orchestrator state or a memory file.
+  5. `close_agent` immediately after — do **not** defer to "end of skill."
+  6. If an agent is no longer useful (blocker, redundant, abandoned wave),
      close it the moment that becomes true; do not keep it open "just in case."
 
   Before advancing to the next wave, step, or phase, every agent spawned in the

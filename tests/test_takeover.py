@@ -131,6 +131,27 @@ def test_save_state_serializes_path_values(tmp_path):
     assert data["custom"]["route_plan"]["active_session_path"] == str(tmp_path / "nested" / "session.json")
 
 
+def test_gates_dir_under_forge_runtime(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    from scripts.takeover.takeover import (
+        _ensure_gates_dir,
+        _legacy_gates_dir,
+        gates_dir,
+        gates_dir_relative,
+    )
+
+    assert gates_dir(tmp_path) == tmp_path / ".forge" / ".takeover-gates"
+    assert gates_dir_relative(tmp_path) == ".forge/.takeover-gates"
+
+    legacy = _legacy_gates_dir(tmp_path)
+    legacy.mkdir(parents=True)
+    (legacy / "plan.json").write_text('{"status":"pass"}', encoding="utf-8")
+    gd = _ensure_gates_dir(tmp_path)
+    assert gd == tmp_path / ".forge" / ".takeover-gates"
+    assert (gd / "plan.json").exists()
+    assert json.loads((gd / "plan.json").read_text(encoding="utf-8"))["status"] == "pass"
+
+
 def test_skill_chain_has_takeover():
     from scripts.shared.skill_chain import SKILL_CHAIN
 

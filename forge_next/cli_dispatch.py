@@ -234,11 +234,64 @@ def _passthrough_argv(args: Any) -> list[str]:
     _add_flag(passthrough, "--auto3", getattr(args, "auto3", None))
     _add_flag(passthrough, "--with-domain-docs", getattr(args, "with_domain_docs", None))
     _add_flag(passthrough, "--goal", getattr(args, "goal", None))
+    _add_flag(passthrough, "--issue", getattr(args, "issue", None))
+    _add_flag(passthrough, "--design", getattr(args, "design", None))
     _add_flag(passthrough, "--target", getattr(args, "target", None))
     _add_flag(passthrough, "--max-loops", getattr(args, "max_loops", None))
     _add_flag(passthrough, "--metric-command", getattr(args, "metric_command", None))
     _add_flag(passthrough, "--harness", getattr(args, "harness", None))
     _add_flag(passthrough, "--text", getattr(args, "text", None))
+    _add_flag(
+        passthrough,
+        "--allow-spec-incomplete",
+        getattr(args, "allow_spec_incomplete", None),
+    )
+    _add_flag(passthrough, "--spec-override-reason", getattr(args, "spec_override_reason", None))
+    _add_flag(
+        passthrough,
+        "--spec-override-follow-up",
+        getattr(args, "spec_override_follow_up", None),
+    )
+    _add_flag(
+        passthrough,
+        "--spec-override-requested-by",
+        getattr(args, "spec_override_requested_by", None),
+    )
+    _add_flag(
+        passthrough,
+        "--allow-issues-incomplete",
+        getattr(args, "allow_issues_incomplete", None),
+    )
+    _add_flag(
+        passthrough,
+        "--issues-override-reason",
+        getattr(args, "issues_override_reason", None),
+    )
+    _add_flag(
+        passthrough,
+        "--issues-override-follow-up",
+        getattr(args, "issues_override_follow_up", None),
+    )
+    _add_flag(
+        passthrough,
+        "--issues-override-requested-by",
+        getattr(args, "issues_override_requested_by", None),
+    )
+    _add_flag(
+        passthrough,
+        "--allow-structural-probes-incomplete",
+        getattr(args, "allow_structural_probes_incomplete", None),
+    )
+    _add_flag(
+        passthrough,
+        "--structural-probes-override-reason",
+        getattr(args, "structural_probes_override_reason", None),
+    )
+    _add_flag(
+        passthrough,
+        "--structural-probes-override-follow-up",
+        getattr(args, "structural_probes_override_follow_up", None),
+    )
     return passthrough
 
 

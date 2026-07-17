@@ -16,7 +16,7 @@ User-facing guides for installing and running Forge workflows. Internal design n
 |-----|--------|
 | [graphify.md](graphify.md) | Knowledge graph: refresh, hooks, ship-time banner, CI flags |
 | [structural-quality.md](structural-quality.md) | knip / madge / pyscn / skylos probes in code-review and evaluate |
-| [sessions.md](sessions.md) | Parallel session directories under `.codex/forge/sessions/` |
+| [sessions.md](sessions.md) | Parallel session directories under `.forge/sessions/` |
 | [environment.md](environment.md) | `FORGE_*` environment variables |
 
 ## Contributors and agents

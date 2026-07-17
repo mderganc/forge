@@ -1,6 +1,16 @@
 # Phase 3: Wave Dispatch
 
-Dispatch agents for Wave {{CURRENT_WAVE}} of {{TOTAL_WAVES}}.
+Whether you implement yourself or dispatch developers, apply `templates/structural-build-charter.md` and TDD for every task.
+
+Dispatch agents for Wave {{CURRENT_WAVE}} of {{TOTAL_WAVES}} (or implement the wave tasks yourself).
+
+## Structural focus (this step)
+- **Complexity:** Keep new/changed functions under budget; split/extract before landing hot code
+- **Clones:** Search before copy; extract on the second duplication
+- **CFG / dead code:** No unreachable or stub arms
+- **Cycles:** No new/worsened circular imports
+- **Unused exports:** No speculative public surfaces
+See `templates/structural-build-charter.md`.
 
 ## Tasks in This Wave
 
@@ -8,7 +18,7 @@ Dispatch agents for Wave {{CURRENT_WAVE}} of {{TOTAL_WAVES}}.
 
 ## Instructions
 
-For each task in the wave, dispatch the assigned agent with:
+For each task in the wave, implement yourself or dispatch the assigned agent with:
 
 1. Task details from the plan file (path from handoff or `{{MEMORY_DIR}}/plans/`)
 2. Branch name for their sub-branch
@@ -18,9 +28,10 @@ For each task in the wave, dispatch the assigned agent with:
    - Implement minimal code to pass
    - Verify all tests pass (new + existing)
    - **YAGNI:** Smallest diff; prefer one-liners where readable; no drive-by refactors
+   - **Structural charter:** complexity / clones / dead paths / cycles / unused exports
 4. Cross-reference beads if available
 
-Follow `templates/parallel-dispatch.md` for dispatch protocol.
+Follow `templates/parallel-dispatch.md` for dispatch protocol when using subagents.
 
 ## Sub-Branch Creation
 

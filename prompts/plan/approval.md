@@ -36,6 +36,7 @@ Before asking for approval, verify against **plan mode `{{PLAN_MODE}}`**:
 - [ ] Every task has exact file paths
 - [ ] Every task has verification command + expected outcome
 - [ ] TDD pairing for runtime code changes (or explicit doc/config exemption)
+- [ ] Structural risks surfaced if any (complexity/clone hotspot repayment, charter gaps — `templates/structural-build-charter.md`)
 - [ ] `default`: full wave map, interface contracts, expanded risk/rollback, complete doc tables
 - [ ] `lite`: concise sections but same correctness checks above
 

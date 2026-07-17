@@ -24,6 +24,7 @@ Pay special attention to:
 - Do components built in different waves connect correctly?
 - Function signatures match at wave boundaries? (caller in wave 1, callee in wave 2)
 - Data flows work end-to-end across wave boundaries?
+- Watch for cross-task **cycles** and duplicate shapes that should be shared (`templates/structural-build-charter.md`)
 - Run the full test suite as a cross-wave integration check. All tests must pass.
 
 ### 3. Architectural Fitness

@@ -55,10 +55,12 @@ Actual: [paste actual test output]
 
 With the test green, improve the code without changing behavior:
 
-- Remove duplication.
+- Remove duplication (clone pass per `templates/structural-build-charter.md`).
+- Keep functions under the complexity budget; split or extract before landing hot code.
 - Improve naming.
 - Extract functions/methods if too long.
 - Simplify logic.
+- No unreachable/stub arms or speculative exports.
 
 ```
 Action: Refactor [describe what was cleaned up]

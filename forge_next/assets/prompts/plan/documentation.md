@@ -20,7 +20,7 @@ Design and confirm documentation scope **before** handoff to implement. Output f
 
 ## Plan file requirement
 
-Ensure the plan file `{{PLAN_FILE}}` contains a filled **Documentation** section (see `templates/writing-plans.md`). Replace the `<!-- FORGE_SKELETON: DOCUMENTATION -->` marker with concrete content — the orchestrator blocks completion while that marker remains.
+Ensure the plan file `{{PLAN_FILE}}` contains a filled **Documentation** section (see `templates/writing-plans.md`). Replace the `<!-- FORGE_SKELETON: DOCUMENTATION -->` marker with concrete content — the orchestrator blocks completion while that marker remains. Do not plan docs that encode speculative public APIs (`templates/structural-build-charter.md`).
 
 ## Audience applicability (three tiers)
 

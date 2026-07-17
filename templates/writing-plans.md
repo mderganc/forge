@@ -256,6 +256,7 @@ Implement step 8 refuses to complete until documentation artifacts satisfy the g
 3. **Type/signature consistency:** Names and signatures match across tasks and interface contracts.
 4. **Verification:** Every task has command + expected outcome.
 5. **Mode fit:** `lite` plans are concise but not less correct; `default` plans include full governance depth.
+6. **Structural charter:** Tasks respect complexity budgets, avoid planned copy-paste, keep deps acyclic, and do not add speculative exports (`templates/structural-build-charter.md`).
 
 ## Rules
 

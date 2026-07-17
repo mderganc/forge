@@ -18,6 +18,8 @@ Branch guardrail: merge only branches that match the configured conventional pre
 
 Waves completed: {{WAVES_COMPLETED}} of {{TOTAL_WAVES}}
 
+Do not leave known clone/complexity debt for “later” — address it before the next wave or record an explicit deferral (`templates/structural-build-charter.md`).
+
 ## Wave Summary
 
 Record in `{{MEMORY_DIR}}/project.md`:

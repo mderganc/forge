@@ -60,14 +60,14 @@ Skip reason: [if skipped — e.g., "new feature, no prior bug to reproduce"]
 - Run the project's linter with existing configuration.
 - Run the type checker if the project uses one.
 - Run SAST tools if configured.
-- Optional Forge structural probes (when installed): **knip** / **madge** (Node) and **pyscn** (Python) per `templates/structural-quality-probes.md`.
+- Optional Forge structural probes (when installed): **knip** / **madge** / **jscn** (Node) and **pyscn** (Python) per `templates/structural-quality-probes.md` (same lenses as `templates/structural-build-charter.md`).
 - No new warnings or errors introduced by this change.
 
 ```
 Linter: [tool] — [pass/fail, N warnings]
 Type checker: [tool] — [pass/fail]
 SAST: [tool] — [pass/fail]
-Structural (knip/madge/pyscn): [pass/fail/skip]
+Structural (knip/madge/jscn/pyscn): [pass/fail/skip]
 Skip reason: [if any tool skipped — e.g., "no SAST configured", "no package.json"]
 ```
 

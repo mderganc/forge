@@ -18,6 +18,8 @@ Planning-only: no product source edits. No git mutation commands (`git add`, `co
 
 Preamble § Simplicity (YAGNI). Current scope only—explicit **Out of scope**; no "while we're here" tasks.
 
+Structural charter (`templates/structural-build-charter.md`) applies during architecture/plan creation; jscn/pyscn baseline may run at step 2 for hotspot facts.
+
 <invoke cmd="forge plan" />
 
 | Argument | Required | Description |

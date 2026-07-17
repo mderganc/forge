@@ -11,6 +11,7 @@ Write `{{MEMORY_DIR}}/handoff-implement.md` with:
 - Findings resolved during implementation
 - Documentation produced
 - Beads state
+- Structural compliance / residual `J*`/`P*` for code-review (`templates/structural-build-charter.md`)
 
 ## Dashboard
 

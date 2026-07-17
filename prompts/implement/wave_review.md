@@ -2,15 +2,21 @@
 
 Run per-task review loop for Wave {{CURRENT_WAVE}} tasks.
 
+## Structural focus (this step)
+- Checklist: complexity budget, no new clones, no dead arms, no new cycles, no speculative exports
+- Read `.structural-probes.json` when present; triage `J*`/`P*` (and knip/madge/skylos if present)
+- Fix high-confidence complexity/clone hits **before advancing the wave**; cite finding IDs
+See `templates/structural-build-charter.md` and `templates/structural-quality-probes.md`.
+
 ## Review Protocol
 
 For each completed task in Wave {{CURRENT_WAVE}}:
 
 | Step | Agent | Focus |
 |------|-------|-------|
-| Self-review | Implementing Dev | Match plan? TDD followed? Tests pass? |
+| Self-review | Implementing Dev | Match plan? TDD followed? Tests pass? Charter lenses held? |
 | Cross-review | QA Reviewer | Edge cases? Test quality? Coverage? |
-| Critic challenge | Critic | Production failure? Untested assumptions? |
+| Critic challenge | Critic | Production failure? Untested assumptions? Complexity/clone debt deferred? |
 | PM validation | PM | Plan adherence? Beads updated? Memory current? |
 
 Per `templates/review-loop.md`, loop until clean.
@@ -26,6 +32,8 @@ Record findings in respective memory files.
 - [ ] No hardcoded values, secrets, or debug artifacts
 - [ ] Beads updated (if available)
 - [ ] Memory file updated with task status
+- [ ] Structural charter: complexity under budget; no new clones; no dead arms; no new cycles; no speculative exports
+- [ ] High-confidence probe hits (`J*`/`P*`) addressed or explicitly deferred with reason
 
 ### Performance & Efficiency
 - [ ] No N+1 queries or database calls inside loops

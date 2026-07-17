@@ -11,7 +11,7 @@ Detect and load the implementation plan.
 
 ## Instructions
 
-1. Read the plan file
+1. Read the plan file — include any structural constraints / carried `J*`/`P*` IDs (`templates/structural-build-charter.md`)
 2. Validate that file paths in the plan exist or can be created
 3. Count total tasks and identify assigned agents
 4. Record plan summary in `{{MEMORY_DIR}}/project.md`

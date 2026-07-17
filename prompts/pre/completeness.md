@@ -11,6 +11,9 @@ You are checking whether the plan covers everything it needs to.
 
 {{PREVIOUS_FINDINGS}}
 
+## Structural focus (this step)
+Does the plan encode charter Verify steps and avoid complexity/clone/cycle/speculative-export debt? Flag gaps where tasks would grow hot functions, copy logic, create cycles, or add unused public surfaces. See `templates/structural-build-charter.md`.
+
 ## Your Task
 
 Look for gaps in the plan:

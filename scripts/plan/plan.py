@@ -475,39 +475,117 @@ def handle_step_1(args: argparse.Namespace) -> None:
     ))
 
 
-def handle_step_n(step: int, state_file: str | None = None, session_id: str | None = None) -> None:
-    """Steps 2-6: Load state, render template, output prompt."""
+def _inject_plan_architecture_probes(state: SkillState, body: str, sp: Path) -> str:
+    """Step-2 architecture phase: advisory structural probe inject."""
+    from scripts.shared.repo_paths import resolve_repo_root
+    from scripts.shared.structural_probes import inject_structural_probes_section
+
+    scan_root = resolve_repo_root(REPO_ROOT)
+    body, sidecar, _payload = inject_structural_probes_section(
+        body,
+        skill_name=SKILL_NAME,
+        step=2,
+        repo_root=scan_root,
+        state_dir=sp.parent,
+        quick_mode=state.quick_mode,
+        advisory=True,
+    )
+    if sidecar:
+        state.custom["structural_probes_sidecar"] = str(sidecar)
+    return body
+
+
+def _load_plan_step_state(
+    step: int, state_file: str | None, session_id: str | None
+) -> tuple[SkillState, Path]:
     from scripts.shared.orchestrator import resolve_step_state_path
 
     sp = resolve_step_state_path(
         SKILL_NAME, step, state_file=state_file, session_id=session_id
     )
-
     if not sp.exists():
         print("ERROR: No plan session in progress. Run step 1 first.")
         print(f"Expected state file at: {_state_path()}")
         sys.exit(1)
-
     try:
         state = load_state(sp)
     except Exception as e:
         print(f"ERROR: Failed to load state: {e}")
         print("Delete the state file and re-run step 1.")
         sys.exit(1)
-
     _upgrade_plan_max_step(state)
-    migrated, note = False, ""
     if not state.custom.get("plan_mode"):
         _, migrated = hydrate_legacy_mode(state.custom)
         if migrated:
-            note = (
+            state.custom["mode_migrated_note"] = (
                 "Legacy plan session: plan_mode was missing and was set to `default`. "
                 "Continue without re-prompting for mode."
             )
-            state.custom["mode_migrated_note"] = note
     save_state(state, sp)
+    return state, sp
 
-    # Map steps to template names
+
+def _finalize_plan_max_step(
+    state: SkillState, sp: Path, body: str
+) -> tuple[str, str | None, Path | None, str]:
+    """Handoff completion for final plan step. Returns body, menu, path, summary."""
+    plan_file = state.custom.get("plan_file")
+    if not plan_file:
+        sys.exit(
+            "ERROR: state.custom['plan_file'] missing at handoff — "
+            "re-run step 1 to initialize."
+        )
+    unfilled = find_unfilled_sections(Path(plan_file))
+    if unfilled:
+        warning = (
+            "\n\n---\n\n"
+            "**WORKFLOW NOT COMPLETE — unfilled plan sections detected.**\n\n"
+            "The following sections still contain `<!-- FORGE_SKELETON: ... -->` "
+            "markers and need to be filled in before the plan is ready:\n\n"
+            + "\n".join(f"- {s}" for s in unfilled)
+            + f"\n\nFile: `{plan_file}`\n\n"
+            "Fill these sections, then re-run step 7."
+        )
+        body += warning
+        save_state(state, sp)
+        return (
+            body,
+            None,
+            None,
+            "Attempted final handoff but plan skeleton markers remain; "
+            "session kept open.",
+        )
+
+    state.mark_step_complete(MAX_STEP)
+    state.completed_at = now_iso()
+    save_state(state, sp)
+    handoff_path = write_handoff(
+        skill_name=SKILL_NAME,
+        state=state,
+        context={
+            "Plan location": plan_file,
+            "Plan mode": state.custom.get("plan_mode", DEFAULT_MODE),
+            "Task count": state.custom.get("task_count", "see plan"),
+            "Dependencies": state.custom.get("dependencies_summary", "see plan"),
+        },
+        suggested_next="implement",
+    )
+    body += f"\n\n---\n\n{render_dashboard(state)}"
+    body += f"\n\nHandoff written to: {handoff_path}"
+    handoff_menu = build_skill_handoff_menu(SKILL_NAME, state, sp)
+    clear_state_file(sp)
+    return (
+        body,
+        handoff_menu,
+        handoff_path,
+        "Completed plan workflow, wrote handoff, and closed session state.",
+    )
+
+
+def handle_step_n(step: int, state_file: str | None = None, session_id: str | None = None) -> None:
+    """Steps 2-6: Load state, render template, output prompt."""
+    state, sp = _load_plan_step_state(step, state_file, session_id)
+
     template_map = {
         2: "plan/architecture",
         3: "plan/creation",
@@ -516,78 +594,27 @@ def handle_step_n(step: int, state_file: str | None = None, session_id: str | No
         6: "plan/documentation",
         7: "plan/handoff",
     }
-
     template_name = template_map.get(step)
     if not template_name:
         print(f"ERROR: Invalid step {step}")
         sys.exit(1)
 
-    # Load template before mutating state — a missing template must not leave
-    # state half-written.
     template = load_template(template_name)
-    variables = _build_variables(state)
-    body = render_template(template, variables)
+    body = render_template(template, _build_variables(state))
+    if step == 2:
+        body = _inject_plan_architecture_probes(state, body, sp)
 
     state.current_step = step
     save_state(state, sp)
 
-    # Step 6: mark completion and write handoff
     handoff_menu = None
     handoff_path: Path | None = None
     run_summary = f"Completed step {step} ({PHASE_NAMES.get(step, f'Step {step}')})."
     if step == MAX_STEP:
-        plan_file = state.custom.get("plan_file")
-        if not plan_file:
-            sys.exit(
-                "ERROR: state.custom['plan_file'] missing at handoff — "
-                "re-run step 1 to initialize."
-            )
-
-        # Completion gate: refuse to mark complete while skeleton markers remain.
-        unfilled = find_unfilled_sections(Path(plan_file))
-        if unfilled:
-            warning = (
-                "\n\n---\n\n"
-                "**WORKFLOW NOT COMPLETE — unfilled plan sections detected.**\n\n"
-                "The following sections still contain `<!-- FORGE_SKELETON: ... -->` "
-                "markers and need to be filled in before the plan is ready:\n\n"
-                + "\n".join(f"- {s}" for s in unfilled)
-                + f"\n\nFile: `{plan_file}`\n\n"
-                "Fill these sections, then re-run step 7."
-            )
-            body += warning
-            # Don't set completed_at; don't write handoff; don't clear state.
-            # Preserve in-progress status so resume can pick up.
-            save_state(state, sp)
-            run_summary = (
-                "Attempted final handoff but plan skeleton markers remain; "
-                "session kept open."
-            )
-        else:
-            state.mark_step_complete(step)
-            state.completed_at = now_iso()
-            save_state(state, sp)
-
-            handoff_path = write_handoff(
-                skill_name=SKILL_NAME,
-                state=state,
-                context={
-                    "Plan location": plan_file,
-                    "Plan mode": state.custom.get("plan_mode", DEFAULT_MODE),
-                    "Task count": state.custom.get("task_count", "see plan"),
-                    "Dependencies": state.custom.get("dependencies_summary", "see plan"),
-                },
-                suggested_next="implement",
-            )
-
-            dashboard = render_dashboard(state)
-            body += f"\n\n---\n\n{dashboard}"
-            body += f"\n\nHandoff written to: {handoff_path}"
-            handoff_menu = build_skill_handoff_menu(SKILL_NAME, state, sp)
-            clear_state_file(sp)
-            run_summary = "Completed plan workflow, wrote handoff, and closed session state."
-
-    if step != MAX_STEP:
+        body, handoff_menu, handoff_path, run_summary = _finalize_plan_max_step(
+            state, sp, body
+        )
+    else:
         state.mark_step_complete(step)
         save_state(state, sp)
 
@@ -600,7 +627,6 @@ def handle_step_n(step: int, state_file: str | None = None, session_id: str | No
         state_path=sp,
         handoff_path=handoff_path,
     )
-
     phase_name = PHASE_NAMES.get(step, f"Step {step}")
     next_cmd = _next_command(step, state_path=str(sp)) if step < MAX_STEP else None
     print(format_step_output(

@@ -17,6 +17,14 @@ Dispatch the **Architect** to design the unified architecture.
 ## Context
 {{PLAN_CONTEXT}}
 
+## Structural focus (this step)
+- **Complexity:** Design seams so new/changed functions stay under the complexity budget (`min-complexity=15`)
+- **Clones:** Prefer one shared module over parallel copy-prone shapes
+- **Cycles:** Keep dependency direction acyclic
+- **Unused exports:** No speculative public APIs
+- If a structural probes baseline sidecar is present, design around or repay in-scope hotspots
+See `templates/structural-build-charter.md`.
+
 ## Instructions for Architect
 
 1. Read approved solutions and investigation findings.

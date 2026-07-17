@@ -9,6 +9,8 @@ The orchestrator writes `{{HANDOFF_FILE}}` automatically with:
 
 If you have additional context to include (e.g., notes from the user during
 approval), append it to the handoff file after the orchestrator writes it.
+Carry forward structural constraints and any baseline `J*`/`P*` finding IDs for
+evaluate-pre / implement (`templates/structural-build-charter.md`).
 
 ## Dashboard
 Render the skill completion dashboard per `templates/dashboard.md`.

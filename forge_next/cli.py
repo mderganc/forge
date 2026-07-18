@@ -357,7 +357,7 @@ def build_parser() -> argparse.ArgumentParser:
     ins = sub.add_parser("install", help="Install integrations (Cursor/Claude/Codex) for this user")
     add_common_output_flags(ins)
     ins.add_argument("--ref", type=str, default="main", help="Git ref/branch for downloads (default: main)")
-    ins.add_argument("--repo-url", type=str, default="https://github.com/mderganc/forge", help="Forge repo URL for integration downloads")
+    ins.add_argument("--repo-url", type=str, default="https://github.com/msderganc/forge", help="Forge repo URL for integration downloads")
     ins.add_argument("--cursor", action="store_true", help="Install Cursor plugin")
     ins.add_argument("--claude", action="store_true", help="Install Claude command pack")
     ins.add_argument("--codex", action="store_true", help="Install Codex skill pack")

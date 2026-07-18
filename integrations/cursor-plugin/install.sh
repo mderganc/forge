@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-REPO="${REPO:-https://github.com/mderganc/forge}"
+REPO="${REPO:-https://github.com/msderganc/forge}"
 REF="${REF:-main}"
 CURSOR_PLUGINS_DIR="${CURSOR_PLUGINS_DIR:-}"
 CLAUDE_DIR="${CLAUDE_DIR:-}"

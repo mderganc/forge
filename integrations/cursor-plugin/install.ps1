@@ -1,5 +1,5 @@
 param(
-  [string]$Repo = "https://github.com/mderganc/forge",
+  [string]$Repo = "https://github.com/msderganc/forge",
   [string]$Ref = "main",
   [string]$PluginName = "forge",
   [string]$CursorPluginsDir = "",
@@ -79,7 +79,7 @@ if ($AlsoWsl) {
   $envPrefix = ""
   if ($envPairs.Count -gt 0) { $envPrefix = ($envPairs -join " ") + " " }
 
-  $cmd = $envPrefix + "curl -fsSL https://raw.githubusercontent.com/mderganc/forge/$Ref/integrations/cursor-plugin/install.sh | bash"
+  $cmd = $envPrefix + "curl -fsSL https://raw.githubusercontent.com/msderganc/forge/$Ref/integrations/cursor-plugin/install.sh | bash"
   & wsl.exe @wslArgs "--" "bash" "-lc" $cmd
 }
 

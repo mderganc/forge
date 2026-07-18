@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "forge-next"
-version = "1.9.1"
+version = "1.9.2"
 description = "Forge Codex: install-once workflow orchestrators for Cursor/Codex"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -14,6 +14,11 @@ authors = [{ name = "Forge Codex" }]
 dependencies = [
     "tomlkit>=0.12,<2",
 ]
+
+[project.urls]
+Homepage = "https://github.com/msderganc/forge"
+Repository = "https://github.com/msderganc/forge"
+Issues = "https://github.com/msderganc/forge/issues"
 
 [project.scripts]
 forge = "forge_next.cli:main"

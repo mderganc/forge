@@ -482,7 +482,7 @@ Ship finalize skill also lives at [`.cursor/skills/ship/SKILL.md`](.cursor/skill
 
 PyPI: [pypi.org/project/forge-next](https://pypi.org/project/forge-next/)
 
-Source: [github.com/mderganc/forge](https://github.com/mderganc/forge)
+Source: [github.com/msderganc/forge](https://github.com/msderganc/forge)
 
 ---
 

@@ -16,20 +16,20 @@ pipx install forge-next
 
 ```powershell
 Set-ExecutionPolicy -Scope Process Bypass -Force
-irm https://raw.githubusercontent.com/mderganc/forge/main/integrations/cursor-plugin/install.ps1 | iex
+irm https://raw.githubusercontent.com/msderganc/forge/main/integrations/cursor-plugin/install.ps1 | iex
 ```
 
 To also install Claude/Codex wrappers into your WSL home:
 
 ```powershell
 $env:AlsoWsl = "1"
-irm https://raw.githubusercontent.com/mderganc/forge/main/integrations/cursor-plugin/install.ps1 | iex -AlsoWsl
+irm https://raw.githubusercontent.com/msderganc/forge/main/integrations/cursor-plugin/install.ps1 | iex -AlsoWsl
 ```
 
 ### WSL / Linux / macOS
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/mderganc/forge/main/integrations/cursor-plugin/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/msderganc/forge/main/integrations/cursor-plugin/install.sh | bash
 ```
 
 This installs:

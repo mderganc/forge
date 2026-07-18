@@ -53,82 +53,103 @@ def validate(
     path: Path | None = None,
     strict: bool = True,
 ) -> tuple[bool, list[str]]:
+    from scripts.diagnose.register_validation import (
+        finish_validation,
+        missing_sidecar_issue,
+        require_bool_field,
+        require_enum,
+        require_list_min,
+        require_non_empty_str,
+        require_version,
+    )
+
     issues: list[str] = []
     label = str(path) if path else FILENAME
 
     if data is None:
-        issues.append(
-            f"No feedback-loop sidecar at {label}. "
-            "Create `.diagnose-feedback-loop.json` in Phase 2 (Reproduce & Observe)."
-        )
-        return False, issues
-
-    version = data.get("version")
-    if version is not None and version != 1:
-        issues.append("'version' must be 1 when present.")
-
-    loop_type = data.get("loop_type")
-    if not loop_type or str(loop_type).strip() not in LOOP_TYPES:
-        issues.append(
-            "'loop_type' required — one of: " + ", ".join(sorted(LOOP_TYPES)) + "."
+        return missing_sidecar_issue(
+            label,
+            "Create `.diagnose-feedback-loop.json` in Phase 2 (Reproduce & Observe).",
         )
 
-    cannot = bool(data.get("cannot_build_loop"))
-    if cannot:
-        if str(loop_type).strip() != "none":
-            issues.append("When 'cannot_build_loop' is true, 'loop_type' must be 'none'.")
-        blocked = data.get("blocked_reason")
-        if not blocked or not str(blocked).strip():
-            issues.append("'cannot_build_loop' requires non-empty 'blocked_reason'.")
-        user_ask = data.get("user_ask")
-        if not user_ask or not str(user_ask).strip():
-            issues.append("'cannot_build_loop' requires non-empty 'user_ask' for the user.")
-        return len(issues) == 0, issues
+    require_version(data, issues)
+    loop_type = require_enum(
+        data,
+        "loop_type",
+        LOOP_TYPES,
+        issues,
+    )
+
+    if bool(data.get("cannot_build_loop")):
+        _validate_cannot_build_loop(data, issues, loop_type)
+        return finish_validation(issues)
 
     if loop_type == "none":
         issues.append(
             "'loop_type' 'none' is only valid when 'cannot_build_loop' is true."
         )
 
-    cmd = data.get("command_or_path")
-    if not cmd or not str(cmd).strip():
-        issues.append(
+    require_non_empty_str(
+        data,
+        "command_or_path",
+        issues,
+        message=(
             "Non-blocked loop requires non-empty 'command_or_path' "
             "(test command, script path, or harness entry)."
-        )
-
+        ),
+    )
     runs = data.get("runs_observed")
     if not isinstance(runs, int) or runs < 1:
         issues.append("'runs_observed' must be an integer >= 1 after running the loop.")
-
-    symptom = data.get("symptom_captured")
-    if not symptom or not str(symptom).strip():
-        issues.append(
-            "'symptom_captured' required — verbatim error, wrong output, or metric."
-        )
-
+    require_non_empty_str(
+        data,
+        "symptom_captured",
+        issues,
+        message="'symptom_captured' required — verbatim error, wrong output, or metric.",
+    )
     if data.get("matches_user_report") is not True:
         issues.append(
             "'matches_user_report' must be true — the loop must reproduce the user's "
             "failure mode, not a nearby failure."
         )
-
-    steps = data.get("minimal_repro_steps")
-    if not isinstance(steps, list) or len(steps) < 1:
-        issues.append(
-            "'minimal_repro_steps' must be a non-empty array of human-readable steps."
-        )
-    else:
-        for i, step in enumerate(steps):
-            if not step or not str(step).strip():
-                issues.append(f"minimal_repro_steps[{i}] must be non-empty.")
-
+    require_list_min(
+        data,
+        "minimal_repro_steps",
+        1,
+        issues,
+        item_check=lambda step, i: (
+            None
+            if step and str(step).strip()
+            else f"minimal_repro_steps[{i}] must be non-empty."
+        ),
+    )
     if strict:
-        det = data.get("deterministic")
-        if det is not True and det is not False:
-            issues.append("'deterministic' must be true or false.")
+        require_bool_field(data, "deterministic", issues)
 
-    return len(issues) == 0, issues
+    return finish_validation(issues)
+
+
+def _validate_cannot_build_loop(
+    data: dict,
+    issues: list[str],
+    loop_type: str | None,
+) -> None:
+    from scripts.diagnose.register_validation import require_non_empty_str
+
+    if loop_type != "none":
+        issues.append("When 'cannot_build_loop' is true, 'loop_type' must be 'none'.")
+    require_non_empty_str(
+        data,
+        "blocked_reason",
+        issues,
+        message="'cannot_build_loop' requires non-empty 'blocked_reason'.",
+    )
+    require_non_empty_str(
+        data,
+        "user_ask",
+        issues,
+        message="'cannot_build_loop' requires non-empty 'user_ask' for the user.",
+    )
 
 
 def requires_override_to_proceed(data: dict | None) -> bool:

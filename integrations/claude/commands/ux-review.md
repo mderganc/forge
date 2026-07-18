@@ -22,4 +22,6 @@ Runs at **ship** only (`forge ship --step 1`). This workflow does not print GRAP
 
 ## What you run (agent)
 
+**Must run:** `forge ux-review --step 1` (the orchestrator script) before any other work — do not skip straight to manual investigation/analysis.
+
 Run **ux-review** at step one. Orient → plan → walkthrough → states → findings → report. Prefer cursor-ide-browser MCP. Do not fix product code unless asked.

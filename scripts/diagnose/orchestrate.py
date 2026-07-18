@@ -340,7 +340,7 @@ def _build_variables(
         complexity_check = (
             "Complexity assessment: **LARGE / SYSTEMIC** (under-specified solution space, "
             "major cross-subsystem trade-offs, or multiple viable architectures).\n"
-            "Skip quick implementation in this phase. Hand off to **`develop`** first for "
+            "Skip quick implementation in this phase. Hand off to **`design`** first for "
             "design/brainstorming, then **`plan`**.\n"
             "Write the handoff file with root causes, constraints, and known unknowns."
         )
@@ -352,7 +352,7 @@ def _build_variables(
             "- Is there one clear implementation shape, or are major design choices still open?\n\n"
             "If <=2 files and no architectural changes → set `fix_complexity` to `simple` and proceed.\n"
             "If multi-file / architectural **and** one dominant fix path → set to `complex` and hand off to `plan`.\n"
-            "If systemic / multi-strategy / unclear best shape → set to `large` and hand off to `develop` first."
+            "If systemic / multi-strategy / unclear best shape → set to `large` and hand off to `design` first."
         )
 
     return {
@@ -428,8 +428,13 @@ def handle_step_1(args) -> None:
     session_label = getattr(args, "label", None)
     save_state(state, sp, label=session_label)
 
+    from scripts.diagnose.diagnose_registers import state_dir_from_state_path
+
     print(f"STATE FILE: {sp}", file=sys.stderr)
-    print(f"STATE DIR: {sp.parent}  (write .diagnose-*.json here)\n", file=sys.stderr)
+    print(
+        f"STATE DIR: {state_dir_from_state_path(sp)}  (write .diagnose-*.json here)\n",
+        file=sys.stderr,
+    )
 
     template = load_template(PHASE_TEMPLATES[1])
     variables = _build_variables(state, state_path=sp, step=1)

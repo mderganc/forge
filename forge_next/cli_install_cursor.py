@@ -6,13 +6,17 @@ import shutil
 from pathlib import Path
 
 from forge_next.cli_install_io import copytree_replace, default_cursor_local_plugins_dir
+from forge_next.cli_install_templates import copy_skill_templates
 
-_CURSOR_SKILL_TEMPLATE_FILES = (
-    "plan-modes.md",
-    "writing-plans.md",
-    "structural-quality-probes.md",
-    "diagnose-execution-playbooks.md",
-)
+
+def _install_cursor_plugin_ship_skill(repo_root: Path, plugin_root: Path) -> None:
+    """Copy the Cursor `ship` skill into the plugin's bundled skills/ship/."""
+    src = repo_root / ".cursor" / "skills" / "ship" / "SKILL.md"
+    if not src.is_file():
+        return
+    dst_dir = plugin_root / "skills" / "ship"
+    dst_dir.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(src, dst_dir / "SKILL.md")
 
 
 def _install_cursor_plugin_skills(repo_root: Path, plugin_root: Path) -> list[str]:
@@ -28,14 +32,9 @@ def _install_cursor_plugin_skills(repo_root: Path, plugin_root: Path) -> list[st
         shutil.rmtree(skills_dst)
     shutil.copytree(src, skills_dst)
 
-    templates_src = repo_root / "templates"
-    templates_dst = skills_dst / "templates"
-    if templates_src.is_dir():
-        templates_dst.mkdir(parents=True, exist_ok=True)
-        for name in _CURSOR_SKILL_TEMPLATE_FILES:
-            src_file = templates_src / name
-            if src_file.is_file():
-                shutil.copy2(src_file, templates_dst / name)
+    copy_skill_templates(repo_root, skills_dst / "templates")
+
+    _install_cursor_plugin_ship_skill(repo_root, plugin_root)
 
     return warnings
 

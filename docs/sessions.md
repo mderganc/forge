@@ -33,6 +33,10 @@ forge <skill> --step N --state .forge/sessions/<id>/session.json
 
 When **multiple active sessions** exist for the same skill, steps 2+ require **`--session <id>`** (or an explicit `--state` path). Continuations printed by orchestrators include `--session` automatically. `forge takeover` and `forge status` list session IDs and the resume **focus** pointer (last touched).
 
+### Handoff pointers survive archive
+
+The global `memory/handoff-{skill}.md` file is a small **pointer** (front-matter `path:` and a `Full handoff:` line) to the per-session `sessions/{id}/handoff.md`. When `forge session close <id>` (or automatic archive) moves that session directory to `sessions/_archive/{id}/`, `archive_session_dir()` calls `_rewrite_handoff_pointers_for_archive()` to rewrite any pointer that still references the live `sessions/{id}/handoff.md` path to `sessions/_archive/{id}/handoff.md`, so downstream reads keep resolving without a dangling link. As a defensive fallback, handoff reads (`scripts/shared/handoff_io.py`) also retry the archived path when the recorded pointer predates the rewrite. Implementation: [`scripts/shared/session_store.py`](../scripts/shared/session_store.py) and [`scripts/shared/handoff_io.py`](../scripts/shared/handoff_io.py).
+
 ### Dual-layer model
 
 - **Isolation:** state + sidecars under `.forge/sessions/{id}/` (prefer `sidecars/` for step artifacts; gates also read files beside `session.json` for legacy).
@@ -59,5 +63,7 @@ Older clones may still use flat files:
 | `FORGE_STALE_SESSION_HOURS` | `24` | Stale detection for takeover/status |
 | `FORGE_SKIP_AUTO_CLOSE` | off | Disable step-1 removal of superseded sessions |
 | `FORGE_STEP1_ABANDON_HOURS` | `1` | Idle step-1 sessions eligible for auto-close |
+
+**`FORGE_STEP1_ABANDON_HOURS` only applies to step-1-only sessions.** A session that has advanced past step 1 is never auto-closed for being idle — it can only be superseded by a matching handoff or an upstream-pipeline move-forward (`is_pipeline_session_abandoned()` in [`scripts/shared/session_hygiene.py`](../scripts/shared/session_hygiene.py) delegates to the step-1-only check; mid-pipeline sessions must be closed explicitly, e.g. `forge session close <id>`).
 
 See also [environment.md](environment.md) and [AGENTS.md](../AGENTS.md) (State Lifecycle).

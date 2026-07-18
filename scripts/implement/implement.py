@@ -124,7 +124,7 @@ PHASE_TODOS = {
     5: [
         {"content": "Merge wave branches to feature branch",
          "activeForm": "Merging wave"},
-        {"content": "Check for next wave or proceed to documentation",
+        {"content": "Check for next wave or proceed to integration verification",
          "activeForm": "Checking wave status"},
     ],
     6: [
@@ -377,7 +377,7 @@ def _build_wave_variables(state: SkillState) -> dict[str, str]:
         )
     else:
         next_wave_or_proceed = (
-            "This is the final wave. After completion, proceed to the Documentation phase."
+            "This is the final wave. After completion, proceed to the Integration Verification phase."
         )
 
     pfx = state.custom.get("branch_prefix") or DEFAULT_BRANCH_PREFIX

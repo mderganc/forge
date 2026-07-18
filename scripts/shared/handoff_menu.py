@@ -8,54 +8,60 @@ from typing import Any
 from scripts.shared.skill_state import SkillState
 
 
+def resolve_next_skill(
+    skill_name: str,
+    state: SkillState | None = None,
+) -> tuple[str | None, list[str]]:
+    """Single authority for default next skill + alternatives.
+
+    ``SKILL_CHAIN`` provides base data; context overrides live here only.
+    """
+    from scripts.shared.skill_chain import SKILL_CHAIN
+
+    chain = SKILL_CHAIN.get(skill_name)
+    if chain is None:
+        return None, []
+    return resolve_handoff_commands(
+        skill_name,
+        state,
+        default_cmd=chain.default or "",
+        alternatives=list(chain.alternatives),
+    )
+
+
 def resolve_handoff_commands(
     skill_name: str,
     state: SkillState | None,
     *,
     default_cmd: str,
     alternatives: list[str],
-) -> tuple[str, list[str]]:
+) -> tuple[str | None, list[str]]:
     """Apply skill-specific overrides to default and alternative next commands."""
-    if skill_name == "diagnose" and state is not None:
-        fc = str(state.custom.get("fix_complexity", "unknown")).lower()
-        base_alts = list(alternatives)
-        if fc == "large":
-            return "design", [c for c in base_alts if c not in ("design", "develop")]
-        if fc == "complex":
-            return "plan", [c for c in base_alts if c != "plan"]
+    from scripts.shared.handoff_resolvers import (
+        resolve_diagnose_handoff,
+        resolve_evaluate_handoff,
+        resolve_test_handoff,
+        resolve_ux_review_handoff,
+    )
 
-    if skill_name == "test" and state is not None:
-        alts = list(alternatives)
-        test_results = state.custom.get("test_results", {})
-        if test_results.get("failed", 0) > 0 and "diagnose" not in alts:
-            alts.insert(0, "diagnose")
-        mode = state.custom.get("mode", "run")
-        # Drop superseded test --mode ux if present in older chain snapshots
-        alts = [a for a in alts if a != "test --mode ux"]
-        if mode == "flows" and "test --mode flows" in alts:
-            idx = alts.index("test --mode flows")
-            alts[idx] = "test --mode run"
-        elif mode == "run" and "test --mode run" in alts:
-            idx = alts.index("test --mode run")
-            alts[idx] = "test --mode flows"
-        # Ensure product UX audit is offered (not a test mode)
-        if "ux-review" not in alts:
-            alts.append("ux-review")
-        return default_cmd, alts
+    default: str | None = default_cmd or None
+    alts = list(alternatives)
 
-    if skill_name == "ux-review" and state is not None:
-        findings = state.custom.get("findings") or []
-        high = [
-            f
-            for f in findings
-            if isinstance(f, dict)
-            and str(f.get("severity", "")).lower() in ("blocker", "critical", "high")
-        ]
-        if high:
-            alts = [a for a in alternatives if a != "diagnose"]
-            return "diagnose", alts
+    if state is None:
+        return default, alts
 
-    return default_cmd, list(alternatives)
+    if skill_name == "diagnose":
+        return resolve_diagnose_handoff(state, default, alts)
+    if skill_name == "test":
+        return resolve_test_handoff(state, default, alts)
+    if skill_name == "evaluate":
+        return resolve_evaluate_handoff(
+            state, default, alts, alternatives=alternatives
+        )
+    if skill_name == "ux-review":
+        return resolve_ux_review_handoff(state, default, alts)
+
+    return default, alts
 
 
 def _handoff_option_rows(

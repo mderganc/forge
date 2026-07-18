@@ -13,10 +13,8 @@ from scripts.shared.runtime_layout import (
     EVALUATE_STATE_FILENAME,
     clear_state_file,
     detect_repo_root,
-    legacy_memory_dir,
     legacy_runtime_root,
     load_state,
-    runtime_memory_dir,
     runtime_root,
     runtime_state_dir,
     state_path_candidates,
@@ -191,11 +189,10 @@ def step1_abandon_threshold_seconds() -> float:
 
 
 def has_matching_handoff(skill: str, search_dir: Path | None = None) -> bool:
-    """True if handoff-{skill}.md exists in runtime or legacy memory."""
-    for memory_dir in (runtime_memory_dir(search_dir), legacy_memory_dir(search_dir)):
-        if (memory_dir / f"handoff-{skill}.md").exists():
-            return True
-    return False
+    """True if handoff-{skill}.md (or a skill-alias variant, e.g. develop/design) exists."""
+    from scripts.shared.handoff_io import handoff_exists
+
+    return handoff_exists(skill, search_dir)
 
 
 def _session_idle_seconds(state: SkillState, path: Path) -> float:
@@ -214,12 +211,14 @@ def is_step1_abandoned(state: SkillState, path: Path) -> bool:
 
 
 def is_pipeline_session_abandoned(state: SkillState, path: Path) -> bool:
-    """True when any incomplete pipeline session has been idle past the abandon threshold.
+    """True when a step-1-only pipeline session has been idle past the abandon threshold.
 
-    Mid-pipeline leaks (e.g. code-review stuck at step 3) used to survive forever
-    because only step-1-only sessions were considered abandoned.
+    Matches the documented auto-close contract (AGENTS.md § State Lifecycle):
+    idle-based auto-close only applies to step-1-only sessions. A session that
+    has progressed past step 1 must be closed via handoff / upstream-pipeline
+    rules, never merely for being idle.
     """
-    return _session_idle_seconds(state, path) > step1_abandon_threshold_seconds()
+    return is_step1_abandoned(state, path)
 
 
 def _auto_close_reason(

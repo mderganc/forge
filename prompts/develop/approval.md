@@ -46,6 +46,6 @@ Use this question and these options:
 
 ### Design spec decision (only when `SPEC_REQUIRED` is **yes**)
 
-After the user approves a solution direction, they must still approve the **written design spec** (see appended `spec_gate` block on this step when applicable). Until the spec file exists, self-review passes, **and** the user explicitly approves the spec, do **not** advance to `forge design --step 7` (spec → issues).
+After the user approves a solution direction, they must still approve the **written design spec** (see appended `spec_gate` block on this step when applicable). Until the spec file exists, self-review passes, **and** the user explicitly approves the spec, wait for confirmation before advancing to `forge design --step 7` (spec → issues). The orchestrator asks before continuing.
 
 Record the user's decision in `project.md` and branch accordingly.

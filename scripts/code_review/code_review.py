@@ -240,10 +240,11 @@ def _build_variables(
         "architecture": "Architecture Review -- design patterns, coupling, SOLID principles",
     }
 
-    # Team assignments based on quick mode
-    if state.quick_mode:
+    # Team assignments based on effort / quick mode
+    effort = str(state.custom.get("effort") or ("light" if state.quick_mode else "standard"))
+    if state.quick_mode or effort == "light":
         team_section = (
-            "**Quick mode active** -- abbreviated review:\n\n"
+            f"**Effort: {effort}** — abbreviated review:\n\n"
             "| Agent | Focus |\n"
             "|-------|-------|\n"
             "| Architect | Design and structure review |\n"
@@ -251,6 +252,7 @@ def _build_variables(
         )
     else:
         team_section = (
+            f"**Effort: {effort}**\n\n"
             "| Agent | Focus |\n"
             "|-------|-------|\n"
             "| Architect | Design patterns, structure, coupling |\n"
@@ -287,6 +289,11 @@ def _build_variables(
         "FINDINGS": findings_text.strip(),
         "TEAM_ASSIGNMENTS": team_section,
         "QUICK_MODE": "yes" if state.quick_mode else "no",
+        "EFFORT": str(state.custom.get("effort") or ("light" if state.quick_mode else "standard")),
+        "STRUCTURAL_ENABLED": (
+            "yes" if state.custom.get("structural_enabled", False) else "no"
+        ),
+        "EFFORT_CONFIG_SECTION": state.custom.get("effort_config_section", ""),
         "SKILL_NAME": SKILL_NAME,
         "PLAN_PATH": plan_path or "(none)",
         "PLAN_LINK_SECTION": plan_link_section,
@@ -362,13 +369,41 @@ def handle_step_1(args) -> None:
     else:
         state = SkillState(skill_name=SKILL_NAME, max_step=MAX_STEP)
     state.current_step = 1
-    state.quick_mode = args.quick
+
+    from scripts.code_review.effort_recommendation import (
+        format_effort_config_section,
+        recommend_effort_structural,
+        resolve_applied_config,
+    )
+
+    recommendation = recommend_effort_structural(
+        mode=mode,
+        target=target,
+        target_tokens=target_tokens,
+        handoff_content=handoff_content,
+        plan_path=plan_path,
+        quick=bool(getattr(args, "quick", False)),
+    )
+    effort, structural_enabled, effort_overridden, structural_overridden = resolve_applied_config(
+        args, recommendation
+    )
+    state.quick_mode = effort == "light" or bool(args.quick)
     state.started_at = state.started_at or now_iso()
     state.custom["mode"] = mode
     state.custom["target"] = target
     state.custom["target_tokens"] = target_tokens
     state.custom["handoff_content"] = handoff_content
     state.custom["plan_path"] = plan_path
+    state.custom["effort"] = effort
+    state.custom["structural_enabled"] = structural_enabled
+    state.custom["effort_recommendation"] = recommendation.to_dict()
+    state.custom["effort_config_section"] = format_effort_config_section(
+        recommendation,
+        applied_effort=effort,
+        applied_structural=structural_enabled,
+        effort_overridden=effort_overridden,
+        structural_overridden=structural_overridden,
+    )
 
     save_state(state, sp)
 
@@ -458,7 +493,7 @@ def handle_step_n(
 
     scan_root = _detect_repo_root(Path.cwd())
 
-    if step >= 4:
+    if step >= 4 and bool(state.custom.get("structural_enabled", False)):
         from scripts.code_review.structural_probes_gate import exit_if_structural_probes_gate_fails
 
         state_dir = _code_review_state_dir(sp, scan_root)
@@ -499,7 +534,8 @@ def handle_step_n(
     body = render_template(template, variables)
 
     probe_gate_pending = False
-    if step == 3:
+    structural_enabled = bool(state.custom.get("structural_enabled", False))
+    if step == 3 and structural_enabled:
         print(
             "forge: code-review step 3 — loading template and structural Pass B…",
             file=sys.stderr,
@@ -518,17 +554,25 @@ def handle_step_n(
             step=step,
             repo_root=scan_root,
             state_dir=state_dir,
+            mode=state.custom.get("mode"),
             scope_paths=scope if scope else None,
             quick_mode=state.quick_mode,
         )
         if sidecar:
             state.custom["structural_probes_sidecar"] = str(sidecar)
 
-    from scripts.shared.structural_probes_gate import probe_gate_is_pending
+        from scripts.shared.structural_probes_gate import probe_gate_is_pending
 
-    probe_gate_pending = step == 3 and probe_gate_is_pending(
-        _code_review_state_dir(sp, scan_root)
-    )
+        probe_gate_pending = probe_gate_is_pending(
+            _code_review_state_dir(sp, scan_root)
+        )
+    elif step == 3 and not structural_enabled:
+        body += (
+            "\n\n---\n\n**Structural Pass B:** skipped "
+            "(`--no-structural` or effort default). "
+            "Core reviewers only — no probes / eight-agents.\n"
+        )
+        probe_gate_pending = False
 
     from scripts.shared.workflow_prompt_archive import record_step_prompt
 
@@ -603,7 +647,20 @@ def handle_step_n(
     )
 
     phase_name = PHASE_NAMES.get(step, f"Step {step}")
-    next_cmd = _next_command(step, state_path=str(sp)) if step < MAX_STEP else None
+    next_cmd = None
+    if step < MAX_STEP:
+        effort = str(state.custom.get("effort") or "standard")
+        # Light effort: after team dispatch (3), skip deep-dive + discussion → report
+        if step == 3 and effort == "light" and not probe_gate_pending:
+            next_cmd = build_next_command(
+                SCRIPT_DIR / "code_review.py",
+                step,
+                MAX_STEP,
+                next_step=6,
+                state=str(sp),
+            )
+        else:
+            next_cmd = _next_command(step, state_path=str(sp))
     output = format_step_output(
         SKILL_NAME, step, MAX_STEP, phase_name, body,
         next_cmd=next_cmd,
@@ -612,6 +669,7 @@ def handle_step_n(
         all_phase_names=PHASE_NAMES,
         all_phase_todos=PHASE_TODOS,
         require_confirmation=True if probe_gate_pending else None,
+        await_same_step=probe_gate_pending,
     )
     # Flush before large step bodies so terminals show output immediately.
     print(output, flush=True)
@@ -626,7 +684,28 @@ def main():
     parser.add_argument(
         "--mode", type=str, choices=["pr", "deep", "architecture"],
         default=None,
-        help="Review mode: pr (PR diff), deep (troubleshooting), architecture (design patterns)"
+        help="Review focus: pr (diff), deep (troubleshooting), architecture (design patterns)",
+    )
+    parser.add_argument(
+        "--effort",
+        type=str,
+        choices=["light", "standard", "thorough"],
+        default=None,
+        help="Review effort (replaces --quick). light=Architect+QA; thorough enables structural by default",
+    )
+    struct = parser.add_mutually_exclusive_group()
+    struct.add_argument(
+        "--structural",
+        dest="structural",
+        action="store_true",
+        default=None,
+        help="Run structural probes + eight-agent Pass B at step 3",
+    )
+    struct.add_argument(
+        "--no-structural",
+        dest="structural",
+        action="store_false",
+        help="Skip structural probes and eight-agents",
     )
     parser.add_argument(
         "--target", nargs="+", default=None,

@@ -10,42 +10,44 @@ from scripts.diagnose.activated_techniques import (
     requires_mece_tree,
     resolve_activated_techniques,
 )
+from scripts.diagnose.barriers_register import FILENAME as BARRIERS_FILENAME
 from scripts.diagnose.barriers_register import load_register as load_barriers
-from scripts.diagnose.barriers_register import register_path as barriers_path
 from scripts.diagnose.barriers_register import validate as validate_barriers
 from scripts.diagnose.diagnose_registers import (
     DiagnoseGateResult,
     GateSection,
     has_override,
     merge_gate_results,
+    resolve_sidecar_path,
 )
+from scripts.diagnose.first_principles_register import FILENAME as FP_FILENAME
 from scripts.diagnose.first_principles_register import load_register as load_fp
-from scripts.diagnose.first_principles_register import register_path as fp_path
 from scripts.diagnose.first_principles_register import validate as validate_fp
+from scripts.diagnose.five_whys_register import FILENAME as FIVE_WHYS_FILENAME
 from scripts.diagnose.five_whys_register import load_register as load_five_whys
-from scripts.diagnose.five_whys_register import register_path as five_whys_path
 from scripts.diagnose.five_whys_register import validate_chains
 from scripts.diagnose.hypothesis_register import (
+    REGISTER_FILENAME as HYPOTHESIS_FILENAME,
     load_register as load_hypotheses,
-    register_path as hypothesis_path,
     validate_elimination,
     validate_register,
 )
+from scripts.diagnose.mece_tree_register import FILENAME as MECE_FILENAME
 from scripts.diagnose.mece_tree_register import load_register as load_mece
-from scripts.diagnose.mece_tree_register import register_path as mece_path
 from scripts.diagnose.mece_tree_register import validate as validate_mece
+from scripts.diagnose.problem_spec_register import FILENAME as PROBLEM_SPEC_FILENAME
 from scripts.diagnose.problem_spec_register import load_register as load_problem_spec
-from scripts.diagnose.problem_spec_register import register_path as problem_spec_path
 from scripts.diagnose.problem_spec_register import validate as validate_problem_spec
+from scripts.diagnose.repro_loop_register import FILENAME as REPRO_LOOP_FILENAME
 from scripts.diagnose.repro_loop_register import load_register as load_repro_loop
-from scripts.diagnose.repro_loop_register import register_path as repro_loop_path
 from scripts.diagnose.repro_loop_register import (
     requires_override_to_proceed,
     validate as validate_repro_loop,
 )
+from scripts.diagnose.technique_coverage import COVERAGE_FILENAME
 from scripts.diagnose.technique_coverage import load_sidecar as load_coverage
-from scripts.diagnose.technique_coverage import coverage_path
 from scripts.diagnose.technique_coverage import validate_coverage
+from scripts.diagnose.technique_coverage_policy import is_high_severity
 from scripts.shared.orchestrator import SkillState
 
 PHASE_NAMES: dict[int, str] = {}
@@ -86,9 +88,9 @@ def check_problem_spec_gate(
     if has_override(state.custom, "problem_spec_override_reason"):
         return DiagnoseGateResult(passed=True)
 
-    sd = sp.parent
-    data = load_problem_spec(problem_spec_path(sd))
-    ok, issues = validate_problem_spec(data, path=problem_spec_path(sd), strict=strict)
+    spec_file = resolve_sidecar_path(sp, PROBLEM_SPEC_FILENAME)
+    data = load_problem_spec(spec_file)
+    ok, issues = validate_problem_spec(data, path=spec_file, strict=strict)
     if ok:
         return DiagnoseGateResult(passed=True)
 
@@ -113,8 +115,7 @@ def check_repro_loop_gate(state: SkillState, sp: Path, step: int) -> DiagnoseGat
     if has_override(state.custom, "repro_loop_override_reason"):
         return DiagnoseGateResult(passed=True)
 
-    sd = sp.parent
-    reg_file = repro_loop_path(sd)
+    reg_file = resolve_sidecar_path(sp, REPRO_LOOP_FILENAME)
     data = load_repro_loop(reg_file)
     ok, issues = validate_repro_loop(data, path=reg_file)
     if ok and requires_override_to_proceed(data):
@@ -145,14 +146,13 @@ def check_repro_loop_gate(state: SkillState, sp: Path, step: int) -> DiagnoseGat
 
 
 def check_register_gate(state: SkillState, sp: Path, step: int) -> DiagnoseGateResult:
-    sd = sp.parent
-    activated = resolve_activated_techniques(sd, state.custom)
+    activated = resolve_activated_techniques(sp, state.custom)
     if not requires_hypothesis_register(activated):
         return DiagnoseGateResult(passed=True)
 
     if has_override(state.custom, "hypothesis_override_reason"):
         return DiagnoseGateResult(passed=True)
-    reg_file = hypothesis_path(sd)
+    reg_file = resolve_sidecar_path(sp, HYPOTHESIS_FILENAME)
     reg_data = load_hypotheses(reg_file)
     min_required = int(state.custom.get("hypothesis_min", 10))
     ok, issues = validate_register(reg_data, min_required=min_required, path=reg_file)
@@ -177,8 +177,7 @@ def check_register_gate(state: SkillState, sp: Path, step: int) -> DiagnoseGateR
 
 def check_quartet_gate(state: SkillState, sp: Path, step: int) -> DiagnoseGateResult:
     """Optional first-principles + MECE when activated in problem spec."""
-    sd = sp.parent
-    activated = resolve_activated_techniques(sd, state.custom)
+    activated = resolve_activated_techniques(sp, state.custom)
     if not requires_first_principles(activated) and not requires_mece_tree(activated):
         return DiagnoseGateResult(passed=True)
 
@@ -188,16 +187,18 @@ def check_quartet_gate(state: SkillState, sp: Path, step: int) -> DiagnoseGateRe
     active_sections: list[GateSection] = []
 
     if requires_first_principles(activated):
-        fp_data = load_fp(fp_path(sd))
-        ok, issues = validate_fp(fp_data, path=fp_path(sd))
+        fp_file = resolve_sidecar_path(sp, FP_FILENAME)
+        fp_data = load_fp(fp_file)
+        ok, issues = validate_fp(fp_data, path=fp_file)
         if not ok:
             active_sections.append(
                 _section("First-principles", issues, state, "quartet_override_reason")
             )
 
     if requires_mece_tree(activated):
-        mece_data = load_mece(mece_path(sd))
-        ok2, issues2 = validate_mece(mece_data, path=mece_path(sd))
+        mece_file = resolve_sidecar_path(sp, MECE_FILENAME)
+        mece_data = load_mece(mece_file)
+        ok2, issues2 = validate_mece(mece_data, path=mece_file)
         if not ok2:
             active_sections.append(_section("MECE tree", issues2, state, "quartet_override_reason"))
 
@@ -221,11 +222,10 @@ def check_quartet_gate(state: SkillState, sp: Path, step: int) -> DiagnoseGateRe
 
 def check_step5_bundle_gate(state: SkillState, sp: Path, step: int) -> DiagnoseGateResult:
     """Hypothesis elimination + five whys + routed technique coverage."""
-    sd = sp.parent
     sections: list[GateSection] = []
 
-    reg_file = hypothesis_path(sd)
-    activated = resolve_activated_techniques(sd, state.custom)
+    reg_file = resolve_sidecar_path(sp, HYPOTHESIS_FILENAME)
+    activated = resolve_activated_techniques(sp, state.custom)
     reg_data = load_hypotheses(reg_file)
     if requires_hypothesis_register(activated) and not has_override(
         state.custom, "hypothesis_override_reason"
@@ -236,10 +236,11 @@ def check_step5_bundle_gate(state: SkillState, sp: Path, step: int) -> DiagnoseG
 
     confirmed = _confirmed_hypothesis_ids(reg_data) if requires_hypothesis_register(activated) else set()
     if not has_override(state.custom, "five_whys_override_reason"):
-        fw_data = load_five_whys(five_whys_path(sd))
+        five_whys_file = resolve_sidecar_path(sp, FIVE_WHYS_FILENAME)
+        fw_data = load_five_whys(five_whys_file)
         ok, issues = validate_chains(
             fw_data,
-            path=five_whys_path(sd),
+            path=five_whys_file,
             require_confirmed_link=bool(confirmed),
             confirmed_ids=confirmed,
         )
@@ -247,10 +248,11 @@ def check_step5_bundle_gate(state: SkillState, sp: Path, step: int) -> DiagnoseG
             sections.append(_section("Five Whys chains", issues, state, "five_whys_override_reason"))
 
     if not has_override(state.custom, "technique_coverage_override_reason"):
-        cov_data = load_coverage(coverage_path(sd))
+        coverage_file = resolve_sidecar_path(sp, COVERAGE_FILENAME)
+        cov_data = load_coverage(coverage_file)
         ok, issues, _ = validate_coverage(
             cov_data,
-            path=coverage_path(sd),
+            path=coverage_file,
             routed_only=True,
             allow_override_skips=True,
             adaptive=True,
@@ -281,23 +283,23 @@ def check_step5_bundle_gate(state: SkillState, sp: Path, step: int) -> DiagnoseG
 
 def check_step7_closure_gate(state: SkillState, sp: Path, step: int) -> DiagnoseGateResult:
     """Activated techniques + five whys + optional sidecars."""
-    sd = sp.parent
-    activated = resolve_activated_techniques(sd, state.custom)
+    activated = resolve_activated_techniques(sp, state.custom)
     sections: list[GateSection] = []
     non_overridable: list[str] = []
 
-    reg_data = load_hypotheses(hypothesis_path(sd))
+    reg_data = load_hypotheses(resolve_sidecar_path(sp, HYPOTHESIS_FILENAME))
     confirmed = (
         _confirmed_hypothesis_ids(reg_data)
         if requires_hypothesis_register(activated)
         else set()
     )
 
+    coverage_file = resolve_sidecar_path(sp, COVERAGE_FILENAME)
     if not has_override(state.custom, "technique_coverage_override_reason"):
-        cov_data = load_coverage(coverage_path(sd))
+        cov_data = load_coverage(coverage_file)
         ok, issues, policy = validate_coverage(
             cov_data,
-            path=coverage_path(sd),
+            path=coverage_file,
             routed_only=True,
             allow_override_skips=False,
             adaptive=True,
@@ -315,10 +317,11 @@ def check_step7_closure_gate(state: SkillState, sp: Path, step: int) -> Diagnose
             )
 
     if not has_override(state.custom, "five_whys_override_reason"):
-        fw_data = load_five_whys(five_whys_path(sd))
+        five_whys_file = resolve_sidecar_path(sp, FIVE_WHYS_FILENAME)
+        fw_data = load_five_whys(five_whys_file)
         ok, issues = validate_chains(
             fw_data,
-            path=five_whys_path(sd),
+            path=five_whys_file,
             require_confirmed_link=True,
             confirmed_ids=confirmed,
         )
@@ -327,30 +330,27 @@ def check_step7_closure_gate(state: SkillState, sp: Path, step: int) -> Diagnose
 
     if not has_override(state.custom, "quartet_override_reason"):
         if requires_first_principles(activated):
-            fp_data = load_fp(fp_path(sd))
-            ok, issues = validate_fp(fp_data, path=fp_path(sd))
+            fp_file = resolve_sidecar_path(sp, FP_FILENAME)
+            fp_data = load_fp(fp_file)
+            ok, issues = validate_fp(fp_data, path=fp_file)
             if not ok:
                 sections.append(
                     _section("First-principles", issues, state, "quartet_override_reason")
                 )
 
         if requires_mece_tree(activated):
-            mece_data = load_mece(mece_path(sd))
-            ok2, issues2 = validate_mece(mece_data, path=mece_path(sd))
+            mece_file = resolve_sidecar_path(sp, MECE_FILENAME)
+            mece_data = load_mece(mece_file)
+            ok2, issues2 = validate_mece(mece_data, path=mece_file)
             if not ok2:
                 sections.append(_section("MECE tree", issues2, state, "quartet_override_reason"))
 
-    cov_data = load_coverage(coverage_path(sd))
-    high_barrier = False
-    if cov_data:
-        prof = cov_data.get("incident_profile") or []
-        high_barrier = any(
-            "safety" in str(p).lower() or "compliance" in str(p).lower() or "high" in str(p).lower()
-            for p in (prof if isinstance(prof, list) else [prof])
-        )
+    cov_data = load_coverage(coverage_file)
+    high_barrier = is_high_severity(cov_data)
     if high_barrier and not has_override(state.custom, "barriers_override_reason"):
-        b_data = load_barriers(barriers_path(sd))
-        ok, issues = validate_barriers(b_data, path=barriers_path(sd), required=True)
+        barriers_file = resolve_sidecar_path(sp, BARRIERS_FILENAME)
+        b_data = load_barriers(barriers_file)
+        ok, issues = validate_barriers(b_data, path=barriers_file, required=True)
         if not ok:
             sections.append(_section("Barrier analysis", issues, state, "barriers_override_reason"))
 

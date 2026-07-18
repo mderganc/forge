@@ -354,40 +354,25 @@ def summarize_memory_for_resume(search_dir: Path | None = None) -> str:
     """Short operational summary: synthesis rollup first, then current-step, then handoffs."""
     from scripts.shared.memory_synthesis import SYNTHESIS_FILENAME
     from scripts.shared.orchestrator import legacy_memory_dir, read_memory_file, runtime_memory_dir
+    from scripts.shared.resume_memory_summary import (
+        summary_from_newest_handoff,
+        summary_from_synthesis,
+    )
 
     for mem in (runtime_memory_dir(search_dir), legacy_memory_dir(search_dir)):
-        syn = mem / SYNTHESIS_FILENAME
-        try:
-            if syn.is_file():
-                raw = syn.read_text(encoding="utf-8", errors="replace")
-                body = _strip_yaml_frontmatter(raw).strip()
-                if body:
-                    return _first_non_empty_lines(body, max_lines=24, max_chars=2000)
-        except OSError:
-            pass
+        text = summary_from_synthesis(mem)
+        if text:
+            return text
 
     cur = read_memory_file("current-step.md")
     if cur.strip():
         return _first_non_empty_lines(cur)
-    # fall back: newest handoff content
-    from scripts.shared.orchestrator import legacy_memory_dir, runtime_memory_dir
 
-    best: tuple[float, str] | None = None
     for mem in (runtime_memory_dir(search_dir), legacy_memory_dir(search_dir)):
-        if not mem.is_dir():
-            continue
-        for p in mem.glob("handoff-*.md"):
-            try:
-                mtime = p.stat().st_mtime
-            except OSError:
-                continue
-            if best is None or mtime > best[0]:
-                try:
-                    best = (mtime, p.read_text(encoding="utf-8"))
-                except OSError:
-                    continue
-    if best and best[1].strip():
-        return _first_non_empty_lines(best[1])
+        text = summary_from_newest_handoff(mem)
+        if text:
+            return text
+    _ = SYNTHESIS_FILENAME
     return ""
 
 

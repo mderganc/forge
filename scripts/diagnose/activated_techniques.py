@@ -10,8 +10,9 @@ from scripts.diagnose.diagnose_framing import (
     FRAMING_TO_CATALOG,
     HYPOTHESIS_TECHNIQUES,
 )
+from scripts.diagnose.diagnose_registers import resolve_sidecar_path
+from scripts.diagnose.problem_spec_register import FILENAME as PROBLEM_SPEC_FILENAME
 from scripts.diagnose.problem_spec_register import load_register as load_problem_spec
-from scripts.diagnose.problem_spec_register import register_path as problem_spec_path
 
 
 def _normalize_names(values: object) -> set[str]:
@@ -42,11 +43,16 @@ def activated_from_problem_spec(data: dict | None) -> set[str]:
 
 
 def resolve_activated_techniques(
-    state_dir: Path,
+    state_path: Path,
     state_custom: dict | None = None,
 ) -> set[str]:
-    """Union of problem-spec routing and optional state.custom overrides."""
-    spec = load_problem_spec(problem_spec_path(state_dir))
+    """Union of problem-spec routing and optional state.custom overrides.
+
+    ``state_path`` is the orchestrator state file (e.g. ``session.json``);
+    the problem-spec sidecar is resolved via ``resolve_sidecar_path`` so it
+    is found whether it lives beside the state file or under ``sidecars/``.
+    """
+    spec = load_problem_spec(resolve_sidecar_path(state_path, PROBLEM_SPEC_FILENAME))
     activated = activated_from_problem_spec(spec)
     if state_custom:
         activated |= _normalize_names(state_custom.get("activated_techniques"))

@@ -41,7 +41,7 @@ def test_resolve_defaults_to_step_1() -> None:
 
 
 def test_resolve_from_session(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    session_dir = tmp_path / ".codex" / "forge" / "sessions" / "abc123"
+    session_dir = tmp_path / ".forge" / "sessions" / "abc123"
     session_dir.mkdir(parents=True)
     state = {
         "skill_name": "plan",
@@ -78,4 +78,5 @@ def test_parse_continuation_command_accepts_phase() -> None:
         "/forge:plan --phase plan-review-loop --session abc"
     )
     assert step == 4
-    assert state is None
+    assert state is not None
+    assert state.endswith("sessions\\abc\\session.json") or state.endswith("sessions/abc/session.json")

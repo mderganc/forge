@@ -104,6 +104,19 @@ def _load_spec() -> dict:
     return json.loads(SPEC_PATH.read_text(encoding="utf-8"))
 
 
+def _agent_invoke_line(sub: str) -> str:
+    """Explicit "must run the orchestrator" instruction (agent-facing, not shown to the user)."""
+    if sub == "evaluate":
+        return (
+            "**Must run:** `forge evaluate --mode pre --plan '<plan path>' --step 1` "
+            "(or `--mode post`) — the orchestrator script — before any other work."
+        )
+    return (
+        f"**Must run:** `forge {sub} --step 1` (the orchestrator script) before any other "
+        "work — do not skip straight to manual investigation/analysis."
+    )
+
+
 def _workflow_command_md(cmd: dict) -> str:
     sub = cmd["cli_subcommand"]
     ov = COMMAND_OVERRIDES.get(sub, {})
@@ -115,6 +128,7 @@ def _workflow_command_md(cmd: dict) -> str:
         "agent_run",
         f"Run **{sub}** at step one. Summarize phases without quoting invocation lines.",
     )
+    agent = f"{_agent_invoke_line(sub)}\n\n{agent}"
     hard_rule = WORKFLOW_HARD_RULE
     if sub == "design":
         hard_rule = """\

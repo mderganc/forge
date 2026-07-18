@@ -51,67 +51,80 @@ def _needs_change_analysis(data: dict) -> bool:
     )
 
 
-def validate(
-    data: dict | None,
-    *,
-    path: Path | None = None,
-    strict: bool = False,
-) -> tuple[bool, list[str]]:
+def _validate_framing_entry(data: dict, entry: str | None) -> list[str]:
     issues: list[str] = []
-    label = str(path) if path else FILENAME
-
-    if data is None:
-        msg = (
-            f"No problem spec at {label}. "
-            "Create `.diagnose-problem-spec.json` in Phase 1."
-        )
-        if strict:
-            issues.append(msg)
-            return False, issues
-        issues.append(msg)
-        return False, issues
-
-    statement = data.get("problem_statement")
-    if not statement or not str(statement).strip():
-        issues.append(
-            "Problem spec missing non-empty 'problem_statement' (one-paragraph symptom/impact)."
-        )
-
-    entry = data.get("framing_entry")
     if not entry or str(entry).strip() not in FRAMING_ENTRIES:
         issues.append(
             "Problem spec missing 'framing_entry' — one of: "
             + ", ".join(sorted(FRAMING_ENTRIES))
             + "."
         )
-    else:
-        entry_s = str(entry).strip()
-        if entry_s == "kepner_tregoe":
-            issues.extend(_validate_is_isnot(data))
-        elif entry_s == "cynefin":
-            issues.extend(_validate_cynefin(data))
-        elif entry_s == "first_principles":
-            fp = data.get("first_principles_snapshot")
-            if not isinstance(fp, dict) or not fp.get("invariants"):
-                issues.append(
-                    "framing_entry 'first_principles' needs 'first_principles_snapshot.invariants' "
-                    "(or complete `.diagnose-first-principles.json` before step 4)."
-                )
-        elif entry_s == "evidence_snapshot":
-            obs = data.get("observations")
-            if not isinstance(obs, list) or len(obs) < 1:
-                issues.append(
-                    "framing_entry 'evidence_snapshot' needs non-empty 'observations' "
-                    "(timestamp, source, fact)."
-                )
-        elif entry_s == "mece_sketch":
-            sketch = data.get("mece_sketch")
-            nodes = sketch.get("nodes") if isinstance(sketch, dict) else None
-            if not isinstance(nodes, list) or len(nodes) < 2:
-                issues.append(
-                    "framing_entry 'mece_sketch' needs 'mece_sketch.nodes' with at least 2 nodes "
-                    "(or `.diagnose-mece-tree.json` before step 4)."
-                )
+        return issues
+
+    entry_s = str(entry).strip()
+    if entry_s == "kepner_tregoe":
+        issues.extend(_validate_is_isnot(data))
+    elif entry_s == "cynefin":
+        issues.extend(_validate_cynefin(data))
+    elif entry_s == "first_principles":
+        fp = data.get("first_principles_snapshot")
+        if not isinstance(fp, dict) or not fp.get("invariants"):
+            issues.append(
+                "framing_entry 'first_principles' needs 'first_principles_snapshot.invariants' "
+                "(or complete `.diagnose-first-principles.json` before step 4)."
+            )
+    elif entry_s == "evidence_snapshot":
+        obs = data.get("observations")
+        if not isinstance(obs, list) or len(obs) < 1:
+            issues.append(
+                "framing_entry 'evidence_snapshot' needs non-empty 'observations' "
+                "(timestamp, source, fact)."
+            )
+    elif entry_s == "mece_sketch":
+        sketch = data.get("mece_sketch")
+        nodes = sketch.get("nodes") if isinstance(sketch, dict) else None
+        if not isinstance(nodes, list) or len(nodes) < 2:
+            issues.append(
+                "framing_entry 'mece_sketch' needs 'mece_sketch.nodes' with at least 2 nodes "
+                "(or `.diagnose-mece-tree.json` before step 4)."
+            )
+    return issues
+
+
+def validate(
+    data: dict | None,
+    *,
+    path: Path | None = None,
+    strict: bool = False,
+) -> tuple[bool, list[str]]:
+    from scripts.diagnose.register_validation import (
+        finish_validation,
+        missing_sidecar_issue,
+        require_non_empty_str,
+    )
+
+    issues: list[str] = []
+    label = str(path) if path else FILENAME
+
+    if data is None:
+        msg = f"No problem spec at {label}. Create `.diagnose-problem-spec.json` in Phase 1."
+        if strict:
+            issues.append(msg)
+            return False, issues
+        issues.append(msg)
+        return False, issues
+
+    require_non_empty_str(
+        data,
+        "problem_statement",
+        issues,
+        message=(
+            "Problem spec missing non-empty 'problem_statement' (one-paragraph symptom/impact)."
+        ),
+    )
+
+    entry = data.get("framing_entry")
+    issues.extend(_validate_framing_entry(data, str(entry).strip() if entry else None))
 
     if _needs_change_analysis(data):
         lkg = data.get("last_known_good")
@@ -140,7 +153,7 @@ def validate(
                     "or 'routing_preferred'."
                 )
 
-    return len(issues) == 0, issues
+    return finish_validation(issues)
 
 
 def _validate_is_isnot(data: dict) -> list[str]:

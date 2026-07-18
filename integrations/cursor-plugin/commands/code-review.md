@@ -22,4 +22,6 @@ Runs at **ship** only (`forge ship --step 1`). This workflow does not print GRAP
 
 ## What you run (agent)
 
+**Must run:** `forge code-review --step 1` (the orchestrator script) before any other work — do not skip straight to manual investigation/analysis.
+
 Run **code-review** at step one. Summarize phases without quoting invocation lines.

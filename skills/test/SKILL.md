@@ -30,4 +30,4 @@ Preamble § Simplicity (YAGNI). Test behavior needed now—not hypothetical scaf
 | `--flow-type` | No | `scenario`, `bdd`, `http-replay`, `workflow-dryrun` |
 | `--framework` / `--entry-point` / `--roles` / `--no-db` / `--re-record` | No | Flows overrides |
 
-Default handoff: **`forge:diagnose`** (on failures) or **`forge:ship`**.
+Default handoff: **`forge:ship`** when the run is green, **`forge:diagnose`** when there are failures.

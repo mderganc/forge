@@ -27,7 +27,7 @@ State file: <path> — resume with `forge takeover` (or `/forge:takeover` / `$fo
 
 Invocation prefix: **`/forge:`** when `FORGE_WORKFLOW_INVOCATION=slash`, repo has `.cursor/`, or `CURSOR_*` env is set; otherwise **`$forge:`** (Codex). Override with `FORGE_WORKFLOW_INVOCATION=slash|dollar`.
 
-The canonical skill-chain mapping lives in `scripts/shared/skill_chain.py` as the `SKILL_CHAIN` dict, mapping current skill to `SkillTransition(default, alternatives)`. The renderer `build_skill_handoff_menu(current_skill, state)` in `scripts/shared/handoff_io.py` / `handoff_menu.py` produces the multiselect block and text fallback. Per-skill context-aware injection is supported — e.g., when `forge:test` detects failures, `diagnose` can be prepended as the top alternative; when `forge:diagnose` finishes with `fix_complexity` **`large`**, the default next command is **`develop`** (with **`plan`** as default when **`complex`**).
+The canonical skill-chain mapping lives in `scripts/shared/skill_chain.py` as the `SKILL_CHAIN` dict, mapping current skill to `SkillTransition(default, alternatives)`. The renderer `build_skill_handoff_menu(current_skill, state)` in `scripts/shared/handoff_io.py` / `handoff_menu.py` produces the multiselect block and text fallback. Per-skill context-aware injection is supported — e.g., `forge:test` defaults to **`ship`** when the run is green and to **`diagnose`** when there are failures (`ship` stays as the top alternative in that case); when `forge:diagnose` finishes with `fix_complexity` **`large`**, the default next command is **`design`** (with **`plan`** as default when **`complex`**).
 
 The `(stop)` option is always last. The state file persists, and workflows can resume with `forge takeover` at any time.
 

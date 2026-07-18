@@ -178,7 +178,7 @@ Restart Codex after editing `~/.codex/config.toml`.
 
 `forge install --codex` merges **`developer_instructions`** into **`~/.codex/config.toml`** when empty or matching the prior Forge snippet. Text **leads with mandatory Graphify rules**, then Forge delegation (sub-agents + session opt-in).
 
-Every `forge-*` skill `SKILL.md` and YAML `description` remind agents to follow **GRAPHIFY** blocks in step output.
+Every `forge-*` skill `SKILL.md` and YAML `description` reference the shared `templates/graphify-contract.md` rules: read `GRAPH_REPORT.md` before broad search, run **`forge ship --step 1`** for the ship-time **GRAPHIFY** banner, and treat background refresh on other `--step` invocations as silent (no per-step banner claim).
 
 Details: [`integrations/codex/README.md`](../integrations/codex/README.md), [README → OpenAI Codex](../README.md#openai-codex).
 
@@ -188,8 +188,8 @@ Details: [`integrations/codex/README.md`](../integrations/codex/README.md), [REA
 
 Cursor enforcement comes from:
 
-- **GRAPHIFY** blocks in every `forge … --step` output
-- **Hard rule — Graphify** in each `/forge:*` command under `integrations/cursor-plugin/commands/`
+- **GRAPHIFY** banner on **`forge ship --step 1`** only — workflow `--step` output does **not** print a per-step GRAPHIFY banner (debounced background refresh may still run silently; see § 3)
+- **Hard rule — Graphify** in each `/forge:*` command under `integrations/cursor-plugin/commands/` (states the ship-only contract explicitly, e.g. "Runs at ship only (`forge ship --step 1`). This workflow does not print GRAPHIFY per step.")
 - Repo rule **`.cursor/rules/graphify.mdc`** when you add it to the project
 - **Sub-agent lifecycle hooks** (optional per repo):
 

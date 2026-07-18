@@ -163,6 +163,7 @@ def _next_command(
     state_path: str = "",
     *,
     with_domain_docs: bool = False,
+    next_step: int | None = None,
 ) -> str:
     extra: dict[str, str] = {}
     if state_path:
@@ -172,6 +173,7 @@ def _next_command(
         SCRIPT_DIR / "sketch.py",
         step,
         MAX_STEP,
+        next_step=next_step,
         flags=flags,
         **extra,
     )
@@ -182,6 +184,9 @@ def _format(
     body: str,
     next_cmd: str | None = None,
     handoff_menu: str | None = None,
+    *,
+    require_confirmation: bool | None = None,
+    await_same_step: bool = False,
 ) -> str:
     return format_step_output(
         SKILL_NAME,
@@ -194,6 +199,8 @@ def _format(
         handoff_menu=handoff_menu,
         all_phase_names=PHASE_NAMES,
         all_phase_todos=PHASE_TODOS,
+        require_confirmation=require_confirmation,
+        await_same_step=await_same_step,
     )
 
 
@@ -388,19 +395,33 @@ def handle_step_n(
     )
 
     next_cmd = None
+    await_same = False
+    require_confirm = None
     if step == 2:
         next_cmd = _next_command(
             2,
             state_path=str(sp),
             with_domain_docs=bool(state.custom.get("with_domain_docs")),
+            next_step=2,
         )
+        await_same = True
+        require_confirm = True
     elif step < MAX_STEP:
         next_cmd = _next_command(
             step,
             state_path=str(sp),
             with_domain_docs=bool(state.custom.get("with_domain_docs")),
         )
-    print(_format(step, body, next_cmd, handoff_menu=handoff_menu))
+    print(
+        _format(
+            step,
+            body,
+            next_cmd,
+            handoff_menu=handoff_menu,
+            require_confirmation=require_confirm,
+            await_same_step=await_same,
+        )
+    )
 
 
 def main() -> None:

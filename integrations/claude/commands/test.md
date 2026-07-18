@@ -1,6 +1,6 @@
 ---
 name: forge:test
-description: Run tests or author mock flows (run/flows modes). For live UI audits use forge:ux-review.
+description: Run tests or author mock flows (run/flows modes).
 ---
 
 ## Hard rule — what the user sees
@@ -19,8 +19,9 @@ Runs at **ship** only (`forge ship --step 1`). This workflow does not print GRAP
 
 - Run the **test** workflow from the repo root.
 - Follow orchestrator phase output.
-- Real-browser product UX audits use **`/forge:ux-review`**, not test modes.
 
 ## What you run (agent)
+
+**Must run:** `forge test --step 1` (the orchestrator script) before any other work — do not skip straight to manual investigation/analysis.
 
 Run **test** at step one. Summarize phases without quoting invocation lines.

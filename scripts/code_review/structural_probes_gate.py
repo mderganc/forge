@@ -6,10 +6,13 @@ import json
 from pathlib import Path
 from typing import Any
 
+from scripts.code_review.structural_probes_gate_helpers import (
+    missing_required_probes,
+    probe_by_tool,
+    stack_flags,
+)
 from scripts.shared.structural_probes import (
     SIDECAR_NAME,
-    build_stack_inventory,
-    inventory_stack_capabilities,
     skip_structural_probes,
 )
 from scripts.shared.structural_probes_gate import (
@@ -41,33 +44,33 @@ def load_probe_payload(state_dir: Path) -> dict[str, Any] | None:
 
 
 def _probe_by_tool(payload: dict[str, Any]) -> dict[str, dict[str, Any]]:
-    out: dict[str, dict[str, Any]] = {}
-    for row in payload.get("probes") or []:
-        if isinstance(row, dict) and row.get("tool"):
-            out[str(row["tool"])] = row
-    return out
+    return probe_by_tool(payload)
 
 
 def _stack_flags(payload: dict[str, Any], repo_root: Path) -> tuple[bool, bool]:
-    plan = payload.get("plan") or {}
-    applicable = plan.get("stack_applicable")
-    if isinstance(applicable, dict):
-        return bool(applicable.get("python")), bool(applicable.get("node"))
-
-    stack = payload.get("stack") or {}
-    python_capable = bool(stack.get("python"))
-    node_capable = bool(stack.get("node"))
-    if python_capable or node_capable:
-        return python_capable, node_capable
-
-    inventory = build_stack_inventory(repo_root)
-    return inventory_stack_capabilities(inventory)
+    return stack_flags(payload, repo_root)
 
 
 def _tool_ran(probe: dict[str, Any] | None) -> bool:
-    if not probe:
-        return False
-    return probe.get("status") in ("pass", "fail")
+    from scripts.code_review.structural_probes_gate_helpers import tool_ran
+
+    return tool_ran(probe)
+
+
+def _gate_missing_sidecar(path: Path) -> tuple[bool, str]:
+    return (
+        False,
+        "STRUCTURAL PROBES GATE: missing `.structural-probes.json`.\n"
+        f"Run `forge code-review --step 3` first (expected sidecar: `{path}`).",
+    )
+
+
+def _gate_pending_status(top_status: str) -> tuple[bool, str]:
+    return (
+        False,
+        f"STRUCTURAL PROBES GATE: probe status is {top_status} — "
+        "clear the gate (retry, override, or defer to ship) before continuing.",
+    )
 
 
 def validate_structural_probes_gate(
@@ -107,38 +110,22 @@ def validate_structural_probes_gate(
     path = sidecar_path(state_dir)
     payload = load_probe_payload(state_dir)
     if payload is None:
-        return (
-            False,
-            "STRUCTURAL PROBES GATE: missing `.structural-probes.json`.\n"
-            f"Run `forge code-review --step 3` first (expected sidecar: `{path}`).",
-        )
+        return _gate_missing_sidecar(path)
 
     top_status = str(payload.get("status") or "").upper()
     if top_status and top_status != "OK":
         gate = load_probe_gate_sidecar(state_dir)
         if probe_gate_is_pending(state_dir) or (gate and gate.get("gate_state") == "pending"):
-            return (
-                False,
-                f"STRUCTURAL PROBES GATE: probe status is {top_status} — "
-                "clear the gate (retry, override, or defer to ship) before continuing.",
-            )
+            return _gate_pending_status(top_status)
 
     python_capable, node_capable = _stack_flags(payload, repo_root)
-    by_tool = _probe_by_tool(payload)
-
-    missing: list[str] = []
-    if python_capable:
-        for tool in REQUIRED_PYTHON_TOOLS:
-            probe = by_tool.get(tool)
-            if not _tool_ran(probe):
-                reason = (probe or {}).get("summary", "probe not present")
-                missing.append(f"{tool} ({reason})")
-    if node_capable:
-        for tool in REQUIRED_NODE_TOOLS:
-            probe = by_tool.get(tool)
-            if not _tool_ran(probe):
-                reason = (probe or {}).get("summary", "probe not present")
-                missing.append(f"{tool} ({reason})")
+    missing = missing_required_probes(
+        _probe_by_tool(payload),
+        python_capable=python_capable,
+        node_capable=node_capable,
+        python_tools=REQUIRED_PYTHON_TOOLS,
+        node_tools=REQUIRED_NODE_TOOLS,
+    )
 
     if missing:
         return (

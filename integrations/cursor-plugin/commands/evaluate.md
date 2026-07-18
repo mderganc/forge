@@ -22,4 +22,6 @@ Runs at **ship** only (`forge ship --step 1`). This workflow does not print GRAP
 
 ## What you run (agent)
 
+**Must run:** `forge evaluate --mode pre --plan '<plan path>' --step 1` (or `--mode post`) — the orchestrator script — before any other work.
+
 Run **evaluate** with `--mode pre` or `--mode post` and `--plan` on step 1.

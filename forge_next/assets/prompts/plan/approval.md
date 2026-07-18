@@ -60,10 +60,11 @@ Use this question and these options:
 
 - Question: `Approve the implementation plan?`
 - Options:
-  - `Approve` — accept the plan and hand off to `implement`
+  - `Approve` — accept the plan and continue to **Documentation Planning** (step 6)
   - `Revise` — return to step 3 with feedback
   - `Simplify` — scope the plan down before approval
   - `Reject` — stop here because the plan is not viable
 
-Record the user's decision in `project.md`. If approved, proceed to handoff.
+Record the user's decision in `project.md`. If approved, proceed to step 6 (documentation planning), then handoff on step 7.
 If changes requested, return to step 3 (plan creation).
+The orchestrator asks for confirmation before advancing from this step.

@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import secrets
 import shutil
 import sys
@@ -481,7 +482,50 @@ def archive_session_dir(
         shutil.rmtree(dest, ignore_errors=True)
     shutil.move(str(src), str(dest))
     remove_from_active_index(session_id, search_dir)
+    _rewrite_handoff_pointers_for_archive(session_id, search_dir)
     return dest
+
+
+def _rewrite_handoff_pointers_for_archive(
+    session_id: str,
+    search_dir: Path | None = None,
+) -> None:
+    """Update global handoff-*.md pointers that still reference the live session path."""
+    from scripts.shared.runtime_layout import detect_repo_root, runtime_memory_dir
+
+    root = Path(search_dir) if search_dir else detect_repo_root()
+    mem = runtime_memory_dir(root)
+    if not mem.is_dir():
+        return
+    new_rel = f".forge/sessions/_archive/{session_id}/handoff.md"
+    old_needle = f"sessions/{session_id}/handoff.md"
+    for path in mem.glob("handoff-*.md"):
+        try:
+            text = path.read_text(encoding="utf-8")
+        except OSError:
+            continue
+        if "forge_handoff_pointer:" not in text[:200]:
+            continue
+        if session_id not in text and old_needle not in text.replace("\\", "/"):
+            continue
+        updated = text
+        # path: line
+        updated = re.sub(
+            rf"(?m)^(path:\s*).*{re.escape(session_id)}.*$",
+            rf"\1{new_rel}",
+            updated,
+        )
+        # Full handoff: `...` line
+        updated = re.sub(
+            rf"(Full handoff:\s*`).*{re.escape(session_id)}.*(`)",
+            rf"\1{new_rel}\2",
+            updated,
+        )
+        if updated != text:
+            try:
+                path.write_text(updated, encoding="utf-8")
+            except OSError:
+                pass
 
 
 def delete_archived_session(session_id: str, search_dir: Path | None = None) -> bool:

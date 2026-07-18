@@ -54,4 +54,4 @@ Use a repo-relative path for `spec_path`. All three booleans must be `true` for 
 
 ## Overrides
 
-If you must hand off without a complete spec, the human must re-run step 7 with documented override flags (see `forge design --help`).
+If you must hand off without a complete spec, the human must re-run **step 8** with documented override flags (see `forge design --help`).

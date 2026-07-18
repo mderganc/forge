@@ -71,7 +71,7 @@ def append_complexity_gate_notes(step: int, body: str, state: SkillState) -> str
         body += (
             "\n\n---\n\n"
             "**COMPLEXITY GATE TRIGGERED (large / systemic):** Solution space needs design work before planning.\n"
-            "Write handoff file and direct user to **`develop`** (brainstorm / design) → then **`plan`** → `implement`.\n"
+            "Write handoff file and direct user to **`design`** (brainstorm / design) → then **`plan`** → `implement`.\n"
             "Then skip to Phase 7 (Report).\n"
         )
     return body
@@ -84,13 +84,13 @@ def complexity_run_summary(step: int, state: SkillState, default: str) -> str:
     if fc == "complex":
         return "Complexity gate triggered; diagnose prepared handoff path for planning flow."
     if fc == "large":
-        return "Large-complexity gate triggered; diagnose prepared handoff path for develop → plan."
+        return "Large-complexity gate triggered; diagnose prepared handoff path for design → plan."
     return default
 
 
 def suggested_next_for_complexity(complexity: str) -> str:
     if complexity == "large":
-        return "develop"
+        return "design"
     if complexity == "complex":
         return "plan"
     return "(end of flow)"
@@ -98,7 +98,7 @@ def suggested_next_for_complexity(complexity: str) -> str:
 
 def routing_label_for_complexity(complexity: str) -> str:
     if complexity == "large":
-        return "develop → plan"
+        return "design → plan"
     if complexity == "complex":
         return "plan → implement"
     return "resolved / choose next skill from menu"

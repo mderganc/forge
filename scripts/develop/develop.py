@@ -163,13 +163,26 @@ def _ensure_develop_custom(state: SkillState) -> None:
         state.custom.setdefault(k, v)
 
 
-def _sync_develop_scope_from_memory(state: SkillState) -> None:
-    """Ingest design-scope.json (legacy develop-scope.json) from runtime memory if present."""
-    path = runtime_memory_dir() / "design-scope.json"
-    legacy = runtime_memory_dir() / "develop-scope.json"
-    if not path.is_file() and legacy.is_file():
-        path = legacy
-    if not path.is_file():
+def _sync_develop_scope_from_memory(
+    state: SkillState,
+    state_path: Path | None = None,
+) -> None:
+    """Ingest design-scope.json — prefer session sidecar, then runtime memory."""
+    candidates: list[Path] = []
+    if state_path is not None:
+        parent = state_path.parent
+        candidates.append(parent / "sidecars" / ".design-scope.json")
+        candidates.append(parent / ".design-scope.json")
+    mem = runtime_memory_dir()
+    candidates.append(mem / "design-scope.json")
+    candidates.append(mem / "develop-scope.json")
+
+    path: Path | None = None
+    for cand in candidates:
+        if cand.is_file():
+            path = cand
+            break
+    if path is None:
         return
     try:
         data = json.loads(path.read_text(encoding="utf-8"))
@@ -182,7 +195,8 @@ def _sync_develop_scope_from_memory(state: SkillState) -> None:
     rationale = data.get("scope_rationale", data.get("rationale", ""))
     if rationale is not None and str(rationale).strip():
         state.custom["scope_rationale"] = str(rationale).strip()
-
+    # Record which file won so agents can avoid stale global pollution
+    state.custom["scope_source"] = str(path)
 
 def _spec_gate_status_block(state: SkillState, state_path: Path) -> str:
     """Human-readable spec gate status for templates."""
@@ -294,7 +308,7 @@ def _next_command(step: int, state_path: str = "") -> str:
     return build_next_command(SCRIPT_DIR / "develop.py", step, MAX_STEP, **extra)
 
 
-def _format(step: int, body: str, next_cmd: str | None = None, cross_skill_next: str | None = None, handoff_menu: str | None = None) -> str:
+def _format(step: int, body: str, next_cmd: str | None = None, cross_skill_next: str | None = None, handoff_menu: str | None = None, *, require_confirmation: bool | None = None) -> str:
     """Format step output with standard header, todos, and next-step directive."""
     phase_name = PHASE_NAMES.get(step, f"Step {step}")
     return format_step_output(
@@ -305,6 +319,7 @@ def _format(step: int, body: str, next_cmd: str | None = None, cross_skill_next:
         handoff_menu=handoff_menu,
         all_phase_names=PHASE_NAMES,
         all_phase_todos=PHASE_TODOS,
+        require_confirmation=require_confirmation,
     )
 
 
@@ -437,7 +452,14 @@ def handle_step_n(
     state, sp = _load_existing_state(step, state_file, session_id=session_id)
 
     _ensure_develop_custom(state)
-    _sync_develop_scope_from_memory(state)
+    _sync_develop_scope_from_memory(state, sp)
+    # If scope still unknown at late steps but a design spec gate exists, require medium
+    if step >= 6 and str(state.custom.get("scope_tier", "unknown")) == "unknown":
+        gate = sp.parent / ".design-spec-gate.json"
+        legacy_gate = sp.parent / ".develop-spec-gate.json"
+        if gate.is_file() or legacy_gate.is_file():
+            state.custom["scope_tier"] = "medium"
+            state.custom["spec_required"] = True
     save_state(state, sp)
 
     ns = args or argparse.Namespace()
@@ -610,7 +632,8 @@ def handle_step_n(
     )
 
     next_cmd = _next_command(step, state_path=str(sp)) if step < MAX_STEP else None
-    print(_format(step, body, next_cmd, handoff_menu=handoff_menu))
+    require_confirm = True if step == 6 else None
+    print(_format(step, body, next_cmd, handoff_menu=handoff_menu, require_confirmation=require_confirm))
 
 
 def main() -> None:

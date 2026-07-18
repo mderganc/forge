@@ -97,12 +97,16 @@ def run_cleanup(force: bool, all_stale: bool) -> None:
         print("No state files eligible for cleanup.")
         return
 
+    from scripts.shared.orchestrator import clear_state_file
+
     action = "Deleting" if force else "Would delete (dry-run)"
     for session, reason in candidates:
         print(f"{action}: {session['path']}  ({session['skill']}: {reason})", file=sys.stderr)
         if force:
             try:
-                Path(session["path"]).unlink()
+                # Archives session directories (sidecars/, handoff.md) instead of
+                # leaving them orphaned when the path is a session-store session.json.
+                clear_state_file(Path(session["path"]))
             except OSError as e:
                 print(f"  ! failed to delete: {e}", file=sys.stderr)
 

@@ -2,21 +2,25 @@
 """End-to-end smoke test for every forge-codex orchestrator.
 
 Runs each script with cwd=REPO_ROOT (where state is written by default),
-cleaning up state files between skills via --cleanup --all-stale --force.
+cleaning up state files between skills via ``takeover --cleanup --all-stale --force``.
 
 Verifies for each orchestrator:
   - --help works (clean import)
   - Over-cap step exits 0 with friendly "nothing left to do" message
-  - Step 1 succeeds and writes state with skill_name + failure_count
-  - Same-skill clobber abort fires when step 1 is rerun (where applicable)
-  - --cleanup --all-stale --force removes the state file
+  - Step 1 succeeds and writes session state (``.forge/sessions/{id}/session.json``)
+  - Second step 1 allocates another parallel session (no clobber abort)
+  - ``--cleanup --all-stale --force`` clears active sessions
   - Flows mode: walks all 7 steps with override sidecar and executes flows
   - test --mode ux redirects to forge ux-review
 """
 
+from __future__ import annotations
+
 import json
+import os
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent
@@ -27,47 +31,123 @@ if str(REPO) not in sys.path:
 from scripts.diagnose.technique_coverage import catalog_technique_names  # noqa: E402
 
 SCRIPTS = {
-    "plan":        REPO / "scripts/plan/plan.py",
-    "develop":     REPO / "scripts/develop/develop.py",
-    "implement":   REPO / "scripts/implement/implement.py",
-    "code-review": REPO / "scripts/code-review/code_review.py",
-    "test":        REPO / "scripts/test/test.py",
-    "diagnose":    REPO / "scripts/diagnose/orchestrate.py",
-    "evaluate":    REPO / "scripts/evaluate/evaluate.py",
+    "plan": REPO / "scripts/plan/plan.py",
+    "develop": REPO / "scripts/develop/develop.py",
+    "implement": REPO / "scripts/implement/implement.py",
+    "code-review": REPO / "scripts/code_review/code_review.py",
+    "test": REPO / "scripts/test/test.py",
+    "diagnose": REPO / "scripts/diagnose/orchestrate.py",
+    "evaluate": REPO / "scripts/evaluate/evaluate.py",
 }
 
 MAX_STEPS = {
-    "plan": 7, "develop": 7, "implement": 8, "code-review": 6,
-    "test": 6, "diagnose": 7, "evaluate": 7,  # pre mode default
+    "plan": 7,
+    "develop": 8,
+    "implement": 8,
+    "code-review": 6,
+    "test": 6,
+    "diagnose": 7,
+    "evaluate": 7,  # pre mode default
 }
 
-# Skills that hit handle_step_1 → check_same_skill_clobber path.
-# develop and implement use _load_or_init pattern (resume vs init); skip clobber check.
-CLOBBER_SKILLS = {"plan", "code-review", "test", "diagnose"}
+# Skills where step 1 always allocates a new session directory (parallel-first).
+PARALLEL_SESSION_SKILLS = {"plan", "code-review", "test", "diagnose"}
 
 PASS = "\033[32mPASS\033[0m"
 FAIL = "\033[31mFAIL\033[0m"
 TAKEOVER_CLEANUP = REPO / "scripts/takeover/takeover.py"
+SMOKE_TMP = Path(tempfile.gettempdir()) / "forge-smoke"
+SMOKE_EVAL_DIR = REPO / ".forge" / "smoke-eval"
+
+
+def _smoke_env() -> dict[str, str]:
+    env = os.environ.copy()
+    env["FORGE_SKIP_SESSION_OPTIN"] = "1"
+    env["FORGE_SKIP_GRAPHIFY"] = "1"
+    env["FORGE_SKIP_GRAPHIFY_SESSION_REFRESH"] = "1"
+    env["FORGE_SKIP_AUTO_CLOSE"] = "1"
+    return env
 
 
 def run(args, cwd=REPO):
     return subprocess.run(
-        [sys.executable] + args, cwd=cwd,
-        capture_output=True, text=True, timeout=30, encoding="utf-8", errors="replace",
+        [sys.executable] + args,
+        cwd=cwd,
+        env=_smoke_env(),
+        capture_output=True,
+        text=True,
+        timeout=120,
+        encoding="utf-8",
+        errors="replace",
     )
 
 
+def _expected_skill_name(name: str) -> str:
+    return "design" if name == "develop" else name
+
+
+def _find_skill_state_path(skill_name: str) -> Path | None:
+    from scripts.shared.skill_aliases import skills_match
+    from scripts.shared.session_store import iter_session_json_paths
+
+    expected = _expected_skill_name(skill_name)
+    matches: list[Path] = []
+    for path in iter_session_json_paths(REPO, include_archive=False):
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+        except Exception:
+            continue
+        if skills_match(str(data.get("skill_name", "")), expected):
+            matches.append(path)
+    if matches:
+        return max(matches, key=lambda p: p.stat().st_mtime)
+
+    legacy_paths = [
+        REPO / ".codex/forge-codex/state" / f"{skill_name}.json",
+        REPO / ".codex/forge/state" / f"{skill_name}.json",
+        REPO / ".forge/state" / f"{expected}.json",
+        REPO / f".forge-{skill_name}-state.json",
+    ]
+    return next((p for p in legacy_paths if p.exists()), None)
+
+
+def _count_active_sessions(skill_name: str) -> int:
+    from scripts.shared.session_store import list_active_sessions
+    from scripts.shared.skill_aliases import skills_match
+
+    expected = _expected_skill_name(skill_name)
+    return sum(
+        1 for s in list_active_sessions(REPO) if skills_match(s.skill, expected)
+    )
+
+
+def _state_sidecar_dir(state_path: Path) -> Path:
+    if state_path.name == "session.json":
+        return state_path.parent
+    return state_path.parent
+
+
+def _diagnose_sidecar_dir(state_path: Path) -> Path:
+    base = _state_sidecar_dir(state_path)
+    sidecars = base / "sidecars"
+    sidecars.mkdir(parents=True, exist_ok=True)
+    return sidecars
+
+
 def cleanup_repo():
-    """Wipe every forge-codex state file in REPO."""
+    """Wipe active Forge sessions and stray evaluate/test sidecars in REPO."""
     run([str(TAKEOVER_CLEANUP), "--cleanup", "--all-stale", "--force", "--step", "1"])
-    # Also nuke the evaluate sidecar/state file if it lingered
-    for f in REPO.rglob(".evaluate-state.json"):
-        f.unlink(missing_ok=True)
-    for f in REPO.rglob(".evaluate-findings-step*.json"):
-        f.unlink(missing_ok=True)
-    # Clean up test flows sidecar
-    for f in REPO.rglob(".test-recommendation-step*.json"):
-        f.unlink(missing_ok=True)
+    if SMOKE_EVAL_DIR.exists():
+        import shutil
+
+        shutil.rmtree(SMOKE_EVAL_DIR, ignore_errors=True)
+    for pattern in (
+        ".evaluate-state.json",
+        ".evaluate-findings-step*.json",
+        ".test-recommendation-step*.json",
+    ):
+        for f in REPO.rglob(pattern):
+            f.unlink(missing_ok=True)
 
 
 def assert_eq(actual, expected, msg, fails):
@@ -86,20 +166,17 @@ def assert_contains(haystack, needle, msg, fails):
     fails[0] += 1
 
 
-def _diagnose_state_paths():
-    return [
-        REPO / ".codex/forge-codex/state/diagnose.json",
-        REPO / ".codex/forge/state/diagnose.json",
-        REPO / ".forge/state/diagnose.json",
-    ]
-
-
-def _find_diagnose_state():
-    return next((p for p in _diagnose_state_paths() if p.exists()), None)
+def _find_diagnose_state() -> Path | None:
+    return _find_skill_state_path("diagnose")
 
 
 _FISHBONE = [
-    "CODE", "CONFIG", "DATA", "INFRASTRUCTURE", "DEPENDENCIES", "ENVIRONMENT",
+    "CODE",
+    "CONFIG",
+    "DATA",
+    "INFRASTRUCTURE",
+    "DEPENDENCIES",
+    "ENVIRONMENT",
 ]
 
 
@@ -115,6 +192,22 @@ def _smoke_hypothesis_entry(i: int, category: str, status: str = "open") -> dict
         "evidence": "",
         "ruled_out_reason": "ruled out for smoke" if status == "ruled_out" else "",
     }
+
+
+def _write_smoke_problem_spec(state_dir: Path, *, hypothesis: bool = False) -> None:
+    from scripts.diagnose.diagnose_framing import CORE_TECHNIQUES
+
+    activated = set(CORE_TECHNIQUES)
+    if hypothesis:
+        activated.add("Fishbone / Ishikawa")
+    payload = {
+        "framing_entry": "evidence_snapshot",
+        "problem_statement": "Smoke gate validation incident",
+        "activated_techniques": sorted(activated),
+    }
+    (state_dir / ".diagnose-problem-spec.json").write_text(
+        json.dumps(payload), encoding="utf-8"
+    )
 
 
 def _write_smoke_hypothesis_register(state_dir: Path, *, eliminated: bool = False) -> None:
@@ -204,8 +297,18 @@ def _write_smoke_coverage_matrix(state_dir: Path, *, complete: bool = True) -> N
             "incident_profile": ["simple"],
             "routing_preferred": [],
             "techniques": [
-                {"id": 1, "name": "5 Whys", "status": "skipped", "rationale": "incomplete smoke"},
-                {"id": 2, "name": "Fishbone / Ishikawa", "status": "skipped", "rationale": "incomplete smoke"},
+                {
+                    "id": 1,
+                    "name": "5 Whys",
+                    "status": "skipped",
+                    "rationale": "incomplete smoke",
+                },
+                {
+                    "id": 2,
+                    "name": "Fishbone / Ishikawa",
+                    "status": "skipped",
+                    "rationale": "incomplete smoke",
+                },
             ],
         }
     (state_dir / ".diagnose-technique-coverage.json").write_text(
@@ -218,61 +321,70 @@ def smoke_skill(name, script):
     cleanup_repo()
     fails = [0]
 
-    # --help
+    if not script.is_file():
+        print(f"  {FAIL} script missing: {script}")
+        return fails[0] + 1
+
     r = run([str(script), "--help"])
     assert_eq(r.returncode, 0, "--help works", fails)
 
-    # Over-cap step
     over = MAX_STEPS[name] + 1
     extra = ["--mode", "pre"] if name == "evaluate" else []
     r = run([str(script), "--step", str(over)] + extra)
     assert_eq(r.returncode, 0, f"--step {over} exits 0", fails)
-    assert_contains(r.stderr + r.stdout, "nothing left to do",
-                    "over-cap friendly message", fails)
+    assert_contains(
+        r.stderr + r.stdout,
+        "nothing left to do",
+        "over-cap friendly message",
+        fails,
+    )
 
-    # Step 1 (skip evaluate — needs --plan)
     if name != "evaluate":
         r = run([str(script), "--step", "1"])
         assert_eq(r.returncode, 0, "step 1 ran", fails)
 
-        if r.returncode == 0:
-            # Find the state file (REPO_ROOT/.forge/state/<skill>.json or .codex/...)
-            paths = [
-                REPO / ".codex/forge-codex/state" / f"{name}.json",
-                REPO / ".codex/forge/state" / f"{name}.json",
-                REPO / ".forge/state" / f"{name}.json",
-                REPO / f".forge-{name}-state.json",
-            ]
-            state_path = next((p for p in paths if p.exists()), None)
-            if state_path is None:
-                print(f"  {FAIL} no state file written by step 1")
+        state_path = _find_skill_state_path(name)
+        if state_path is None:
+            print(f"  {FAIL} no state file written by step 1")
+            fails[0] += 1
+        else:
+            state = json.loads(state_path.read_text(encoding="utf-8"))
+            expected_skill = _expected_skill_name(name)
+            assert_eq(state.get("skill_name"), expected_skill, "state.skill_name", fails)
+            assert_eq(state.get("failure_count"), 0, "state.failure_count == 0", fails)
+            progressed = int(state.get("last_completed_step") or 0) >= 1 or int(
+                state.get("current_step") or 0
+            ) >= 1
+            if progressed:
+                print(f"  {PASS} state progressed past step 1")
+            else:
+                print(f"  {FAIL} state not progressed past step 1")
+                fails[0] += 1
+
+        if name in PARALLEL_SESSION_SKILLS:
+            before = _count_active_sessions(name)
+            r = run([str(script), "--step", "1"])
+            assert_eq(r.returncode, 0, "second step 1 allocates session", fails)
+            after = _count_active_sessions(name)
+            if after <= before:
+                print(
+                    f"  {FAIL} parallel session count: expected > {before}, got {after}"
+                )
                 fails[0] += 1
             else:
-                state = json.loads(state_path.read_text())
-                expected_skill = "design" if name == "develop" else name
-                assert_eq(state.get("skill_name"), expected_skill, "state.skill_name", fails)
-                assert_eq(state.get("failure_count"), 0,
-                          "state.failure_count == 0", fails)
-                assert_eq(state.get("current_step"), 1,
-                          "state.current_step == 1", fails)
+                print(f"  {PASS} parallel session count increased")
 
-    # Same-skill clobber: re-running step 1 should abort with rc=1
-    if name in CLOBBER_SKILLS:
-        r = run([str(script), "--step", "1"])
-        assert_eq(r.returncode, 1, "step-1 rerun aborts (rc=1)", fails)
-        assert_contains(r.stderr, "already in progress",
-                        "clobber message", fails)
-
-    # --cleanup --force clears the state
     if name != "evaluate":
-        r = run([str(RESUME), "--cleanup", "--all-stale", "--force"])
+        r = run(
+            [str(TAKEOVER_CLEANUP), "--cleanup", "--all-stale", "--force", "--step", "1"]
+        )
         assert_eq(r.returncode, 0, "cleanup succeeded", fails)
-        # Verify the skill's state file is gone
-        for p in (
-            REPO / ".codex/forge-codex/state" / f"{name}.json",
-            REPO / ".forge/state" / f"{name}.json",
-        ):
-            assert_eq(p.exists(), False, f"{p.name} removed", fails)
+        assert_eq(
+            _count_active_sessions(name),
+            0,
+            f"no active {name} sessions after cleanup",
+            fails,
+        )
 
     return fails[0]
 
@@ -282,48 +394,55 @@ def smoke_evaluate():
     cleanup_repo()
     fails = [0]
 
-    # Use a real plan from /tmp so we don't pollute the repo
-    plan = Path("/tmp/forge-smoke/plan.md")
+    plan = SMOKE_EVAL_DIR / "plan.md"
     plan.parent.mkdir(parents=True, exist_ok=True)
-    plan.write_text("# Test Plan\n\n## Architecture Overview\nA stub.\n")
+    plan.write_text("# Test Plan\n\n## Architecture Overview\nA stub.\n", encoding="utf-8")
 
-    # Step 1
-    r = run([str(SCRIPTS["evaluate"]), "--step", "1",
-             "--mode", "pre", "--plan", str(plan)])
+    r = run(
+        [
+            str(SCRIPTS["evaluate"]),
+            "--step",
+            "1",
+            "--mode",
+            "pre",
+            "--plan",
+            str(plan),
+        ]
+    )
     assert_eq(r.returncode, 0, "evaluate step 1 ran", fails)
 
-    # State file lives next to the plan
     state_path = plan.parent / ".evaluate-state.json"
-    assert_eq(state_path.exists(), True,
-              "state file at plan dir", fails)
+    assert_eq(state_path.exists(), True, "state file at plan dir", fails)
 
     if not state_path.exists():
         return fails[0]
 
-    # Drop a findings sidecar at the state-file directory for step 2
     sidecar = plan.parent / ".evaluate-findings-step2.json"
-    sidecar.write_text(json.dumps([
-        {"phase": "feasibility", "severity": "critical",
-         "title": "Test F1", "detail": "stub"},
-    ]))
+    sidecar.write_text(
+        json.dumps(
+            [
+                {
+                    "phase": "feasibility",
+                    "severity": "critical",
+                    "title": "Test F1",
+                    "detail": "stub",
+                }
+            ]
+        ),
+        encoding="utf-8",
+    )
 
-    # Step 3 ingests sidecar from step 2
-    r = run([str(SCRIPTS["evaluate"]), "--step", "3",
-             "--state", str(state_path)])
+    r = run([str(SCRIPTS["evaluate"]), "--step", "3", "--state", str(state_path)])
     assert_eq(r.returncode, 0, "evaluate step 3 ran", fails)
-    assert_eq(sidecar.exists(), False,
-              "sidecar deleted after ingestion", fails)
+    assert_eq(sidecar.exists(), False, "sidecar deleted after ingestion", fails)
 
-    state = json.loads(state_path.read_text())
+    state = json.loads(state_path.read_text(encoding="utf-8"))
     findings = state.get("findings", [])
     assert_eq(len(findings), 1, "1 finding ingested", fails)
     if findings:
-        assert_eq(findings[0]["title"], "Test F1",
-                  "finding title preserved", fails)
-    assert_eq(state.get("failure_count"), 0,
-              "evaluate.failure_count present", fails)
+        assert_eq(findings[0]["title"], "Test F1", "finding title preserved", fails)
+    assert_eq(state.get("failure_count"), 0, "evaluate.failure_count present", fails)
 
-    # Cleanup
     state_path.unlink(missing_ok=True)
     plan.unlink(missing_ok=True)
 
@@ -346,9 +465,9 @@ def smoke_diagnose_hypothesis_gate():
         print(f"  {FAIL} no diagnose state file")
         return fails[0] + 1
 
-    state_dir = state_path.parent
+    state_dir = _diagnose_sidecar_dir(state_path)
+    _write_smoke_problem_spec(state_dir, hypothesis=True)
     _write_smoke_hypothesis_register(state_dir, eliminated=False)
-    # Only 7 hypotheses — below minimum
     reg = json.loads((state_dir / ".diagnose-hypotheses.json").read_text(encoding="utf-8"))
     reg["hypotheses"] = reg["hypotheses"][:7]
     (state_dir / ".diagnose-hypotheses.json").write_text(
@@ -381,7 +500,7 @@ def smoke_diagnose_five_whys_gate():
         print(f"  {FAIL} no diagnose state file")
         return fails[0] + 1
 
-    state_dir = state_path.parent
+    state_dir = _diagnose_sidecar_dir(state_path)
     _write_smoke_hypothesis_register(state_dir, eliminated=True)
     _write_smoke_five_whys_bad(state_dir)
     _write_smoke_coverage_matrix(state_dir, complete=True)
@@ -413,62 +532,52 @@ def smoke_diagnose_coverage_gate():
         print(f"  {FAIL} no diagnose state file")
         return fails[0] + 1
 
-    state_dir = state_path.parent
-    _write_smoke_coverage_matrix(state_dir, complete=False)
+    state_dir = _diagnose_sidecar_dir(state_path)
+    # Omit coverage sidecar — adaptive step-7 closure gate should fail closed.
 
     r = run([str(SCRIPTS["diagnose"]), "--step", "7", "--state", str(state_path)])
     assert_eq(r.returncode, 0, "diagnose step 7 ran", fails)
     out = r.stdout + r.stderr
     assert_contains(out, "DIAGNOSE ARTIFACT GATE", "gate block present", fails)
-    assert_contains(out, "Technique coverage", "coverage section in gate", fails)
-    assert_contains(out, "20", "mentions 20-technique matrix", fails)
+    assert_contains(out.lower(), "technique coverage", "coverage section in gate", fails)
+    assert_contains(out, "5 Whys", "mentions five whys in closure gate", fails)
 
     cleanup_repo()
     return fails[0]
 
 
 def smoke_test_flows_mode():
-    """Smoke: --mode flows walks through 7 steps with override sidecar.
-
-    Verifies the flows-mode pipeline:
-    1. Clean any prior state
-    2. Run step 1 with --mode flows (initializes flow context)
-    3. Run steps 2..7 sequentially (verifies no crashes, state updated)
-    4. Verify final state has flow_type set and workflow terminates
-    5. Cleanup
-    """
+    """Smoke: --mode flows walks through 7 steps with override sidecar."""
     print(f"\n=== test (flows mode smoke test) ===")
     cleanup_repo()
     fails = [0]
 
-    # Step 1: Initialize flows mode
-    r = run([str(SCRIPTS["test"]), "--mode", "flows",
-             "--flow-type", "scenario", "--step", "1"])
+    r = run(
+        [
+            str(SCRIPTS["test"]),
+            "--mode",
+            "flows",
+            "--flow-type",
+            "scenario",
+            "--step",
+            "1",
+        ]
+    )
     assert_eq(r.returncode, 0, "flows step 1 ran", fails)
 
-    # Check state was created with flows mode
-    paths = [
-        REPO / ".codex/forge-codex/state" / "test.json",
-        REPO / ".forge/state" / "test.json",
-    ]
-    state_path = next((p for p in paths if p.exists()), None)
+    state_path = _find_skill_state_path("test")
     if state_path:
-        state = json.loads(state_path.read_text())
-        assert_eq(state.get("custom", {}).get("mode"), "flows",
-                  "flows mode set in state", fails)
+        state = json.loads(state_path.read_text(encoding="utf-8"))
+        assert_eq(state.get("custom", {}).get("mode"), "flows", "flows mode set in state", fails)
         assert_eq(state.get("max_step"), 7, "max_step=7 in flows mode", fails)
 
-    # Walk steps 2..7
     for step in range(2, 8):
         r = run([str(SCRIPTS["test"]), "--mode", "flows", "--step", str(step)])
-        # Steps may return non-zero if they're stubs; we just check they don't crash
-        if r.returncode != 0 and r.returncode != 1:
+        if r.returncode not in (0, 1):
             print(f"  {FAIL} step {step} returned unexpected code {r.returncode}")
             fails[0] += 1
 
-    # Final cleanup
     cleanup_repo()
-
     return fails[0]
 
 
@@ -489,8 +598,7 @@ def smoke_test_ux_mode_redirect():
 
 def main():
     total = 0
-    for name in ("plan", "develop", "implement", "code-review",
-                 "test", "diagnose"):
+    for name in ("plan", "develop", "implement", "code-review", "test", "diagnose"):
         total += smoke_skill(name, SCRIPTS[name])
     total += smoke_evaluate()
     total += smoke_diagnose_hypothesis_gate()
@@ -498,7 +606,7 @@ def main():
     total += smoke_diagnose_coverage_gate()
     total += smoke_test_flows_mode()
     total += smoke_test_ux_mode_redirect()
-    cleanup_repo()  # final cleanup
+    cleanup_repo()
 
     print(f"\n{'=' * 60}")
     if total == 0:

@@ -7,6 +7,10 @@ Confirm and configure the review mode for this code review session.
 **Mode:** {{MODE}} ({{MODE_DISPLAY}})
 **Target:** {{TARGET}}
 **Quick mode:** {{QUICK_MODE}}
+**Effort:** {{EFFORT}}
+**Structural probes:** {{STRUCTURAL_ENABLED}}
+
+{{EFFORT_CONFIG_SECTION}}
 
 ## Mode Details
 

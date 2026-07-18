@@ -22,4 +22,6 @@ Runs at **ship** only (`forge ship --step 1`). This workflow does not print GRAP
 
 ## What you run (agent)
 
+**Must run:** `forge sketch --step 1` (the orchestrator script) before any other work — do not skip straight to manual investigation/analysis.
+
 Run **sketch** at step one. Synthesis every few exchanges; re-run step 2 to continue; step 3 only after the user confirms ready for design.

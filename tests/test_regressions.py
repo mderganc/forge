@@ -591,16 +591,9 @@ def test_evaluate_findings_sidecar_tolerates_malformed_json(tmp_path: Path, caps
 
 def test_resume_cleanup_dry_run_does_not_delete(fresh_state_dir):
     """Run resume.py --cleanup as a subprocess; expect dry-run by default."""
-    # Create a state file with completed_at set (eligible for cleanup).
-    state_dir = fresh_state_dir / ".codex" / "forge-codex" / "state"
-    state_dir.mkdir(parents=True)
-    target = state_dir / "develop.json"
-    target.write_text(json.dumps({
-        "skill_name": "develop",
-        "current_step": 7,
-        "last_completed_step": 7,
-        "completed_at": "2026-05-07T00:00:00+00:00",
-    }))
+    from tests.helpers.session_fixtures import write_completed_flat_state
+
+    target = write_completed_flat_state(fresh_state_dir, "develop")
 
     result = subprocess.run(
         [sys.executable, str(SCRIPTS / "takeover" / "takeover.py"), "--cleanup"],
@@ -615,15 +608,9 @@ def test_resume_cleanup_dry_run_does_not_delete(fresh_state_dir):
 
 
 def test_resume_cleanup_force_deletes(fresh_state_dir):
-    state_dir = fresh_state_dir / ".codex" / "forge-codex" / "state"
-    state_dir.mkdir(parents=True)
-    target = state_dir / "develop.json"
-    target.write_text(json.dumps({
-        "skill_name": "develop",
-        "current_step": 7,
-        "last_completed_step": 7,
-        "completed_at": "2026-05-07T00:00:00+00:00",
-    }))
+    from tests.helpers.session_fixtures import write_completed_flat_state
+
+    target = write_completed_flat_state(fresh_state_dir, "develop")
 
     result = subprocess.run(
         [sys.executable, str(SCRIPTS / "takeover" / "takeover.py"), "--cleanup", "--force"],
@@ -637,15 +624,9 @@ def test_resume_cleanup_force_deletes(fresh_state_dir):
 
 
 def test_resume_cleanup_handles_legacy_complete_without_completed_at(fresh_state_dir):
-    state_dir = fresh_state_dir / ".codex" / "forge-codex" / "state"
-    state_dir.mkdir(parents=True)
-    target = state_dir / "plan.json"
-    target.write_text(json.dumps({
-        "skill_name": "plan",
-        "current_step": 7,
-        "last_completed_step": 7,
-        "max_step": 7,
-    }))
+    from tests.helpers.session_fixtures import write_stale_flat_state
+
+    target = write_stale_flat_state(fresh_state_dir, "plan")
 
     result = subprocess.run(
         [sys.executable, str(SCRIPTS / "takeover" / "takeover.py"), "--cleanup"],
@@ -780,7 +761,7 @@ def test_auto_close_abandoned_mid_pipeline_code_review_when_starting_design(
     from scripts.shared.orchestrator import auto_close_superseded_sessions
 
     monkeypatch.setenv("FORGE_STEP1_ABANDON_HOURS", "1")
-    monkeypatch.setenv("FORGE_STALE_SESSION_HOURS", "48")
+    monkeypatch.setenv("FORGE_STALE_SESSION_HOURS", "1")
     state_dir, _mem = _runtime_dirs(fresh_state_dir)
     old_touch = (datetime.now(timezone.utc) - timedelta(hours=3)).isoformat()
     review_path = _write_active_state(
@@ -2109,7 +2090,7 @@ def test_save_state_writes_resume_context_snapshot(fresh_state_dir):
     rc = runtime_state_dir() / "resume-context.json"
     assert rc.is_file(), "resume-context.json should exist after save_state"
     data = json.loads(rc.read_text(encoding="utf-8"))
-    assert data.get("schema_version") == 1
+    assert data.get("schema_version") == 2
     assert data.get("skill") == "plan"
     assert data.get("current_step") == 2
     syn = runtime_memory_dir() / "forge-memory-synthesis.md"

@@ -9,7 +9,6 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from scripts.diagnose.five_whys_validate import is_symptom_level, restates_symptom
 from scripts.diagnose.text_similarity import jaccard, normalize_statement, word_set
 
 REGISTER_FILENAME = ".diagnose-hypotheses.json"
@@ -107,40 +106,20 @@ def validate_register(
     categories: set[str] = set()
     statements: list[str] = []
 
+    from scripts.diagnose.hypothesis_validation import validate_hypothesis_entry
+
     for idx, h in enumerate(hypotheses):
         if not isinstance(h, dict):
             issues.append(f"Hypothesis entry {idx + 1} is not an object.")
             continue
-        hid = h.get("id")
-        if not hid or not str(hid).strip():
-            issues.append(f"Hypothesis entry {idx + 1} missing non-empty 'id'.")
-        elif str(hid) in seen_ids:
-            issues.append(f"Duplicate hypothesis id: {hid!r}.")
-        else:
-            seen_ids.add(str(hid))
-
-        statement = h.get("statement")
-        if not statement or not str(statement).strip():
-            issues.append(f"Hypothesis {hid or idx + 1} missing non-empty 'statement'.")
-        else:
-            statements.append(str(statement))
-
-        cat = h.get("category")
-        if cat:
-            cat_upper = str(cat).strip().upper()
-            if cat_upper not in FISHBONE_CATEGORIES:
-                issues.append(
-                    f"Hypothesis {hid or idx + 1} has invalid category {cat!r} "
-                    f"(expected one of {sorted(FISHBONE_CATEGORIES)})."
-                )
-            else:
-                categories.add(cat_upper)
-
-        status = h.get("status", "open")
-        if str(status) not in VALID_STATUSES:
-            issues.append(
-                f"Hypothesis {hid or idx + 1} has invalid status {status!r}."
-            )
+        validate_hypothesis_entry(
+            h,
+            idx,
+            issues,
+            categories=categories,
+            seen_ids=seen_ids,
+            statements=statements,
+        )
 
     if len(categories) < _MIN_FISHBONE_CATEGORIES:
         issues.append(
@@ -193,29 +172,12 @@ def validate_elimination(
     if isinstance(data.get("symptom"), str):
         symptom = data["symptom"].strip()
 
+    from scripts.diagnose.hypothesis_validation import validate_confirmed_and_ruled_out
+
     for h in hypotheses:
         if not isinstance(h, dict):
             continue
-        if str(h.get("status")) == "confirmed":
-            statement = str(h.get("statement", "")).strip()
-            hid = h.get("id", "?")
-            if statement and is_symptom_level(statement):
-                issues.append(
-                    f"Hypothesis {hid} is confirmed but its statement is symptom-level "
-                    f"({statement!r}) — confirm a changeable mechanism, not the failure mode."
-                )
-            elif statement and symptom and restates_symptom(statement, symptom):
-                issues.append(
-                    f"Hypothesis {hid} is confirmed but restates the symptom "
-                    f"({statement!r}) — state the underlying cause."
-                )
-
-        if str(h.get("status")) == "ruled_out":
-            reason = h.get("ruled_out_reason")
-            if not reason or not str(reason).strip():
-                issues.append(
-                    f"Hypothesis {h.get('id', '?')} is ruled_out but missing 'ruled_out_reason'."
-                )
+        validate_confirmed_and_ruled_out(h, issues, symptom=symptom)
 
     if plausible > 2 and open_count > 0:
         issues.append(

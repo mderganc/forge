@@ -130,6 +130,26 @@ def ingest_recommendation_sidecar(state_dir: Path) -> dict:
     return data
 
 
+def scope_sidecar_path(state_dir: Path) -> Path:
+    return state_dir / ".test-scope-step3.json"
+
+
+def ingest_scope_sidecar(state_dir: Path) -> dict | None:
+    """Load optional scope sidecar into a dict; return None if missing.
+
+    Does not delete the file (scope may be re-read). Malformed JSON → stderr warning, None.
+    """
+    path = scope_sidecar_path(state_dir)
+    if not path.is_file():
+        return None
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError) as e:
+        print(f"WARNING: failed to read scope sidecar {path}: {e}", file=sys.stderr)
+        return None
+    return data if isinstance(data, dict) else None
+
+
 def log_override_to_stderr(flow_type: str) -> None:
     """Single-line stderr log for adoption tracking.
 

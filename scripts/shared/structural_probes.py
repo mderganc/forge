@@ -104,6 +104,9 @@ PROBE_PYSCN_MAX_FILES = 40
 # Per-tool / per-file subprocess budget (pyscn runs one file per invocation).
 PROBE_TOOL_TIMEOUT_SEC = 90
 PROBE_PYSCN_FILE_TIMEOUT_SEC = 90
+# Sentinel exit code for launch crashes / timeouts — distinct from the normal
+# 0 (clean) / 1 (tool ran, reported findings) convention most probe CLIs use.
+PROBE_CRASH_EXIT_CODE = 124
 
 
 def _probe_progress(message: str) -> None:
@@ -365,6 +368,37 @@ def _git_collect_token_diffs(
     return rows
 
 
+def _gh_pr_changed_paths(repo_root: Path, pr_number: str) -> list[str]:
+    """Changed files for a PR number via ``gh pr diff --name-only`` (best effort)."""
+    import subprocess
+
+    try:
+        proc = subprocess.run(
+            ["gh", "pr", "diff", pr_number, "--name-only"],
+            cwd=str(repo_root),
+            capture_output=True,
+            text=True,
+            timeout=PROBE_GIT_TIMEOUT_SEC,
+            encoding="utf-8",
+            errors="replace",
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return []
+    if proc.returncode != 0:
+        return []
+    return [ln.strip() for ln in proc.stdout.splitlines() if ln.strip()]
+
+
+def _gh_collect_pr_number_diffs(repo_root: Path, tokens: list[str]) -> list[str]:
+    """Resolve numeric / ``#123`` style PR tokens to changed paths via ``gh``."""
+    rows: list[str] = []
+    for tok in tokens:
+        candidate = tok.lstrip("#").strip()
+        if candidate.isdigit():
+            rows.extend(_gh_pr_changed_paths(repo_root, candidate))
+    return rows
+
+
 def _prefer_source_scope_paths(paths: list[str]) -> list[str]:
     source_suffixes = (".py", ".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs")
     preferred = [
@@ -400,6 +434,7 @@ def _git_changed_paths_for_review(
 
     _dedupe_extend_paths(paths, seen, _git_collect_merge_base_diffs(repo_root, base))
     _dedupe_extend_paths(paths, seen, _git_collect_token_diffs(repo_root, tokens, base))
+    _dedupe_extend_paths(paths, seen, _gh_collect_pr_number_diffs(repo_root, tokens))
 
     if mode == "pr" and not paths:
         _dedupe_extend_paths(
@@ -431,7 +466,13 @@ def resolve_effective_scope_paths(
     step: int,
     mode: str | None = None,
 ) -> tuple[list[str], str]:
-    """Scope Python probes to changed files; avoid repo-root scans when unsafe."""
+    """Scope Python probes to changed files; avoid repo-root scans when unsafe.
+
+    ``scope_paths`` may contain non-path tokens (``HEAD``, PR numbers, branch
+    names — e.g. from ``code-review --target``). Those tokens are resolved to
+    changed files via git/gh; this never returns a raw non-path token as a
+    probe scope path. When nothing can be resolved, returns an empty scope.
+    """
     slug = skill_name.strip().lower()
     scoped_skills = (
         (slug == "code-review" and step == 3)
@@ -444,17 +485,25 @@ def resolve_effective_scope_paths(
 
     tokens = list(scope_paths or [])
     note_parts: list[str] = []
+    broad = is_broad_probe_scope(tokens)
 
-    if is_broad_probe_scope(tokens):
-        changed = _git_changed_paths_for_review(repo_root, tokens, mode=mode)
-        py_changed = filter_python_scope_paths(repo_root, changed)
-        if py_changed:
-            note_parts.append(
-                f"Scoped Python probes to {len(py_changed)} changed .py file(s) from git diff."
-            )
-            return py_changed, " ".join(note_parts)
+    if not broad:
+        # Tokens may already be real file paths (e.g. explicit --target file list).
+        filtered = filter_python_scope_paths(repo_root, tokens)
+        if filtered:
+            if filtered != tokens:
+                note_parts.append("Filtered probe scope_paths to existing Python paths.")
+            return filtered, " ".join(note_parts)
 
-    if is_broad_probe_scope(tokens) and repo_has_large_ignored_dirs(repo_root):
+    changed = _git_changed_paths_for_review(repo_root, tokens, mode=mode)
+    py_changed = filter_python_scope_paths(repo_root, changed)
+    if py_changed:
+        note_parts.append(
+            f"Scoped Python probes to {len(py_changed)} changed .py file(s) from git diff."
+        )
+        return py_changed, " ".join(note_parts)
+
+    if repo_has_large_ignored_dirs(repo_root):
         p_root = python_probe_root(repo_root)
         if p_root.resolve() != repo_root.resolve():
             rel = _rel_path(p_root, repo_root)
@@ -468,10 +517,15 @@ def resolve_effective_scope_paths(
         )
         return [], " ".join(note_parts)
 
-    filtered = filter_python_scope_paths(repo_root, tokens)
-    if filtered and filtered != tokens:
-        note_parts.append("Filtered probe scope_paths to existing Python paths.")
-    return filtered or list(tokens), " ".join(note_parts)
+    if not broad and tokens:
+        note_parts.append(
+            "Scope tokens were not filesystem paths (ref/PR/branch) and no changed "
+            "Python files were resolved via git/gh; skipping Python probe scope "
+            "rather than passing non-path tokens through."
+        )
+        return [], " ".join(note_parts)
+
+    return [], " ".join(note_parts)
 
 
 def _ensure_plan_baseline_probe_plan(
@@ -1194,7 +1248,8 @@ def _run_cmd(cmd: list[str], *, cwd: Path, timeout: int) -> tuple[int, str]:
     try:
         proc = subprocess.Popen(cmd, **popen_kwargs)
     except OSError as exc:
-        return 1, str(exc)
+        # Distinct from exit 1 (tool ran, reported findings) — this is a launch crash.
+        return PROBE_CRASH_EXIT_CODE, str(exc)
 
     try:
         stdout, stderr = proc.communicate(timeout=timeout)
@@ -1206,10 +1261,13 @@ def _run_cmd(cmd: list[str], *, cwd: Path, timeout: int) -> tuple[int, str]:
             stdout, stderr = proc.communicate(timeout=5)
         except (subprocess.TimeoutExpired, OSError, ValueError):
             stdout, stderr = "", ""
-        return 1, f"TimeoutExpired: command exceeded {timeout}s: {' '.join(cmd)}"
+        return (
+            PROBE_CRASH_EXIT_CODE,
+            f"TimeoutExpired: command exceeded {timeout}s: {' '.join(cmd)}",
+        )
     except OSError as exc:
         _kill_process_tree(proc)
-        return 1, str(exc)
+        return PROBE_CRASH_EXIT_CODE, str(exc)
 
     out = (stdout or "") + (stderr or "")
     return proc.returncode, out.strip()

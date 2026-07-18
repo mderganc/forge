@@ -19,6 +19,7 @@ def run_workflow_step(
     all_phase_todos: dict[int, list[dict]] | None = None,
     handoff_menu: str | None = None,
     require_confirmation: bool | None = None,
+    await_same_step: bool = False,
     title: str | None = None,
 ) -> str:
     """Format a workflow step prompt for stdout (header, opt-in, todos, body, continuation)."""
@@ -35,5 +36,6 @@ def run_workflow_step(
         all_phase_todos=all_phase_todos,
         handoff_menu=handoff_menu,
         require_confirmation=require_confirmation,
+        await_same_step=await_same_step,
         title=title,
     )

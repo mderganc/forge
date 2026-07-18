@@ -469,58 +469,9 @@ def build_skill_todos(
 
 def parse_continuation_command(cmd: str) -> tuple[int | None, str | None]:
     """Extract step (from ``--step`` or ``--phase``) and ``--state`` from a continuation line."""
-    if not cmd.strip():
-        return None, None
-    try:
-        parts = shlex.split(cmd)
-    except ValueError:
-        return None, None
-    from scripts.shared.skill_phases import step_for_phase
+    from scripts.shared.continuation_parser import parse_continuation_command as _parse
 
-    next_step: int | None = None
-    state_path: str | None = None
-    phase_raw: str | None = None
-    skill_token: str | None = None
-    i = 0
-    while i < len(parts):
-        token = parts[i]
-        if token.startswith("/forge:") or token.startswith("$forge:"):
-            skill_token = token.split(":", 1)[1]
-            i += 1
-            continue
-        if token == "--step" and i + 1 < len(parts):
-            try:
-                next_step = int(parts[i + 1])
-            except ValueError:
-                pass
-            i += 2
-            continue
-        if token == "--phase" and i + 1 < len(parts):
-            phase_raw = parts[i + 1]
-            i += 2
-            continue
-        if token == "--state" and i + 1 < len(parts):
-            state_path = parts[i + 1]
-            i += 2
-            continue
-        if token == "--session" and i + 1 < len(parts):
-            # Resolve to session.json path for resume hints
-            sid = parts[i + 1]
-            try:
-                from scripts.shared.session_store import session_json_path
-
-                state_path = str(session_json_path(sid))
-            except Exception:
-                state_path = sid
-            i += 2
-            continue
-        i += 1
-    if next_step is None and phase_raw and skill_token:
-        try:
-            next_step = step_for_phase(skill_token, phase_raw)
-        except SystemExit:
-            pass
-    return next_step, state_path
+    return _parse(cmd)
 
 
 def format_same_skill_continuation(
@@ -529,16 +480,28 @@ def format_same_skill_continuation(
     *,
     require_confirmation: bool = False,
     phase_label: str | None = None,
+    await_same_step: bool = False,
 ) -> str:
     """Render same-skill continuation guidance.
 
     By default, deterministic next steps should auto-continue and avoid a
     confirmation prompt. Ask for confirmation only when the continuation target
-    could not be parsed unambiguously.
+    could not be parsed unambiguously, a gate is pending, or the step is
+    re-entrant (``await_same_step``).
     """
     target = phase_label or f"step {next_step}"
     bar = ("-" * 60) if os.environ.get("FORGE_ASCII") == "1" else ("━" * 60)
-    if require_confirmation:
+    if await_same_step:
+        lines = [
+            f"\n\n{bar}",
+            "CONTINUATION",
+            bar,
+            "",
+            f"**Re-run this step** ({target}) after completing the work / gate above.",
+            "",
+            "Do **not** advance to a later phase until this step's requirements pass.",
+        ]
+    elif require_confirmation:
         lines = [
             f"\n\n{bar}",
             "CONTINUATION",
@@ -613,6 +576,7 @@ def format_step_output(
     handoff_menu: str | None = None,
     *,
     require_confirmation: bool | None = None,
+    await_same_step: bool = False,
     title: str | None = None,
 ) -> str:
     """Format step output with title, todos, body, and continuation directive.
@@ -634,6 +598,8 @@ def format_step_output(
         handoff_menu: Optional numbered handoff menu for final-step transitions.
         require_confirmation: When set, overrides auto-continue for same-skill
             continuation (e.g. workflow gates that must wait for user approval).
+        await_same_step: When True, footer tells the agent to re-run this step
+            (gate pending / re-entrant dialogue) instead of auto-advancing.
         title: Optional full title override (default: SKILL — Phase (Step N of M)).
     """
     if title is None:
@@ -668,9 +634,16 @@ def format_step_output(
         output += "\n\n" + handoff_menu
     elif next_cmd:
         ns, sp_ = parse_continuation_command(next_cmd)
-        confirm = require_confirmation if require_confirmation is not None else (ns is None)
+        parsed_ok = ns is not None
         if ns is None:
             ns = step + 1
+        same = bool(await_same_step or (parsed_ok and ns == step))
+        if same:
+            confirm = True
+        elif require_confirmation is not None:
+            confirm = require_confirmation
+        else:
+            confirm = not parsed_ok
         phase_label: str | None = None
         try:
             parts = shlex.split(next_cmd)
@@ -692,6 +665,7 @@ def format_step_output(
             sp_,
             require_confirmation=confirm,
             phase_label=phase_label,
+            await_same_step=same,
         )
     elif cross_skill_next:
         output += "\n\nWORKFLOW COMPLETE — this skill has finished."
@@ -717,10 +691,12 @@ def build_next_command(
     Shown to tooling parsers; same-step prompts use plain language via
     ``format_same_skill_continuation`` instead of echoing this string to users.
     """
-    if step >= max_step:
+    if step >= max_step and next_step is None:
         return ""
     target_step = next_step if next_step is not None else step + 1
     if target_step > max_step:
+        return ""
+    if target_step < 1:
         return ""
     from scripts.shared.skill_phases import agent_skill_token, phase_for_step
     from scripts.shared.workflow_tokens import workflow_invocation_prefix

@@ -13,7 +13,7 @@ You are reviewing the implementation for structural quality.
 
 ## Structural probes (Pass B, optional)
 
-When a **STRUCTURAL PROBES** banner is present: skim `.structural-probes-inventory.json`, edit `.structural-probes-plan.json` if useful (`[]` tools = skip), optionally run `forge structural-probes run --state-dir <state-dir>`, then read `.structural-probes.json` when it exists (`templates/structural-quality-probes.md`). Merge tool findings (default severity: warning until confirmed).
+When a **STRUCTURAL PROBES** banner is present: skim `.structural-probes-inventory.json`, edit `.structural-probes-plan.json` if useful (`[]` tools = skip), optionally run `forge structural-probes run --state-dir <state-dir>`, then read `.structural-probes.json` when it exists (`templates/structural-quality-probes.md`). Merge tool findings (default severity: warning until confirmed). Cite against the same lenses taught upstream (`templates/structural-build-charter.md`): complexity, clones, dead code, cycles, unused exports.
 
 **This post-evaluate step does not dispatch eight Civil Learning subagents** (that Pass B runs on `forge code-review` step 3). Do not block this step waiting for eight `Task` subagents.
 

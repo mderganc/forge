@@ -62,15 +62,15 @@ def test_deviations_write(tmp_path):
 
 
 def test_cleanup_dry_run_no_delete(tmp_path, monkeypatch, capsys):
-    state_dir = tmp_path / ".codex" / "forge" / "state"
-    state_dir.mkdir(parents=True)
-    stale = state_dir / "plan.json"
-    stale.write_text('{"skill_name":"plan","current_step":7,"max_step":7,"last_completed_step":7}', encoding="utf-8")
+    from tests.helpers.session_fixtures import write_stale_flat_state
+
+    stale = write_stale_flat_state(tmp_path, "plan")
     monkeypatch.chdir(tmp_path)
     run_cleanup(force=False, all_stale=False)
     assert stale.exists()
-    out = capsys.readouterr().out
-    assert "Would delete" in out or "dry-run" in out.lower() or "Would delete" in capsys.readouterr().err
+    captured = capsys.readouterr()
+    combined = captured.out + captured.err
+    assert "Would delete" in combined or "dry-run" in combined.lower()
 
 
 def test_takeover_step1_routes(monkeypatch, tmp_path):

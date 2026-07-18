@@ -129,7 +129,11 @@ def build_route_plan(
         )
 
     if len(sessions) > 1:
-        s = sorted(sessions, key=lambda x: x.get("started_at", ""), reverse=True)[0]
+        s = sorted(
+            sessions,
+            key=lambda x: x.get("started_at") or "",
+            reverse=True,
+        )[0]
         inferences.append(
             {
                 "field": "active_session",

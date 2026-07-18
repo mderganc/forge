@@ -247,7 +247,8 @@ def format_eight_agents_dispatch_banner(*, quick_mode: bool = False) -> str:
     )
     if quick_mode:
         lines.append(
-            "_Quick mode: dispatching S3, S4, S8 only (dead code, cycles, AI slop)._"
+            "_Default trio: dispatching S3, S4, S8 only (dead code, cycles, AI slop). "
+            "Full eight: FORGE_STRUCTURAL_EIGHT_AGENTS_FULL=1._"
         )
         lines.append("")
     return "\n".join(lines)

@@ -137,10 +137,15 @@ def test_code_review_step3_uses_detected_repo_root_for_probes(
     import scripts.code_review.code_review as cr
     from scripts.shared.orchestrator import SkillState, save_state
 
-    state_path = app / ".codex" / "forge" / "state" / "code-review-probe-root.json"
+    state_path = app / ".forge" / "state" / "code-review-probe-root.json"
     state_path.parent.mkdir(parents=True, exist_ok=True)
     st = SkillState(skill_name="code-review", max_step=6, current_step=2)
-    st.custom = {"mode": "pr", "target": ".", "target_tokens": ["."]}
+    st.custom = {
+        "mode": "pr",
+        "target": ".",
+        "target_tokens": ["."],
+        "structural_enabled": True,
+    }
     save_state(st, state_path)
 
     monkeypatch.setattr(cr, "load_template", lambda _name: "{{body}}")
@@ -568,17 +573,21 @@ def test_ensure_primary_probe_plan_replaces_reasoning(tmp_path: Path) -> None:
 
 def test_ensure_primary_probe_plan_python_only(tmp_path: Path) -> None:
     (tmp_path / "pyproject.toml").write_text("[project]\nname='x'\n", encoding="utf-8")
+    probe = tmp_path / "scripts" / "shared" / "structural_probes.py"
+    probe.parent.mkdir(parents=True)
+    probe.write_text("x = 1\n", encoding="utf-8")
+    scope = "scripts/shared/structural_probes.py"
     inv = sp.build_stack_inventory(tmp_path)
     plan = sp.ensure_primary_probe_plan(
         {"tools": ["knip"], "reasoning": "test"},
         inv,
         skill_name="code-review",
         step=3,
-        scope_paths=["scripts/shared/structural_probes.py"],
+        scope_paths=[scope],
     )
     assert plan["tools"] == ["pyscn", "skylos"]
     assert "knip" not in plan["tools"]
-    assert plan["scope_paths"] == ["scripts/shared/structural_probes.py"]
+    assert plan["scope_paths"] == [scope]
 
 
 def test_ensure_primary_probe_plan_plan_step2_jscn_pyscn_only(tmp_path: Path) -> None:
@@ -778,7 +787,9 @@ def test_run_probes_respects_plan_tools(tmp_path: Path, monkeypatch: pytest.Monk
     assert "not selected" in by_tool["skylos"]["summary"]
 
 
-def test_code_review_step3_mentions_sidecar(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_code_review_step3_mentions_sidecar(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     """Smoke: step 3 output includes structural-probes when injection runs."""
     import io
     import sys
@@ -786,11 +797,17 @@ def test_code_review_step3_mentions_sidecar(monkeypatch: pytest.MonkeyPatch) -> 
     import scripts.code_review.code_review as cr
     from scripts.shared.orchestrator import SkillState, save_state
 
-    repo = Path(__file__).resolve().parents[1]
-    state = repo / ".codex" / "forge" / "state" / "code-review-structural-smoke.json"
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "pyproject.toml").write_text("[project]\nname='x'\n", encoding="utf-8")
+    state = tmp_path / ".forge" / "state" / "code-review-structural-smoke.json"
     state.parent.mkdir(parents=True, exist_ok=True)
     st = SkillState(skill_name="code-review", max_step=6, current_step=2)
-    st.custom = {"mode": "pr", "target": ".", "target_tokens": ["."]}
+    st.custom = {
+        "mode": "pr",
+        "target": ".",
+        "target_tokens": ["."],
+        "structural_enabled": True,
+    }
     save_state(st, state)
 
     fake_payload = {

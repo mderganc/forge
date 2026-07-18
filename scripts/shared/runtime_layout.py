@@ -259,7 +259,7 @@ def save_state(state: SkillState, path: Path, *, label: str | None = None) -> No
     fd, tmp = tempfile.mkstemp(dir=path.parent, suffix=".tmp")
     try:
         os.close(fd)
-        Path(tmp).write_text(content)
+        Path(tmp).write_text(content, encoding="utf-8")
         Path(tmp).replace(path)
     except BaseException:
         Path(tmp).unlink(missing_ok=True)
@@ -286,7 +286,7 @@ def load_state(path: Path) -> SkillState:
     """Load state from JSON file."""
     if not path.exists():
         raise FileNotFoundError(f"No state file at {path}")
-    data = json.loads(path.read_text())
+    data = json.loads(path.read_text(encoding="utf-8"))
     if "skill_name" not in data:
         raise KeyError("State file missing required field: skill_name")
     return SkillState.from_dict(data)

@@ -1,0 +1,18 @@
+# Forge repo pyscn defaults — see docs/pyscn-quality-disposition.md
+# Workflow orchestrators legitimately exceed cyclomatic complexity 10;
+# local/CI checks use 15 unless a scoped probe passes --max-complexity.
+
+[complexity]
+enabled = true
+max_complexity = 15
+low_threshold = 9
+medium_threshold = 19
+
+[dead_code]
+enabled = true
+min_severity = "critical"
+
+[clones]
+# Clone pairs are tracked in docs/pyscn-quality-disposition.md Tier D.
+# Use `pyscn check --skip-clones` in CI and Forge probes for speed.
+min_similarity = 0.8

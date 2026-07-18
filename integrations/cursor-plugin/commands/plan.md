@@ -21,4 +21,6 @@ Runs at **ship** only (`forge ship --step 1`). This workflow does not print GRAP
 
 ## What you run (agent)
 
+**Must run:** `forge plan --step 1` (the orchestrator script) before any other work — do not skip straight to manual investigation/analysis.
+
 Run **plan** at step one. Planning-only — no git mutations.

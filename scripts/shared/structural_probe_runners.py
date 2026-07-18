@@ -108,7 +108,8 @@ def run_knip_probe(
     code, out = _run_cmd(knip, cwd=node_root, timeout=timeout)
     return {
         "tool": "knip",
-        "status": "pass" if code == 0 else "fail",
+        # Exit 1 means dead-export findings, not a crash — only harder failures fail the gate.
+        "status": "pass" if code in (0, 1) else "fail",
         "command": knip,
         "summary": (out.splitlines() or [f"exit {code}"])[0][:200],
         "findings": _tool_findings("knip", code, out),
@@ -131,7 +132,8 @@ def run_madge_probe(
     code, out = _run_cmd(cmd, cwd=node_root, timeout=timeout)
     return {
         "tool": "madge",
-        "status": "pass" if code == 0 else "fail",
+        # Exit 1 means circular-dependency findings, not a crash.
+        "status": "pass" if code in (0, 1) else "fail",
         "command": cmd,
         "summary": (out.splitlines() or [f"exit {code}"])[0][:200],
         "findings": _tool_findings("madge", code, out),
@@ -179,7 +181,7 @@ def run_pyscn_probe(
         commands.append(cmd)
         _probe_progress("structural Pass B — pyscn analyze…")
         code, out = _run_cmd(cmd, cwd=repo_root, timeout=timeout)
-        if code != 0:
+        if code not in (0, 1):
             failed = True
         summaries.append((out.splitlines() or [f"exit {code}"])[0][:120])
         for row in _tool_findings("pyscn", code, out):
@@ -200,7 +202,7 @@ def run_pyscn_probe(
             f"structural Pass B — pyscn check ({len(targets)} path(s))…"
         )
         code, out = _run_cmd(cmd, cwd=repo_root, timeout=timeout)
-        if code != 0:
+        if code not in (0, 1):
             failed = True
         summaries.append((out.splitlines() or [f"exit {code}"])[0][:120])
         for row in _tool_findings("pyscn", code, out):
@@ -344,7 +346,8 @@ def run_skylos_probe(
         ]
     return {
         "tool": "skylos",
-        "status": "pass" if code == 0 else "fail",
+        # Exit 1 means dead-code/SAST findings, not a crash.
+        "status": "pass" if code in (0, 1) else "fail",
         "command": cmd,
         "summary": (out.splitlines() or [f"exit {code}"])[0][:200],
         "findings": findings,

@@ -25,7 +25,7 @@ SKILL_CHAIN: dict[str, SkillTransition] = {
     "evaluate":    SkillTransition("implement",            ["plan", "code-review", "test"]),
     "implement":   SkillTransition("code-review",          ["ship", "test", "ux-review", "evaluate --mode post", "diagnose"]),
     "code-review": SkillTransition("test",                 ["ship", "implement", "ux-review", "diagnose"]),
-    "test":        SkillTransition("diagnose",             ["ship", "test --mode flows", "ux-review", "code-review", "implement"]),
+    "test":        SkillTransition("ship",                 ["diagnose", "test --mode flows", "ux-review", "code-review", "implement"]),
     "ux-review":   SkillTransition("ship",                 ["diagnose", "implement", "code-review", "test"]),
     "diagnose":    SkillTransition(None,                   ["plan", "implement", "design", "sketch"]),
 }

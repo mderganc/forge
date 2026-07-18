@@ -226,6 +226,13 @@ def _passthrough_argv(args: Any) -> list[str]:
     _add_flag(passthrough, "--save-mode-preference", getattr(args, "save_mode_preference", None))
     _add_flag(passthrough, "--team", getattr(args, "team", None))
     _add_flag(passthrough, "--quick", getattr(args, "quick", None))
+    _add_flag(passthrough, "--effort", getattr(args, "effort", None))
+    # Tri-state: None=default, True=--structural, False=--no-structural
+    structural = getattr(args, "structural", None)
+    if structural is True:
+        passthrough.append("--structural")
+    elif structural is False:
+        passthrough.append("--no-structural")
     _add_flag(passthrough, "--force", getattr(args, "force", None))
     _add_flag(passthrough, "--cleanup", getattr(args, "cleanup", None))
     _add_flag(passthrough, "--all-stale", getattr(args, "all_stale", None))

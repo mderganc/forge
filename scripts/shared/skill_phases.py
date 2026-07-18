@@ -21,7 +21,8 @@ _SKILL_PHASE_NAMES: dict[str, dict[str | None, dict[int, str]]] = {
             4: "Investigation Review",
             5: "Solution Dispatch",
             6: "Solution Review & Approval",
-            7: "Handoff",
+            7: "Spec → Issues",
+            8: "Handoff",
         },
     },
     "plan": {
@@ -231,6 +232,11 @@ def phase_for_step(skill_name: str, step: int, *, variant: str | None = None) ->
 
 def step_for_phase(skill_name: str, phase: str, *, variant: str | None = None) -> int:
     """Resolve a phase slug (or step number as string) to a step index."""
+    from scripts.shared.skill_phase_resolve import (
+        resolve_evaluate_step,
+        resolve_generic_step,
+    )
+
     raw = (phase or "").strip()
     if not raw:
         sys.exit("ERROR: --phase requires a non-empty phase name")
@@ -240,50 +246,8 @@ def step_for_phase(skill_name: str, phase: str, *, variant: str | None = None) -
     key = raw.lower().replace("_", "-")
 
     if skill == "evaluate":
-        for prefix in ("pre", "post", "review"):
-            if key.startswith(f"{prefix}-"):
-                return step_for_phase(skill, key[len(prefix) + 1 :], variant=prefix)
-        if variant is not None:
-            index = _slug_index(skill, variant)
-            if key in index:
-                return index[key]
-            known = ", ".join(sorted(index.keys()))
-            sys.exit(
-                f"ERROR: unknown phase {phase!r} for evaluate mode {variant!r}. Known: {known}"
-            )
-        matches: list[tuple[str, int]] = []
-        for mode in ("pre", "post", "review"):
-            idx = _slug_index(skill, mode)
-            if key in idx:
-                matches.append((mode, idx[key]))
-        if not matches:
-            known = ", ".join(
-                sorted(
-                    f"{m}-{s}"
-                    for m in ("pre", "post", "review")
-                    for s in _slug_index(skill, m).keys()
-                )
-            )
-            sys.exit(f"ERROR: unknown phase {phase!r} for evaluate. Known: {known}")
-        steps = {step for _, step in matches}
-        if len(steps) > 1:
-            modes = ", ".join(f"{m} (step {s})" for m, s in matches)
-            sys.exit(
-                f"ERROR: phase {phase!r} is ambiguous for evaluate ({modes}). "
-                "Use --mode or a prefixed slug (e.g. post-discussion)."
-            )
-        return matches[0][1]
-
-    index = _slug_index(skill, variant)
-    if key in index:
-        return index[key]
-    if variant is None:
-        for var_key in _SKILL_PHASE_NAMES.get(skill, {}):
-            idx = _slug_index(skill, var_key if var_key is not None else None)
-            if key in idx:
-                return idx[key]
-    known = ", ".join(sorted(index.keys()))
-    sys.exit(f"ERROR: unknown phase {phase!r} for skill {skill!r}. Known: {known}")
+        return resolve_evaluate_step(skill, key, variant)
+    return resolve_generic_step(skill, key, variant)
 
 
 def _session_dict_from_path(path: Path) -> dict[str, Any]:

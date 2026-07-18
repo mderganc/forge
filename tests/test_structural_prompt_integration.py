@@ -149,6 +149,7 @@ def test_code_review_step3_real_template_probe_gate(
     state.custom["mode"] = "deep"
     state.custom["target"] = "feat/runtime-probe-gates"
     state.custom["target_tokens"] = []
+    state.custom["structural_enabled"] = True
     save_state(state, sess)
 
     monkeypatch.setenv("FORGE_STRUCTURAL_PROBES_MANUAL", "1")

@@ -64,6 +64,8 @@ export FORGE_SKIP_STRUCTURAL_TOOLS=1
 
 Inventory scans use a pruned directory walk (they do **not** descend into `.venv`, `node_modules`, `graphify-out`, or vendored `forge_next-0.*` trees). If step 3/4 still feels slow, set `FORGE_SKIP_STRUCTURAL_TOOLS=1` as above.
 
+**Repo hygiene:** Forge's own Python tree uses [`.pyscn.toml`](../.pyscn.toml) (`max_complexity = 15`) and [`docs/pyscn-quality-disposition.md`](pyscn-quality-disposition.md) for how to treat complexity/clone findings in CI and refactors.
+
 ## What gets installed
 
 | Tool | Stack | Install method |
@@ -100,10 +102,24 @@ Override commands if needed:
 |------|----------|
 | **plan step 2** | Auto-runs **jscn and/or pyscn** only (complexity/clones). Advisory — does not block architecture |
 | **implement step 4** | Auto-runs stack-applicable probes (full set). Soft confirmation if probes fail to run |
-| **code-review step 3** | Auto-runs stack-applicable probes; hard gate for steps 4+ until complete |
+| **code-review step 3** | **Optional** — runs stack-applicable probes only when structural is enabled (see below); hard gate for steps 4+ until complete, when enabled |
 | **evaluate** post step 4 / review step 1 | Inventory/plan by default; auto with `FORGE_STRUCTURAL_PROBES_AUTO=1` |
 
-The **eight Civil Learning subagents** dispatch on **code-review step 3** and **evaluate review step 1** only (default **S3/S4/S8**). See [`templates/structural-quality-probes.md`](../templates/structural-quality-probes.md).
+### Code review: `--effort` and structural probes are optional
+
+`forge code-review` takes **`--effort light|standard|thorough`** (`--quick` is an alias for `--effort light`). Structural probes at step 3 are controlled independently by **`--structural`** / **`--no-structural`**, defaulting from effort:
+
+| Effort | Reviewer team | Structural probes default |
+|--------|----------------|----------------------------|
+| `light` | Architect + QA Reviewer | off |
+| `standard` (default) | Full team | off |
+| `thorough` | Full team | on |
+
+Pass `--structural` / `--no-structural` to override the default for any effort level. When structural probes are **disabled**, step 3 skips probes/eight-agents entirely and steps 4–6 proceed without a probe gate.
+
+**The gate blocks on probe execution status, not on findings.** `probe_status` values that hold the gate `pending` are execution outcomes — `FAILED`, `SKIPPED`, `DEGRADED`, `DEFERRED` (probes didn't run or didn't finish cleanly) — never the number or severity of findings a probe reports. A probe run that completes and reports findings is `OK` and does not block; re-run step 3 or use `--allow-structural-probes-incomplete` (with override reason + follow-up) only when probes genuinely could not execute.
+
+The **eight Civil Learning subagents** dispatch on **code-review step 3** (when structural is enabled) and **evaluate review step 1** only — default **trio**: S3, S4, S8 (dead code, cycles, AI slop). Set `FORGE_STRUCTURAL_EIGHT_AGENTS_FULL=1` for the full eight. See [`templates/structural-quality-probes.md`](../templates/structural-quality-probes.md).
 
 Skip probes: `FORGE_SKIP_STRUCTURAL_TOOLS=1`. Planning-only: `FORGE_STRUCTURAL_PROBES_MANUAL=1`. Skip eight subagents: `FORGE_SKIP_STRUCTURAL_EIGHT_AGENTS=1`. Full eight-agent dispatch: `FORGE_STRUCTURAL_EIGHT_AGENTS_FULL=1`.
 

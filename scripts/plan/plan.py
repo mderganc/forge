@@ -527,8 +527,12 @@ def _load_plan_step_state(
 
 def _finalize_plan_max_step(
     state: SkillState, sp: Path, body: str
-) -> tuple[str, str | None, Path | None, str]:
-    """Handoff completion for final plan step. Returns body, menu, path, summary."""
+) -> tuple[str, str | None, Path | None, str, str | None, bool]:
+    """Handoff completion for final plan step.
+
+    Returns body, menu, path, summary, next_cmd (same-step when incomplete),
+    await_same_step.
+    """
     plan_file = state.custom.get("plan_file")
     if not plan_file:
         sys.exit(
@@ -548,17 +552,36 @@ def _finalize_plan_max_step(
         )
         body += warning
         save_state(state, sp)
+        stay_cmd = build_next_command(
+            SCRIPT_DIR / "plan.py",
+            MAX_STEP,
+            MAX_STEP,
+            next_step=MAX_STEP,
+            state=str(sp),
+        )
         return (
             body,
             None,
             None,
             "Attempted final handoff but plan skeleton markers remain; "
             "session kept open.",
+            stay_cmd,
+            True,
         )
 
     state.mark_step_complete(MAX_STEP)
     state.completed_at = now_iso()
     save_state(state, sp)
+    from scripts.shared.handoff_menu import resolve_handoff_commands
+    from scripts.shared.skill_chain import SKILL_CHAIN
+
+    chain = SKILL_CHAIN.get(SKILL_NAME)
+    default_next, _alts = resolve_handoff_commands(
+        SKILL_NAME,
+        state,
+        default_cmd=chain.default if chain else "evaluate --mode pre",
+        alternatives=list(chain.alternatives) if chain else [],
+    )
     handoff_path = write_handoff(
         skill_name=SKILL_NAME,
         state=state,
@@ -568,7 +591,7 @@ def _finalize_plan_max_step(
             "Task count": state.custom.get("task_count", "see plan"),
             "Dependencies": state.custom.get("dependencies_summary", "see plan"),
         },
-        suggested_next="implement",
+        suggested_next=default_next or "evaluate --mode pre",
     )
     body += f"\n\n---\n\n{render_dashboard(state)}"
     body += f"\n\nHandoff written to: {handoff_path}"
@@ -579,6 +602,8 @@ def _finalize_plan_max_step(
         handoff_menu,
         handoff_path,
         "Completed plan workflow, wrote handoff, and closed session state.",
+        None,
+        False,
     )
 
 
@@ -610,13 +635,21 @@ def handle_step_n(step: int, state_file: str | None = None, session_id: str | No
     handoff_menu = None
     handoff_path: Path | None = None
     run_summary = f"Completed step {step} ({PHASE_NAMES.get(step, f'Step {step}')})."
+    await_same = False
+    require_confirm: bool | None = None
+    next_cmd = _next_command(step, state_path=str(sp)) if step < MAX_STEP else None
     if step == MAX_STEP:
-        body, handoff_menu, handoff_path, run_summary = _finalize_plan_max_step(
-            state, sp, body
+        body, handoff_menu, handoff_path, run_summary, stay_cmd, await_same = (
+            _finalize_plan_max_step(state, sp, body)
         )
+        if stay_cmd:
+            next_cmd = stay_cmd
+            require_confirm = True
     else:
         state.mark_step_complete(step)
         save_state(state, sp)
+        if step == 5:
+            require_confirm = True
 
     append_skill_run_memory(
         SKILL_NAME,
@@ -628,7 +661,6 @@ def handle_step_n(step: int, state_file: str | None = None, session_id: str | No
         handoff_path=handoff_path,
     )
     phase_name = PHASE_NAMES.get(step, f"Step {step}")
-    next_cmd = _next_command(step, state_path=str(sp)) if step < MAX_STEP else None
     print(format_step_output(
         SKILL_NAME, step, MAX_STEP, phase_name, body,
         next_cmd=next_cmd,
@@ -636,6 +668,8 @@ def handle_step_n(step: int, state_file: str | None = None, session_id: str | No
         handoff_menu=handoff_menu,
         all_phase_names=PHASE_NAMES,
         all_phase_todos=PHASE_TODOS,
+        require_confirmation=require_confirm,
+        await_same_step=await_same,
     ))
 
 

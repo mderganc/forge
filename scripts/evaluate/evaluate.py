@@ -545,7 +545,7 @@ def _resolve_evaluate_state_path(
     candidate = plan_dir / f".evaluate-state-{stamp}.json"
     idx = 2
     while candidate.exists():
-        candidate = base_dir / f".evaluate-state-{stamp}-{idx}.json"
+        candidate = plan_dir / f".evaluate-state-{stamp}-{idx}.json"
         idx += 1
     return candidate
 

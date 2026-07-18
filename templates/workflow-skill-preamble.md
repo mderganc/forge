@@ -4,7 +4,7 @@ Read this once per skill session. Skill-specific args and gates stay in each `sk
 
 ## Delegation
 
-Invoking a `forge:*` workflow skill authorizes the agent dispatch that skill requires — **except `forge:sketch`**, which is 1:1 dialogue only (no Forge agent team, no Task/sub-agent spawn). For all other workflow skills, do not ask the user to separately delegate or spawn sub-agents.
+Invoking a `forge:*` workflow skill authorizes the agent dispatch that skill requires — **except `forge:sketch`** (1:1 dialogue only) **and `forge:ux-review`** (1:1 real-browser product UX audit) — neither requires a Forge agent team or Task/sub-agent spawn unless the user asks. For all other workflow skills, do not ask the user to separately delegate or spawn sub-agents.
 
 Before spawning, read **`templates/forge-agent-roster.md`**. Use only roster roles (e.g. **Architect**, **Investigator**) — never invent composites like `backend-architect`. Full contract: [AGENTS.md](../AGENTS.md) § Forge Skill Delegation Contract.
 

@@ -184,6 +184,27 @@ def build_parser() -> argparse.ArgumentParser:
     cr.add_argument("--state", type=str)
     cr.add_argument("--quick", action="store_true")
     cr.add_argument(
+        "--effort",
+        type=str,
+        choices=["light", "standard", "thorough"],
+        default=None,
+        help="Review effort (replaces --quick). light=Architect+QA; thorough enables structural by default",
+    )
+    cr_struct = cr.add_mutually_exclusive_group()
+    cr_struct.add_argument(
+        "--structural",
+        dest="structural",
+        action="store_true",
+        default=None,
+        help="Run structural probes + eight-agent Pass B at step 3",
+    )
+    cr_struct.add_argument(
+        "--no-structural",
+        dest="structural",
+        action="store_false",
+        help="Skip structural probes and eight-agents",
+    )
+    cr.add_argument(
         "--plan",
         type=str,
         default=None,

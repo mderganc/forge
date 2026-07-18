@@ -86,7 +86,13 @@ def _build_variables(state: SkillState, state_path: Path | None = None, *, promp
     return _build_variables(state, state_path, prompts_style=prompts_style)
 
 
-def _next_command(step: int, state_path: str = "", mode: str | None = None) -> str:
+def _next_command(
+    step: int,
+    state_path: str = "",
+    mode: str | None = None,
+    *,
+    next_step: int | None = None,
+) -> str:
     extra = {}
     if state_path:
         extra["state"] = state_path
@@ -98,60 +104,22 @@ def _next_command(step: int, state_path: str = "", mode: str | None = None) -> s
         SCRIPT_DIR / "test.py",
         step,
         max_s,
+        next_step=next_step,
         phase_variant=variant,
         **extra,
     )
 
 
 def _check_scaffold_gate(state: SkillState) -> list[str]:
-    """Check if scaffold is complete per criteria 2/3/4."""
-    flow_files = state.custom.get("flow_files", [])
-    missing = []
+    from scripts.test.test_flow_gates import check_scaffold_gate
 
-    if not flow_files:
-        missing.append("flow_files list is empty — scaffold not created")
-        return missing
-
-    has_data_packs = any("data-packs" in f for f in flow_files)
-    if not has_data_packs:
-        missing.append("data-pack directories (clean/, messy/, edge-cases/, duplicates/) missing")
-
-    has_harness = any("conftest.py" in f or "steps" in f for f in flow_files)
-    if not has_harness:
-        missing.append("role-parameterization harness file (conftest.py or steps/) missing")
-
-    has_entry_point_call = any("test_" in f and ".py" in f for f in flow_files)
-    if not has_entry_point_call:
-        missing.append("primary test file missing or entry-point invocation not found")
-
-    return missing
+    return check_scaffold_gate(state)
 
 
 def _check_authoring_gate(state: SkillState) -> list[str]:
-    """Check if authoring is complete per criteria 5/6/7."""
-    flow_scope = state.custom.get("flow_scope", {})
-    authoring_results = state.custom.get("authoring_results", {})
+    from scripts.test.test_flow_gates import check_authoring_gate
 
-    missing = []
-
-    failure_paths = flow_scope.get("failure_paths", [])
-    if not failure_paths:
-        missing.append("no failure-path assertions (criterion 7) — at least 1 required")
-
-    outcome_surfaces = authoring_results.get("outcome_surfaces", [])
-    if len(outcome_surfaces) < 2:
-        missing.append(
-            f"outcome validation touches only {len(outcome_surfaces)} surface(s) "
-            "(criterion 5) — at least 2 required"
-        )
-
-    external_mocks = authoring_results.get("external_mocks", [])
-    allowed_externals = flow_scope.get("external_services_to_mock", [])
-    for mock in external_mocks:
-        if mock not in allowed_externals:
-            missing.append(f"mock '{mock}' not in allowed externals (criterion 6)")
-
-    return missing
+    return check_authoring_gate(state)
 
 
 def handle_flow_step(step: int, state: SkillState, sp: Path) -> None:
@@ -171,23 +139,10 @@ def handle_flow_step(step: int, state: SkillState, sp: Path) -> None:
         sys.exit(1)
 
     template_base, phase_name = flow_phase_map[step]
-    gate_failures: list[str] = []
 
-    if step == 4:
-        gate_failures = _check_scaffold_gate(state)
-        if gate_failures:
-            state.custom.setdefault("scaffold_attempts", 0)
-            state.custom["scaffold_attempts"] += 1
-            state.custom["scaffold_gate_failures"] = gate_failures
-            save_state(state, sp)
+    from scripts.test.test_flow_steps import ingest_flow_sidecars, record_flow_gate_failures
 
-    elif step == 5:
-        gate_failures = _check_authoring_gate(state)
-        if gate_failures:
-            state.custom.setdefault("authoring_attempts", 0)
-            state.custom["authoring_attempts"] += 1
-            state.custom["authoring_gate_failures"] = gate_failures
-            save_state(state, sp)
+    gate_failures = record_flow_gate_failures(step, state, sp)
 
     template = load_template(f"test/{template_base}")
     variables = _build_variables(state)
@@ -200,12 +155,18 @@ def handle_flow_step(step: int, state: SkillState, sp: Path) -> None:
 
     body = render_template(template, variables)
 
+    ingest_flow_sidecars(step, state, sp)
+
     state.current_step = step
     save_state(state, sp)
 
     handoff_menu = None
     handoff_path: Path | None = None
     run_summary = f"Completed flow-mode step {step} ({phase_name})."
+    await_same = False
+    require_confirm: bool | None = None
+    blocked = bool(gate_failures) and step in (4, 5)
+
     if step == FLOWS_MAX_STEP:
         state.mark_step_complete(step)
         state.completed_at = now_iso()
@@ -226,10 +187,20 @@ def handle_flow_step(step: int, state: SkillState, sp: Path) -> None:
         clear_state_file(sp)
         handoff_menu = build_skill_handoff_menu(SKILL_NAME, state, sp)
         run_summary = "Completed test (flows mode), wrote handoff, and closed session state."
-
-    if step != FLOWS_MAX_STEP:
+        next_cmd = None
+    elif blocked:
+        body += (
+            "\n\n---\n\n**GATE FAILED — do not advance.** Fix the issues above, "
+            f"then re-run step {step}."
+        )
+        next_cmd = _next_command(step, state_path=str(sp), mode="flows", next_step=step)
+        await_same = True
+        require_confirm = True
+        run_summary = f"Flow-mode step {step} blocked by gate; session kept open."
+    else:
         state.mark_step_complete(step)
         save_state(state, sp)
+        next_cmd = _next_command(step, state_path=str(sp), mode="flows")
 
     append_skill_run_memory(
         SKILL_NAME,
@@ -241,7 +212,6 @@ def handle_flow_step(step: int, state: SkillState, sp: Path) -> None:
         handoff_path=handoff_path,
     )
 
-    next_cmd = _next_command(step, state_path=str(sp), mode="flows") if step < FLOWS_MAX_STEP else None
     print(
         format_step_output(
             SKILL_NAME,
@@ -254,6 +224,8 @@ def handle_flow_step(step: int, state: SkillState, sp: Path) -> None:
             handoff_menu=handoff_menu,
             all_phase_names=FLOWS_PHASE_NAMES,
             all_phase_todos=FLOWS_PHASE_TODOS,
+            require_confirmation=require_confirm,
+            await_same_step=await_same,
         )
     )
 

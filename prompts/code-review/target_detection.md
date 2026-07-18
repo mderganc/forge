@@ -7,6 +7,8 @@ You are starting a code review. First, identify what will be reviewed and pin th
 **Target argument:** {{TARGET}}
 **Detected mode:** {{MODE}} ({{MODE_DISPLAY}})
 
+{{EFFORT_CONFIG_SECTION}}
+
 {{PLAN_LINK_SECTION}}
 
 {{HANDOFF_CONTENT}}

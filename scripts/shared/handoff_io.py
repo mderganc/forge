@@ -59,7 +59,38 @@ def _resolve_handoff_body(raw: str, search_dir: Path | None = None) -> str:
             return target.read_text(encoding="utf-8")
     except OSError:
         pass
+    # Fall back to archived session handoff when live path is gone
+    sid_m = re.search(r"(?m)^session_id:\s*(.+)\s*$", raw)
+    if sid_m:
+        sid = sid_m.group(1).strip()
+        from scripts.shared.session_store import sessions_archive_root
+
+        archived = sessions_archive_root(root) / sid / "handoff.md"
+        try:
+            if archived.is_file():
+                return archived.read_text(encoding="utf-8")
+        except OSError:
+            pass
+    # Rewrite relative path sessions/X → sessions/_archive/X
+    if "/sessions/" in rel.replace("\\", "/") and "/_archive/" not in rel.replace("\\", "/"):
+        alt = rel.replace("\\", "/")
+        alt = alt.replace("/sessions/", "/sessions/_archive/", 1)
+        alt_path = (root / alt).resolve()
+        try:
+            if alt_path.is_file():
+                return alt_path.read_text(encoding="utf-8")
+        except OSError:
+            pass
     return raw
+
+
+def handoff_exists(name: str, search_dir: Path | None = None) -> bool:
+    """True if a ``handoff-{name}.md`` (or a skill-alias variant) exists."""
+    for skill_name in _handoff_lookup_names(name):
+        for handoff in handoff_paths(skill_name, search_dir):
+            if handoff.exists():
+                return True
+    return False
 
 
 def read_handoff(name: str, search_dir: Path | None = None) -> str:

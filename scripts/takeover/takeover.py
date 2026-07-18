@@ -157,21 +157,22 @@ def _handle_primary_then_metric_stage(
     await_primary_log: str,
     pending_log: str,
     pass_log: str,
-) -> tuple[str, str]:
+) -> tuple[str, str, bool]:
+    """Return (body, log_msg, awaiting_gate). awaiting_gate True → re-run same step."""
     if not _read_gate(gd / primary_gate):
-        return primary_body, await_primary_log
+        return primary_body, await_primary_log, True
 
     if _metric_gate_open(gd, secondary_gate, metric_key):
         inner += 1
         state.custom[inner_key] = inner
         if inner > max_inner:
             state.mark_step_complete(complete_step)
-            return cap_body, pending_log
-        return pending_body, pending_log
+            return cap_body, pending_log, False
+        return pending_body, pending_log, True
 
     state.mark_step_complete(complete_step)
     state.custom[inner_key] = 0
-    return pass_body, pass_log
+    return pass_body, pass_log, False
 
 
 def _init_state() -> SkillState:
@@ -318,7 +319,10 @@ def handle_step_1(args: argparse.Namespace, sp: Path) -> None:
         ]
     )
 
-    next_cmd = build_next_command(SCRIPT_DIR / "takeover.py", 1, MAX_STEP)
+    next_cmd = build_next_command(
+        SCRIPT_DIR / "takeover.py", 1, MAX_STEP, state=str(sp)
+    )
+    print(f"STATE FILE: {sp}\n", file=sys.stderr)
     print(
         run_workflow_step(
             SKILL_NAME,
@@ -343,7 +347,13 @@ def handle_step_n(step: int, sp: Path, _args: argparse.Namespace) -> None:
     dev = state.custom.setdefault("deviations", empty_deviations())
 
     body = ""
-    next_cmd = build_next_command(SCRIPT_DIR / "takeover.py", step, MAX_STEP) if step < MAX_STEP else ""
+    # Default: advance to next step. Overridden below when awaiting a gate.
+    await_gate = False
+    next_cmd = (
+        build_next_command(SCRIPT_DIR / "takeover.py", step, MAX_STEP, state=str(sp))
+        if step < MAX_STEP
+        else ""
+    )
 
     def _save() -> None:
         state.current_step = step
@@ -351,6 +361,17 @@ def handle_step_n(step: int, sp: Path, _args: argparse.Namespace) -> None:
 
     def _log(summary: str) -> None:
         append_skill_run_memory(SKILL_NAME, step, TAKEOVER_PHASE_NAMES.get(step, f"Step {step}"), summary, state=state, state_path=sp)
+
+    def _stay() -> None:
+        nonlocal next_cmd, await_gate
+        await_gate = True
+        next_cmd = build_next_command(
+            SCRIPT_DIR / "takeover.py",
+            step,
+            MAX_STEP,
+            next_step=step,
+            state=str(sp),
+        )
 
     if step == 2:
         if plan and plan.active_session_path:
@@ -361,6 +382,7 @@ def handle_step_n(step: int, sp: Path, _args: argparse.Namespace) -> None:
                 f"{_gate_ref('upstream.json')} with "
                 '`{"status": "pass"}` and re-run **step 2**.'
             )
+            _stay()
             _save()
             _log("Continue active child session")
         elif plan and plan.upstream_skills:
@@ -372,6 +394,7 @@ def handle_step_n(step: int, sp: Path, _args: argparse.Namespace) -> None:
                     f"Complete upstream skills: **{skills}**. "
                     f"Write {_gate_ref('upstream.json')} with `status: pass` when intent/design is ready."
                 )
+                _stay()
                 _save()
                 _log("Await upstream gate")
             else:
@@ -386,7 +409,7 @@ def handle_step_n(step: int, sp: Path, _args: argparse.Namespace) -> None:
             _log("Upstream skipped")
 
     elif step == 3:
-        body, log_msg = _handle_primary_then_metric_stage(
+        body, log_msg, awaiting = _handle_primary_then_metric_stage(
             gd,
             state,
             primary_gate="plan.json",
@@ -407,11 +430,13 @@ def handle_step_n(step: int, sp: Path, _args: argparse.Namespace) -> None:
             pending_log="Evaluate pre pending",
             pass_log="Plan + eval pre pass",
         )
+        if awaiting:
+            _stay()
         _save()
         _log(log_msg)
 
     elif step == 4:
-        body, log_msg = _handle_primary_then_metric_stage(
+        body, log_msg, awaiting = _handle_primary_then_metric_stage(
             gd,
             state,
             primary_gate="implement.json",
@@ -435,6 +460,8 @@ def handle_step_n(step: int, sp: Path, _args: argparse.Namespace) -> None:
             pending_log="Evaluate post pending",
             pass_log="Implement stage pass",
         )
+        if awaiting:
+            _stay()
         _save()
         _log(log_msg)
 
@@ -445,11 +472,13 @@ def handle_step_n(step: int, sp: Path, _args: argparse.Namespace) -> None:
             state.custom["inner_cr"] = inner
             if inner > max_inner:
                 body = "## Code review — inner cap"
+                state.mark_step_complete(5)
             else:
                 body = (
                     "## Code review\n\nRun **code-review**. "
                     f"Write {_gate_ref('code-review.json')} with `open_findings_total: 0`."
                 )
+                _stay()
             _save()
             _log("CR pending")
         elif _metric_gate_not_equal(gd, "test.json", "failed", 0):
@@ -457,6 +486,7 @@ def handle_step_n(step: int, sp: Path, _args: argparse.Namespace) -> None:
                 f"## Test\n\nRun **test** (run mode). Write {_gate_ref('test.json')} "
                 "with `failed: 0`."
             )
+            _stay()
             _save()
             _log("Await test gate")
         else:
@@ -511,9 +541,10 @@ def handle_step_n(step: int, sp: Path, _args: argparse.Namespace) -> None:
             MAX_STEP,
             TAKEOVER_PHASE_NAMES.get(step, f"Step {step}"),
             body,
-            next_cmd=next_cmd,
+            next_cmd=next_cmd or None,
             all_phase_names=TAKEOVER_PHASE_NAMES,
             all_phase_todos=TAKEOVER_PHASE_TODOS,
+            await_same_step=await_gate,
             title=f"{SKILL_NAME.upper()} — Step {step} of {MAX_STEP}",
         )
     )

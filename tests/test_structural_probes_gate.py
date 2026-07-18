@@ -152,10 +152,10 @@ def test_code_review_step4_blocked_without_sidecar(tmp_path: Path, monkeypatch: 
 
     repo = tmp_path
     (repo / "pyproject.toml").write_text("[project]\nname='x'\n", encoding="utf-8")
-    state_path = repo / ".codex" / "forge" / "sessions" / "abc" / "session.json"
+    state_path = repo / ".forge" / "sessions" / "abc" / "session.json"
     state_path.parent.mkdir(parents=True)
     st = SkillState(skill_name="code-review", max_step=6, current_step=3, last_completed_step=3)
-    st.custom = {"mode": "pr", "target": "."}
+    st.custom = {"mode": "pr", "target": ".", "structural_enabled": True}
     save_state(st, state_path)
 
     monkeypatch.chdir(repo)

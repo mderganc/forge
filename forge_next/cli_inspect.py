@@ -75,6 +75,7 @@ def summarize_orchestrator_output(
             or stripped.startswith("$forge-")
             or stripped.startswith("/forge-")
             or stripped.startswith("$forge:")
+            or stripped.startswith("/forge:")
         ):
             next_cmd = stripped
             break

@@ -218,6 +218,8 @@ When intent is fuzzy, run [sketch](#sketch) before [design](#design).
 
 **Artifacts:** `.evaluate-state.json` and `.evaluate-findings-step<N>.json` sidecars.
 
+**Default handoff:** `--mode pre` → [implement](#implement); `--mode post` → [code-review](#code-review).
+
 **Methodologies:** feasibility ratings; completeness audit; correctness, quality, performance, operational readiness lenses; team dispatch when enabled.
 
 ---
@@ -246,7 +248,7 @@ When intent is fuzzy, run [sketch](#sketch) before [design](#design).
 
 **What it does:** Structured PR/diff/architecture review with Pass A (spec) and Pass B (engineering quality).
 
-**Artifacts:** `memory/code-review-report.md`; step 3 runs structural probes (jscn/knip/madge on Node repos; pyscn/skylos on Python) — see [`docs/structural-quality.md`](docs/structural-quality.md). **Steps 4–6 are blocked** while the probe gate is `pending` (overall status not OK). The gate clears when probes finish OK, or when `cleared` / `overridden` / `deferred_to_ship`. Re-run step 3 or bypass with `--allow-structural-probes-incomplete` (override reason + follow-up).
+**Artifacts:** `memory/code-review-report.md`; **`--effort light|standard|thorough`** picks the reviewer team (`light` = Architect + QA only; `--quick` is an alias for `--effort light`). Structural probes (jscn/knip/madge on Node repos; pyscn/skylos on Python) are **optional Pass B tooling** controlled by `--structural` / `--no-structural`, defaulting from effort (off for `light`/`standard`, on for `thorough`) — see [`docs/structural-quality.md`](docs/structural-quality.md). When structural probes are enabled, **steps 4–6 are blocked** while the probe gate is `pending` (overall status not OK); the gate clears when probes finish OK, or when `cleared` / `overridden` / `deferred_to_ship`. Re-run step 3 or bypass with `--allow-structural-probes-incomplete` (override reason + follow-up). When structural probes are disabled, no probe gate applies.
 
 **Default handoff:** [test](#test) ([ship](#ship) is a common alternative).
 
@@ -264,7 +266,7 @@ When intent is fuzzy, run [sketch](#sketch) before [design](#design).
 
 **Artifacts:** `memory/test-report.md` (run); flows mode updates scenario index when parseable.
 
-**Default handoff:** [diagnose](#diagnose) ([ship](#ship) is a common alternative).
+**Default handoff:** [ship](#ship) when the run is green, [diagnose](#diagnose) when there are failures.
 
 **Methodologies:** discovery, execution, failure analysis, coverage gaps; flows mode — eight quality criteria and pytest reliability checks.
 
@@ -354,9 +356,9 @@ See [`skills/takeover/SKILL.md`](skills/takeover/SKILL.md).
 |--|-----------------|-------|----------|
 | Invoke | `/forge:ship` | `$forge:ship` | `forge ship --step 1` (Graphify preflight) |
 
-**What it does:** Finalizes coding work — preflight, commit, push, PR, merge, publish (PyPI/npm). **Not** a delivery pipeline step. The agent follows [`.cursor/skills/ship/SKILL.md`](.cursor/skills/ship/SKILL.md); terminal `forge ship --step 1` only runs Graphify/deferred-probe preflight and prints the handoff to continue that skill.
+**What it does:** Finalizes coding work — preflight, commit, push, PR, merge, publish (PyPI/npm). **Not** a delivery pipeline step. `forge ship --step 1` is **two things in sequence**: it runs the Graphify/deferred-probe preflight (refresh + GRAPHIFY banner when `graphify-out/` exists), then the agent follows [`.cursor/skills/ship/SKILL.md`](.cursor/skills/ship/SKILL.md) for the actual commit/push/PR/merge/publish work. Running `--step 1` alone does not commit or open a PR by itself.
 
-**When to use:** After implement, code-review, or test when you are ready to land changes. Run `forge ship --step 1` before commit/PR when `graphify-out/` exists (GRAPHIFY banner + background refresh).
+**When to use:** After implement, code-review, or test when you are ready to land changes. Always run `forge ship --step 1` first (Graphify preflight), then follow the ship skill for commit/PR.
 
 ---
 
@@ -396,7 +398,7 @@ pipx uninstall forge-next
 
 ## How skills work (in the apps)
 
-1. You pick a command: `/forge:…` (Cursor/Claude), `$forge:…` (Codex), or `forge …` in a terminal when not using an editor integration ([Advanced](#advanced-terminal-and-ci)). That authorizes the multi-step flow. See [AGENTS.md](AGENTS.md).
+1. You pick a command: `/forge:…` (Cursor/Claude), `$forge:…` (Codex), or `forge …` in a terminal when not using an editor integration ([Advanced](#advanced-terminal-and-ci)). That authorizes the multi-step flow. See [AGENTS.md](AGENTS.md). **Cursor and Claude must run `forge <skill> --step 1` first** (the orchestrator script), even before any investigation or analysis — the Cursor command packs state this explicitly ("Must run: `forge <skill> --step 1` … before any other work"). Do not skip straight to manual work on step 1.
 2. **Steps:** Each run advances phase 1, 2, … Output is the prompt (and sometimes todos) for that phase, plus where state is stored.
 3. **Roles:** Prompts reference architect, planner, implementers, critic, QA, security, doc-writer. Hosts with sub-agents should follow the skill dispatch pattern, require **progress heartbeats** (`templates/subagent-progress.md`), and close agents when a slice of work is done (especially on Codex — see `templates/codex-runtime.md`).
 4. **Handoff menu:** Last step lists options; transcript text may include `forge: …` labels. Your next command is `/forge:…` (Cursor/Claude) or `$forge:…` (Codex).
@@ -416,9 +418,9 @@ pipx uninstall forge-next
 - **Audit linkage:** Run-memory records include `state_path`/`session_ref` and `handoff_path`/`handoff_ref` (when a handoff exists), plus timestamp and summary.
 - **Handoff closure:** Handoffs are consumed on step-1 intake of downstream skills (for example plan consumes design handoff, code-review consumes implement handoff, test consumes code-review/implement handoffs).
 - **Session completeness:** Active-session detection treats a run as complete when either `completed_at` is set or legacy state reached max step (`current_step >= max_step` and `last_completed_step >= max_step`).
-- **Explicit archive:** `forge session close <id>` moves a session directory to `sessions/_archive/`.
+- **Explicit archive:** `forge session close <id>` moves a session directory to `sessions/_archive/` and **rewrites the global `handoff-{skill}.md` pointer** in place so it keeps resolving after the move.
 - **Cleanup behavior:** `forge takeover --cleanup` removes stale session directories and legacy flat state files (dry-run by default; `--force` to delete). Env: `FORGE_SESSION_MAX_AGE_DAYS` (default `7`), `FORGE_SKIP_SESSION_CLEANUP=1` to disable automatic archive of old sessions.
-- **Auto-close on step 1:** Starting a pipeline skill removes superseded session JSON when a handoff exists, when you move forward in the pipeline, or when a step-1-only session was abandoned (see [AGENTS.md](AGENTS.md) State Lifecycle). `forge status` / `forge doctor` report remaining leaks.
+- **Auto-close on step 1:** Starting a pipeline skill removes superseded session JSON when a handoff exists or when you move forward in the pipeline. Idle-based auto-close (`FORGE_STEP1_ABANDON_HOURS`) applies **only to step-1-only** sessions — a session that has progressed past step 1 is never auto-closed merely for being idle (see [AGENTS.md](AGENTS.md) State Lifecycle). `forge status` / `forge doctor` report remaining leaks.
 
 ---
 

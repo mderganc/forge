@@ -25,27 +25,95 @@ def default_claude_settings_path() -> Path:
     return home / ".claude" / "settings.json"
 
 
-def resolve_forge_executable() -> Path:
-    """Locate the ``forge`` CLI executable that ships forge-next (prefer pipx)."""
+def _forge_exe_names() -> tuple[str, ...]:
+    """Console-script basenames for the current platform."""
+    if os.name == "nt":
+        return ("forge.exe", "forge.cmd", "forge")
+    return ("forge",)
+
+
+def _pipx_home(home: Path | None = None) -> Path:
+    override = os.environ.get("PIPX_HOME")
+    if override:
+        return Path(override).expanduser()
+    home = home or Path(os.environ.get("USERPROFILE") or str(Path.home()))
+    # pipx default: %USERPROFILE%\\pipx on Windows, ~/.local/pipx elsewhere
+    if os.name == "nt":
+        return home / "pipx"
+    return home / ".local" / "pipx"
+
+
+def _pipx_bin_dir(home: Path | None = None) -> Path:
+    override = os.environ.get("PIPX_BIN_DIR")
+    if override:
+        return Path(override).expanduser()
+    home = home or Path(os.environ.get("USERPROFILE") or str(Path.home()))
+    return home / ".local" / "bin"
+
+
+def _pipx_forge_candidates(home: Path | None = None) -> list[Path]:
+    """Preferred forge locations from pipx (checked before PATH / which)."""
+    home = home or Path(os.environ.get("USERPROFILE") or str(Path.home()))
+    names = _forge_exe_names()
+    scripts = "Scripts" if os.name == "nt" else "bin"
+    bin_dir = _pipx_bin_dir(home)
+    pipx_home = _pipx_home(home)
     candidates: list[Path] = []
+    for name in names:
+        candidates.append(bin_dir / name)
+    for name in names:
+        candidates.append(pipx_home / "venvs" / "forge-next" / scripts / name)
+    # Legacy / cross-platform layout still used on some installs
+    for name in names:
+        candidates.append(home / ".local" / "pipx" / "venvs" / "forge-next" / "bin" / name)
+        candidates.append(home / ".local" / "pipx" / "venvs" / "forge-next" / scripts / name)
+    return candidates
+
+
+def path_shadows_pipx_forge() -> tuple[bool, Path | None, Path | None]:
+    """Return (shadowed, which_forge, preferred_pipx) when PATH hides pipx forge.
+
+    ``shadowed`` is True when ``shutil.which('forge')`` resolves to a different
+    file than the preferred pipx install under ``~/.local/bin`` / PIPX_BIN_DIR.
+    """
+    preferred: Path | None = None
+    for raw in _pipx_forge_candidates():
+        try:
+            p = raw.resolve()
+        except OSError:
+            continue
+        if p.is_file():
+            preferred = p
+            break
+    which_forge = shutil.which("forge")
+    which_path = Path(which_forge).resolve() if which_forge else None
+    if preferred is None or which_path is None:
+        return False, which_path, preferred
+    try:
+        shadowed = which_path != preferred
+    except OSError:
+        shadowed = True
+    return shadowed, which_path, preferred
+
+
+def resolve_forge_executable() -> Path:
+    """Locate the ``forge`` CLI executable that ships forge-next (prefer pipx).
+
+    Preference order (first existing file wins):
+    1. pipx app dir (``PIPX_BIN_DIR`` or ``~/.local/bin``), including ``forge.exe`` on Windows
+    2. pipx venv Scripts/bin for ``forge-next``
+    3. ``shutil.which('forge')`` (may be a shadowed ``pip install --user`` copy)
+    4. directory of ``sys.executable``
+    """
+    candidates: list[Path] = list(_pipx_forge_candidates())
 
     which_forge = shutil.which("forge")
     if which_forge:
         candidates.append(Path(which_forge))
 
-    home = Path.home()
-    candidates.extend(
-        [
-            home / ".local" / "bin" / "forge",
-            home / ".local" / "pipx" / "venvs" / "forge-next" / "bin" / "forge",
-        ]
-    )
-
     bindir = Path(sys.executable).resolve().parent
-    candidates.append(bindir / "forge")
-    if os.name == "nt":
-        candidates.append(bindir / "forge.exe")
-        candidates.append(bindir / "forge.cmd")
+    for name in _forge_exe_names():
+        candidates.append(bindir / name)
 
     seen: set[Path] = set()
     for raw in candidates:
@@ -61,7 +129,8 @@ def resolve_forge_executable() -> Path:
 
     raise FileNotFoundError(
         "Could not locate the `forge` executable. Install with `pipx install forge-next`, "
-        "ensure `~/.local/bin` is on PATH, then run `pipx run forge-next claude-graphify`."
+        "ensure `~/.local/bin` is on PATH (Windows: `pipx ensurepath --prepend`), "
+        "then run `pipx run forge-next claude-graphify`."
     )
 
 

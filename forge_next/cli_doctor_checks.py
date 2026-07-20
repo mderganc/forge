@@ -59,14 +59,46 @@ def check_runtime_state_dir(repo_root: Path) -> tuple[dict[str, object], list[st
         return {}, warnings
 
 
+def check_forge_path() -> tuple[dict[str, object], list[str]]:
+    """Warn when PATH's ``forge`` is not the preferred pipx install."""
+    warnings: list[str] = []
+    try:
+        from forge_next.claude_graphify import (
+            _pipx_bin_dir,
+            path_shadows_pipx_forge,
+            resolve_forge_executable,
+        )
+
+        preferred = resolve_forge_executable()
+        shadowed, which_path, pipx_path = path_shadows_pipx_forge()
+        checks: dict[str, object] = {
+            "forge_executable": str(preferred),
+            "forge_on_path": str(which_path) if which_path else None,
+            "forge_pipx": str(pipx_path) if pipx_path else None,
+            "forge_path_shadowed": shadowed,
+        }
+        if shadowed and which_path is not None and pipx_path is not None:
+            bin_dir = _pipx_bin_dir()
+            warnings.append(
+                f"`forge` on PATH is {which_path}, but pipx installs to {pipx_path}. "
+                f"The pipx copy is preferred for hooks/install. Fix with: "
+                f"`pipx ensurepath --prepend` (puts {bin_dir} first), then open a new shell. "
+                "Or uninstall the shadowed copy (`pip uninstall forge-next` if it was "
+                "`pip install --user`)."
+            )
+        return checks, warnings
+    except FileNotFoundError as exc:
+        return {"forge_executable": None, "forge_path_shadowed": None}, [str(exc)]
+    except Exception as exc:
+        return {}, [f"Forge PATH check failed: {exc}"]
+
+
 def check_claude_graphify() -> tuple[dict[str, object], list[str]]:
     warnings: list[str] = []
     try:
-        from forge_next.claude_graphify import audit_claude_graphify_hooks, resolve_forge_executable
+        from forge_next.claude_graphify import audit_claude_graphify_hooks
 
-        return {"forge_executable": str(resolve_forge_executable())}, list(
-            audit_claude_graphify_hooks()
-        )
+        return {}, list(audit_claude_graphify_hooks())
     except FileNotFoundError as exc:
         return {}, [str(exc)]
     except Exception as exc:

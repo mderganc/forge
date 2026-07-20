@@ -107,6 +107,24 @@ def print_install_human(
         )
 
 
+def _path_onboarding_warnings() -> list[str]:
+    """Warn when PATH hides the pipx ``forge`` binary after install."""
+    try:
+        from forge_next.claude_graphify import _pipx_bin_dir, path_shadows_pipx_forge
+
+        shadowed, which_path, pipx_path = path_shadows_pipx_forge()
+        if not shadowed or which_path is None or pipx_path is None:
+            return []
+        bin_dir = _pipx_bin_dir()
+        return [
+            f"`forge` on PATH is {which_path}, but pipx installs to {pipx_path}. "
+            f"Run `pipx ensurepath --prepend` so {bin_dir} comes first, then open a "
+            "new shell (or uninstall the shadowed `pip install --user` copy)."
+        ]
+    except Exception:
+        return []
+
+
 def emit_install_result(
     payload: dict[str, Any],
     *,
@@ -116,6 +134,10 @@ def emit_install_result(
     structural_result: Any | None,
     structural_skipped: bool,
 ) -> None:
+    path_warns = _path_onboarding_warnings()
+    if path_warns:
+        payload["warnings"] = list(payload.get("warnings") or []) + path_warns
+        payload["path_onboarding"] = path_warns
     if json_output:
         print(json.dumps(payload, ensure_ascii=True))
         return

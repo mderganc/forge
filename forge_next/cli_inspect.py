@@ -222,6 +222,7 @@ def run_doctor(repo_root: Path, json_output: bool = False) -> None:
     from forge_next.cli_doctor_checks import (
         check_claude_graphify,
         check_codex_anchor,
+        check_forge_path,
         check_runtime_state_dir,
         check_session_leaks,
         check_structural_tools,
@@ -240,6 +241,7 @@ def run_doctor(repo_root: Path, json_output: bool = False) -> None:
     for partial, partial_warn in (
         check_codex_anchor(repo_root),
         check_runtime_state_dir(repo_root),
+        check_forge_path(),
         check_claude_graphify(),
         check_studio_assets(),
         check_structural_tools(),

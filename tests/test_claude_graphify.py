@@ -31,6 +31,83 @@ def test_hook_command_uses_forge_executable_not_python_module(tmp_path: Path) ->
     assert json.loads(cmd.split(" claude-graphify-hook", 1)[0]) == str(forge)
 
 
+def test_resolve_forge_executable_prefers_pipx_bin_over_which(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from forge_next import claude_graphify as cg
+
+    preferred_name = "forge.exe" if sys.platform == "win32" else "forge"
+    preferred = tmp_path / "pipx-bin" / preferred_name
+    preferred.parent.mkdir(parents=True)
+    preferred.write_text("", encoding="utf-8")
+    shadow = tmp_path / "shadow" / preferred_name
+    shadow.parent.mkdir(parents=True)
+    shadow.write_text("", encoding="utf-8")
+
+    monkeypatch.setattr(
+        cg,
+        "_pipx_forge_candidates",
+        lambda home=None: [preferred],
+    )
+    monkeypatch.setattr(cg.shutil, "which", lambda _name: str(shadow))
+
+    resolved = resolve_forge_executable()
+    assert resolved == preferred.resolve()
+
+
+def test_path_shadows_pipx_forge_detects_mismatch(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from forge_next import claude_graphify as cg
+    from forge_next.claude_graphify import path_shadows_pipx_forge
+
+    preferred_name = "forge.exe" if sys.platform == "win32" else "forge"
+    preferred = tmp_path / "pipx-bin" / preferred_name
+    preferred.parent.mkdir(parents=True)
+    preferred.write_text("", encoding="utf-8")
+    shadow = tmp_path / "other" / preferred_name
+    shadow.parent.mkdir(parents=True)
+    shadow.write_text("", encoding="utf-8")
+
+    monkeypatch.setattr(
+        cg,
+        "_pipx_forge_candidates",
+        lambda home=None: [preferred],
+    )
+    monkeypatch.setattr(cg.shutil, "which", lambda _name: str(shadow))
+
+    shadowed, which_path, pipx_path = path_shadows_pipx_forge()
+    assert shadowed is True
+    assert which_path == shadow.resolve()
+    assert pipx_path == preferred.resolve()
+
+
+def test_pipx_forge_candidates_include_windows_exe(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from forge_next.claude_graphify import _pipx_forge_candidates
+
+    home = tmp_path / "home"
+    monkeypatch.setenv("USERPROFILE", str(home))
+    monkeypatch.setenv("HOME", str(home))
+    monkeypatch.delenv("PIPX_BIN_DIR", raising=False)
+    monkeypatch.delenv("PIPX_HOME", raising=False)
+
+    candidates = _pipx_forge_candidates(home)
+    names = {c.name for c in candidates}
+    if sys.platform == "win32":
+        assert "forge.exe" in names
+        assert any(
+            c.parts[-4:] == ("pipx", "venvs", "forge-next", "Scripts")
+            or (len(c.parts) >= 2 and c.parent.name == "Scripts")
+            for c in candidates
+            if c.name == "forge.exe"
+        )
+    else:
+        assert "forge" in names
+        assert any("forge-next" in c.parts and c.name == "forge" for c in candidates)
+
+
 def test_audit_warns_on_python_module_hooks(tmp_path: Path) -> None:
     cfg = tmp_path / "settings.json"
     cfg.write_text(

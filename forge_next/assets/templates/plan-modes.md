@@ -2,12 +2,16 @@
 
 Used by `forge plan`, planner/architect agents, and `templates/writing-plans.md`.
 
+See also `templates/scope-size-model.md`.
+
 ## Modes
 
 | Mode | Best for | Ceremony |
 |------|----------|----------|
+| `lite` | **Preferred starting point** for small/uncertain/trivial work | Concise sections, same task rigor |
 | `default` | Multi-module features, moderate/high risk, handoff-heavy work | Full governance sections |
-| `lite` | Short, isolated, low-risk ad hoc tasks | Concise sections, same task rigor |
+
+Use **`default`** only when multi-module / higher-risk signals clearly fire. When unsure, prefer **`lite`**.
 
 ## Shared invariants (non-negotiable)
 
@@ -15,15 +19,16 @@ Used by `forge plan`, planner/architect agents, and `templates/writing-plans.md`
 - Every task: exact file paths, verification command, expected outcome.
 - TDD for runtime code changes (or explicit exemption for docs/config-only tasks).
 - Compatible with skeleton markers, completion gates, and implement handoff.
+- In scope = Recommended scope only; rejected expansions listed explicitly.
 
 ## Precedence
 
 1. CLI `--mode <default|lite>`
 2. Interactive user choice (when CLI omitted on new session)
 3. Persisted preference in `.forge/memory/plan-preference.json`
-4. System fallback: `default`
+4. System fallback: **`lite`**
 
-Legacy sessions without `plan_mode` in state hydrate as `default` with a one-time note.
+Legacy sessions without `plan_mode` in state hydrate as `lite` with a one-time note (unless tests pin an older default).
 
 ## Preference file
 

@@ -7,6 +7,16 @@ description: |
 
 # Forge Test — Execution & Coverage
 
+## Skill contract
+
+- **Use when:** you need to run the test suite and analyze coverage/failures (`run`), or author mock flows (`flows`).
+- **Do not use when:** you need a real-browser product UX audit (use `ux-review`) or root-cause analysis of a failure (use `diagnose`).
+- **Input:** test command/path or flow scope. **Output artifact:** test/coverage report, or created flow files.
+- **Stops at:** handoff to `ship` (green) or `diagnose` (failures) — test does not fix failing code itself.
+- **Small-path behavior:** core levels only; skips L8–9 checks by default for `trivial`/small scope.
+
+See `templates/scope-size-model.md` and `templates/workflow-skill-preamble.md` for shared sizing/ceremony rules.
+
 Shared runtime: [templates/workflow-skill-preamble.md](../../templates/workflow-skill-preamble.md).
 
 ## Modes

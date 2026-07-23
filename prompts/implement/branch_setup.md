@@ -18,6 +18,12 @@ From the plan and branch prefix:
 - Feature branch pattern: `{{FEATURE_BRANCH_PATTERN}}`
 - Task sub-branches: `{{TASK_BRANCH_PATTERN}}`
 
+### Minimal branch ceremony
+
+- **≤1 task** in the plan (or a single-task wave with nothing parallel): **skip per-task sub-branches**. Work only on the feature branch.
+- **2+ parallel tasks** in a wave: use task sub-branches (or an optional worktree) per `templates/parallel-dispatch.md`.
+- Prefer one feature branch for **small** size plans even when the table lists multiple tiny sequential tasks — sub-branches earn their keep only with real parallelism.
+
 ## Wave Identification
 
 If the parallelization table was parsed, wave counts are already in state. Otherwise:
@@ -60,7 +66,7 @@ Record branch name in `{{MEMORY_DIR}}/project.md`.
 
 ## Optional: git worktree (second checkout)
 
-**Default:** Parallel tasks use **task sub-branches** from one working tree per `templates/parallel-dispatch.md`.
+**Default:** Parallel tasks use **task sub-branches** from one working tree per `templates/parallel-dispatch.md`. Skip sub-branches when ≤1 task (see above).
 
 **When to consider `git worktree` instead:** You want **`main` untouched** in the current directory, or a **long-lived second line of work** in parallel without constantly switching branches in a single tree — i.e. a separate folder linked to the same repo is simpler than many short-lived sub-branches.
 

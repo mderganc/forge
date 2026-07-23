@@ -13,10 +13,22 @@ Your scaffold must create the correct directory and file structure for {{FLOW_TY
 1. **Read the scope:** Understand what journey, roles, and data packs you're creating for (from step 3 state).
 
 2. **Create the file layout:** Based on {{FLOW_TYPE}}, create:
-   - **Primary test file(s)** \u2014 the main pytest file or `.feature` file where assertions live
-   - **Data-pack directory tree** \u2014 `fixtures/data-packs/{clean,messy,edge-cases,duplicates}/` with README.md files
-   - **Role-parameterization harness** \u2014 if multiple roles, a conftest.py or step harness that parameterizes the test
-   - **Entry-point invocation** \u2014 explicit code that calls the entry point (HTTP, CLI, etc.) \u2014 NOT internal module imports
+   - **Primary test file(s)** — the main pytest file or `.feature` file where assertions live
+   - **Data-pack directory tree** — size packs to **roles** and **failure_paths** from scope (see pack budget below)
+   - **Role-parameterization harness** — if multiple roles, a conftest.py or step harness that parameterizes the test
+   - **Entry-point invocation** — explicit code that calls the entry point (HTTP, CLI, etc.) — NOT internal module imports
+
+### Data-pack budget (proportional)
+
+Do **not** always scaffold all four variants. Scale to scope:
+
+| Scope signal | Packs to create |
+|--------------|-----------------|
+| Smoke / single role, no failure_paths | **`clean/`** only (+ README) |
+| Normal journey, ≥1 failure_path or edge called out | **`clean/`** + **one** edge pack (`edge-cases/` *or* `messy/` — pick the one that matches the failure) |
+| Multi-role or several failure_paths | Add packs as needed (`messy/`, `edge-cases/`, `duplicates/`) — still only variants you will assert |
+
+Gate checks that require all four directories apply only when the scope listed those variants; otherwise create the proportional set and note N/A packs in the scaffold README.
 
 3. **Populate stubs:** Each file should have a minimal stub:
    - Test file: empty test function(s) with docstrings
@@ -39,9 +51,9 @@ Your scaffold must create the correct directory and file structure for {{FLOW_TY
      Please address the missing items listed above and re-run.
    {{/if}}
    - Primary test file exists and mentions the entry point (e.g., TestClient, subprocess.run, etc.)
-   - Data-pack directories exist: `clean/`, `messy/`, `edge-cases/`, `duplicates/`
-   - Each data-pack dir has a `README.md`
-   - Role harness file exists (conftest.py or steps/ for BDD)
+   - Data-pack directories exist for the **budgeted** variants (at least `clean/`; add edge/messy/duplicates only when scoped)
+   - Each created data-pack dir has a `README.md`
+   - Role harness file exists when roles > 1 (conftest.py or steps/ for BDD); single-role smoke may skip a multi-role harness
    - Entry-point invocation is present (grep for CLI command, HTTP request, or TestClient)
 
    If any are missing, step 4 will re-prompt with a corrective message.

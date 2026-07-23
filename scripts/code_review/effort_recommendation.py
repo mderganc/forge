@@ -1,4 +1,9 @@
-"""Recommend code-review --effort and --structural from session context."""
+"""Recommend code-review --effort and structural fan-out from session context.
+
+Structural probes are **always on** by default (scale fan-out, do not opt in).
+Escalate effort only when ≥2 corroborating signals agree (keyword **and**
+file-count / path breadth).
+"""
 
 from __future__ import annotations
 
@@ -28,6 +33,23 @@ _DEEP_KEYWORDS = (
     "flaky",
     "investigate",
     "root cause",
+)
+
+_AUTH_DATA_KEYWORDS = (
+    "auth",
+    "oauth",
+    "permission",
+    "rbac",
+    "secret",
+    "password",
+    "token",
+    "crypto",
+    "encrypt",
+    "pii",
+    "gdpr",
+    "credential",
+    "session",
+    "cookie",
 )
 
 
@@ -68,100 +90,25 @@ def _handoff_mentions_files_changed(handoff_content: str) -> int | None:
     return int(m.group(1)) if m else None
 
 
-@dataclass
-class _ScoreState:
-    effort: str = "standard"
-    structural: bool = False
-    reasoning: list[str] = field(default_factory=list)
-    confidence: float = 0.72
-
-    def bump_confidence(self, value: float) -> None:
-        self.confidence = max(self.confidence, value)
+def mentions_auth_or_data(text: str) -> bool:
+    """True when target/handoff suggests auth or sensitive-data review."""
+    lowered = (text or "").lower()
+    return any(kw in lowered for kw in _AUTH_DATA_KEYWORDS)
 
 
-def _score_from_mode(score: _ScoreState, mode: str, combined: str) -> None:
-    if mode == "architecture":
-        score.effort = "thorough"
-        score.structural = True
-        score.reasoning.append("Architecture mode benefits from full team + structural Pass B.")
-        score.bump_confidence(0.9)
-    elif mode == "deep":
-        score.effort = "standard"
-        score.structural = True
-        score.reasoning.append(
-            "Deep/troubleshooting mode: full team with structural probes for trace paths."
-        )
-        score.bump_confidence(0.85)
-    elif any(kw in combined for kw in _DEEP_KEYWORDS):
-        score.effort = "standard"
-        score.structural = True
-        score.reasoning.append("Target/handoff mentions failure or investigation keywords.")
-        score.bump_confidence(0.8)
+def _file_breadth_signal(files_changed: int | None, path_count: int, target_file_count: int) -> bool:
+    """True when change surface is medium+ (file-count corroborator)."""
+    if files_changed is not None and files_changed >= 8:
+        return True
+    if path_count >= 6:
+        return True
+    if target_file_count >= 4:
+        return True
+    return False
 
 
-def _score_from_files_changed(score: _ScoreState, files_changed: int | None, mode: str) -> None:
-    if files_changed is None:
-        return
-    if files_changed >= 20:
-        score.effort = "thorough"
-        score.structural = True
-        score.reasoning.append(
-            f"Implement handoff reports {files_changed} files changed (large scope)."
-        )
-        score.bump_confidence(0.88)
-    elif files_changed >= 8:
-        score.structural = True
-        score.reasoning.append(
-            f"Implement handoff reports {files_changed} files changed (medium scope)."
-        )
-        score.bump_confidence(0.82)
-    elif files_changed <= 3 and mode == "pr":
-        score.effort = "light"
-        score.structural = False
-        score.reasoning.append(
-            f"Small handoff scope ({files_changed} files) — light PR pass is enough."
-        )
-        score.bump_confidence(0.78)
-
-
-def _score_from_path_count(score: _ScoreState, path_count: int) -> None:
-    if path_count >= 15:
-        score.effort = "thorough"
-        score.structural = True
-        score.reasoning.append(f"Handoff lists ~{path_count} paths (broad touch surface).")
-        score.bump_confidence(0.86)
-    elif path_count >= 6 and not score.structural:
-        score.structural = True
-        score.reasoning.append(f"Handoff lists ~{path_count} paths — structural probes add signal.")
-        score.bump_confidence(0.8)
-
-
-def _score_from_target(
-    score: _ScoreState,
-    *,
-    mode: str,
-    target_tokens: list[str],
-    handoff_content: str,
-    target_file_count: int,
-) -> None:
-    if target_file_count == 1 and mode == "pr" and not handoff_content:
-        score.effort = "light"
-        score.structural = False
-        score.reasoning.append("Single-file target with no implement handoff — light review.")
-        score.bump_confidence(0.76)
-    elif target_file_count >= 4 and mode == "pr":
-        if score.effort == "light":
-            score.effort = "standard"
-        score.structural = True
-        score.reasoning.append(f"Multiple explicit target paths ({target_file_count}).")
-        score.bump_confidence(0.77)
-    elif not handoff_content and mode == "pr" and not target_tokens:
-        score.effort = "light"
-        score.structural = False
-        score.reasoning.append(
-            "Open-ended PR review with sparse target — start light; escalate if needed."
-        )
-        score.confidence = 0.7
+def _keyword_signal(combined: str) -> bool:
+    return any(kw in combined for kw in _LARGE_HANDOFF_KEYWORDS)
 
 
 def recommend_effort_structural(
@@ -173,7 +120,7 @@ def recommend_effort_structural(
     plan_path: str = "",
     quick: bool = False,
 ) -> EffortRecommendation:
-    """Score effort/structural from mode, target, and implement handoff signals."""
+    """Score effort from mode/target/handoff; structural always recommended on."""
     mode = (mode or "pr").strip().lower()
     combined = f"{target} {handoff_content}".lower()
     path_count = _count_handoff_paths(handoff_content)
@@ -182,59 +129,151 @@ def recommend_effort_structural(
         1 for tok in target_tokens if "." in tok or "/" in tok or "\\" in tok
     )
 
-    effort = "standard"
-    structural = False
+    keyword = _keyword_signal(combined)
+    breadth = _file_breadth_signal(files_changed, path_count, target_file_count)
+    auth_data = mentions_auth_or_data(combined)
+
     reasoning: list[str] = []
     confidence = 0.72
+
+    # Structural is always on — scale fan-out at dispatch, never require --structural.
+    structural = True
 
     if quick:
         return EffortRecommendation(
             effort="light",
-            structural=False,
-            reasoning=["`--quick` requests abbreviated Architect + QA review only."],
+            structural=True,
+            reasoning=[
+                "`--quick` → light team (Architect + QA); structural probes still on "
+                "(S3/S4/S8 quick subset)."
+            ],
             confidence=0.95,
-            signals={"quick": True},
+            signals={
+                "quick": True,
+                "keyword": keyword,
+                "breadth": breadth,
+                "auth_data": auth_data,
+            },
         )
 
-    score = _ScoreState()
-    _score_from_mode(score, mode, combined)
-    _score_from_files_changed(score, files_changed, mode)
-    _score_from_path_count(score, path_count)
+    # Explicit architecture mode is an intentional thorough review.
+    if mode == "architecture":
+        return EffortRecommendation(
+            effort="thorough",
+            structural=True,
+            reasoning=[
+                "Architecture mode → full team + broader structural fan-out.",
+                "Structural probes always on; unrelated findings remain advisory.",
+            ],
+            confidence=0.9,
+            signals={
+                "mode": mode,
+                "path_count": path_count,
+                "files_changed": files_changed,
+                "target_file_count": target_file_count,
+                "keyword": keyword,
+                "breadth": breadth,
+                "auth_data": auth_data,
+                "has_handoff": bool(handoff_content),
+                "has_plan": bool(plan_path),
+            },
+        )
 
-    if any(kw in combined for kw in _LARGE_HANDOFF_KEYWORDS):
-        if score.effort == "standard":
-            score.effort = "thorough"
-        score.structural = True
-        score.reasoning.append("Handoff/target mentions refactor, security, or structural work.")
-        score.bump_confidence(0.84)
+    effort = "standard"
+
+    # Small surfaces prefer light (still with structural quick subset).
+    small_surface = (
+        (files_changed is not None and files_changed <= 3)
+        or (target_file_count == 1 and mode == "pr" and not handoff_content)
+        or (mode == "pr" and not handoff_content and not target_tokens)
+    )
+    if small_surface and not (keyword and breadth):
+        effort = "light"
+        if files_changed is not None and files_changed <= 3:
+            reasoning.append(
+                f"Small handoff scope ({files_changed} files) — light team + structural quick subset."
+            )
+            confidence = max(confidence, 0.78)
+        elif target_file_count == 1 and mode == "pr" and not handoff_content:
+            reasoning.append("Single-file target with no implement handoff — light review.")
+            confidence = max(confidence, 0.76)
+        else:
+            reasoning.append(
+                "Open-ended PR review with sparse target — start light; escalate if needed."
+            )
+            confidence = 0.7
+
+    if mode == "deep" or any(kw in combined for kw in _DEEP_KEYWORDS):
+        if effort == "light":
+            effort = "standard"
+        reasoning.append(
+            "Deep/troubleshooting signals — standard trimmed team; structural probes on."
+        )
+        confidence = max(confidence, 0.85)
+
+    # Escalate to thorough only with ≥2 corroborating signals (keyword AND breadth).
+    if keyword and breadth:
+        effort = "thorough"
+        reasoning.append(
+            "Escalated to thorough: keyword signal and file-breadth signal both present."
+        )
+        if files_changed is not None:
+            reasoning.append(f"Handoff reports {files_changed} files changed.")
+        if path_count:
+            reasoning.append(f"Handoff lists ~{path_count} paths.")
+        confidence = max(confidence, 0.88)
+    elif keyword and not breadth:
+        reasoning.append(
+            "Keyword signal alone (refactor/security/etc.) — not escalating without file-breadth."
+        )
+        confidence = max(confidence, 0.8)
+    elif breadth and not keyword:
+        if files_changed is not None and files_changed >= 8:
+            reasoning.append(
+                f"Medium+ file count ({files_changed}) without large-scope keywords — stay "
+                f"{effort}; structural probes cover coupling."
+            )
+        else:
+            reasoning.append(
+                f"Path breadth (~{path_count or target_file_count} paths) without keywords — "
+                f"stay {effort}."
+            )
+        confidence = max(confidence, 0.8)
 
     if plan_path:
-        score.structural = True
-        score.reasoning.append("Plan file linked — structural probes help compare intent vs code.")
-        score.bump_confidence(0.8)
+        reasoning.append("Plan file linked — structural probes compare intent vs code.")
+        confidence = max(confidence, 0.8)
 
-    _score_from_target(
-        score,
-        mode=mode,
-        target_tokens=target_tokens,
-        handoff_content=handoff_content,
-        target_file_count=target_file_count,
+    if auth_data and effort == "standard":
+        reasoning.append("Auth/data keywords → include Security Reviewer on the standard team.")
+
+    if not reasoning:
+        reasoning.append(
+            "Default pipeline review — standard trimmed team; structural always on "
+            "(quick subset unless thorough)."
+        )
+
+    reasoning.append(
+        "Structural probes always on; scale fan-out (S3/S4/S8 for light/standard; "
+        "full eight for thorough). Diff-scoped; unrelated findings advisory."
     )
 
-    if not score.reasoning:
-        score.reasoning.append("Default pipeline review after implement — standard team, probes optional.")
+    if effort not in _EFFORT_LEVELS:
+        effort = "standard"
 
-    effort = score.effort if score.effort in _EFFORT_LEVELS else "standard"
     return EffortRecommendation(
         effort=effort,
-        structural=score.structural,
-        reasoning=score.reasoning,
-        confidence=score.confidence,
+        structural=structural,
+        reasoning=reasoning,
+        confidence=confidence,
         signals={
             "mode": mode,
             "path_count": path_count,
             "files_changed": files_changed,
             "target_file_count": target_file_count,
+            "keyword": keyword,
+            "breadth": breadth,
+            "auth_data": auth_data,
             "has_handoff": bool(handoff_content),
             "has_plan": bool(plan_path),
         },
@@ -245,7 +284,10 @@ def resolve_applied_config(
     args: Any,
     recommendation: EffortRecommendation,
 ) -> tuple[str, bool, bool, bool]:
-    """Return (effort, structural_enabled, effort_overridden, structural_overridden)."""
+    """Return (effort, structural_enabled, effort_overridden, structural_overridden).
+
+    Structural defaults **on**. Only ``--no-structural`` turns it off.
+    """
     quick = bool(getattr(args, "quick", False))
     explicit_effort = getattr(args, "effort", None) is not None
 
@@ -264,14 +306,11 @@ def resolve_applied_config(
     structural_flag = getattr(args, "structural", None)
     explicit_structural = structural_flag is not None
 
-    if structural_flag is True:
-        structural_enabled = True
-    elif structural_flag is False:
+    if structural_flag is False:
         structural_enabled = False
-    elif recommendation.structural:
-        structural_enabled = True
     else:
-        structural_enabled = effort == "thorough"
+        # True CLI flag, recommendation, or default — always on unless opted out.
+        structural_enabled = True
 
     return effort, structural_enabled, explicit_effort, explicit_structural
 
@@ -301,7 +340,7 @@ def format_effort_config_section(
         "| Setting | Recommended | Applied |",
         "|---------|-------------|---------|",
         f"| `--effort` | `{recommendation.effort}` | {_applied_note(effort_overridden, recommendation.effort, applied_effort)} |",
-        f"| `--structural` | {rec_struct} | {_applied_note(structural_overridden, rec_struct, app_struct)} |",
+        f"| structural | {rec_struct} | {_applied_note(structural_overridden, rec_struct, app_struct)} |",
         "",
         f"**Confidence:** {recommendation.confidence:.0%}",
         "",
@@ -312,9 +351,12 @@ def format_effort_config_section(
     lines.extend(
         [
             "",
+            "Structural is **on by default** (no `--structural` opt-in). "
+            "Scale fan-out with effort; use `--no-structural` only to skip.",
+            "",
             "Restart step 1 to change: "
             f"`forge code-review --step 1 --effort {recommendation.effort}"
-            + (" --structural" if recommendation.structural else " --no-structural")
+            + (" --no-structural" if not recommendation.structural else "")
             + " ...`",
         ]
     )

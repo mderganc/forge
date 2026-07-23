@@ -22,7 +22,7 @@ class _Args:
       setattr(self, k, v)
 
 
-def test_quick_always_light_no_structural():
+def test_quick_always_light_structural_on():
     from scripts.code_review.effort_recommendation import recommend_effort_structural
 
     rec = recommend_effort_structural(
@@ -32,7 +32,7 @@ def test_quick_always_light_no_structural():
         quick=True,
     )
     assert rec.effort == "light"
-    assert rec.structural is False
+    assert rec.structural is True
 
 
 def test_architecture_mode_recommends_thorough_structural():
@@ -47,7 +47,7 @@ def test_architecture_mode_recommends_thorough_structural():
     assert rec.structural is True
 
 
-def test_small_handoff_recommends_light():
+def test_small_handoff_recommends_light_structural_on():
     from scripts.code_review.effort_recommendation import recommend_effort_structural
 
     rec = recommend_effort_structural(
@@ -57,10 +57,10 @@ def test_small_handoff_recommends_light():
         handoff_content="## Summary\n\n2 files changed\n",
     )
     assert rec.effort == "light"
-    assert rec.structural is False
+    assert rec.structural is True
 
 
-def test_large_handoff_recommends_thorough_structural():
+def test_large_handoff_recommends_thorough_when_keyword_and_breadth():
     from scripts.code_review.effort_recommendation import recommend_effort_structural
 
     rec = recommend_effort_structural(
@@ -71,6 +71,51 @@ def test_large_handoff_recommends_thorough_structural():
     )
     assert rec.effort == "thorough"
     assert rec.structural is True
+
+
+def test_keyword_alone_does_not_escalate_to_thorough():
+    from scripts.code_review.effort_recommendation import recommend_effort_structural
+
+    rec = recommend_effort_structural(
+        mode="pr",
+        target="",
+        target_tokens=[],
+        handoff_content="## Summary\n\n2 files changed\nSecurity hardening note.\n",
+    )
+    assert rec.effort != "thorough"
+    assert rec.structural is True
+    assert rec.signals.get("keyword") is True
+    assert rec.signals.get("breadth") is False
+
+
+def test_breadth_alone_does_not_escalate_to_thorough():
+    from scripts.code_review.effort_recommendation import recommend_effort_structural
+
+    rec = recommend_effort_structural(
+        mode="pr",
+        target="",
+        target_tokens=[],
+        handoff_content="## Summary\n\n24 files changed\nRoutine updates across modules.\n",
+    )
+    assert rec.effort != "thorough"
+    assert rec.structural is True
+    assert rec.signals.get("breadth") is True
+    assert rec.signals.get("keyword") is False
+
+
+def test_resolve_applied_config_structural_default_on():
+    from scripts.code_review.effort_recommendation import (
+        EffortRecommendation,
+        resolve_applied_config,
+    )
+
+    rec = EffortRecommendation(effort="standard", structural=True, reasoning=["test"])
+    args = _Args(quick=False, effort=None, structural=None)
+    effort, structural, e_ov, s_ov = resolve_applied_config(args, rec)
+    assert effort == "standard"
+    assert structural is True
+    assert e_ov is False
+    assert s_ov is False
 
 
 def test_resolve_applied_config_uses_recommendation_by_default():
@@ -103,6 +148,20 @@ def test_resolve_applied_config_cli_override():
     assert s_ov is True
 
 
+def test_resolve_applied_config_structural_on_even_if_rec_false():
+    """Structural stays on by default; recommendation cannot opt out."""
+    from scripts.code_review.effort_recommendation import (
+        EffortRecommendation,
+        resolve_applied_config,
+    )
+
+    rec = EffortRecommendation(effort="light", structural=False, reasoning=["legacy"])
+    args = _Args(quick=False, effort=None, structural=None)
+    _effort, structural, _e_ov, s_ov = resolve_applied_config(args, rec)
+    assert structural is True
+    assert s_ov is False
+
+
 def test_format_effort_config_section_mentions_override():
     from scripts.code_review.effort_recommendation import (
         EffortRecommendation,
@@ -125,3 +184,11 @@ def test_format_effort_config_section_mentions_override():
     assert "CLI override" in text
     assert "`--effort`" in text
     assert "Large scope" in text
+    assert "on by default" in text
+
+
+def test_mentions_auth_or_data():
+    from scripts.code_review.effort_recommendation import mentions_auth_or_data
+
+    assert mentions_auth_or_data("oauth token refresh")
+    assert not mentions_auth_or_data("rename helper function")

@@ -36,6 +36,23 @@ def test_recommend_default_for_refactor():
     assert mode == "default"
 
 
+def test_recommend_mode_insufficient_signals_prefers_lite():
+    mode, rationale = recommend_mode(handoff_content="Please update the wording")
+    assert mode == "lite"
+    assert "lite" in rationale.lower() or "insufficient" in rationale.lower()
+
+
+def test_recommend_mode_trivial_scope_prefers_lite():
+    mode, _ = recommend_mode(handoff_content="scope_tier: trivial\nSize: small")
+    assert mode == "lite"
+
+
+def test_recommend_mode_tied_prefers_lite():
+    # one lite + one default signal → tie → lite
+    mode, _ = recommend_mode(handoff_content="minor patch with parallel wave work")
+    assert mode == "lite"
+
+
 def test_preference_roundtrip(monkeypatch, tmp_path):
     from scripts.plan import plan_modes
 

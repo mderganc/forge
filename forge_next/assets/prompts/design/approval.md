@@ -27,7 +27,8 @@ Present scored solutions summary:
 
 Frame approval as **closure of a design conversation**, not a rubber stamp. If the user hesitates, explore why—**Revise** and **Alternate** are healthy paths that keep creative iteration alive.
 
-- **YAGNI / scope:** If the scored options include speculative breadth, call it out; confirm the user wants that surface area before approval.
+- **YAGNI / scope:** Recommend the option that satisfies **Recommended scope** with the least surface area. If scored options include speculative breadth or Scope expansion items, call them out as **not recommended** unless the user explicitly opts in.
+- **Loop reduction:** Batch review findings; suggestions are advisory; do not reopen approval for nits (see `templates/scope-size-model.md`).
 - **Structural charter:** Prefer the option that keeps functions under complexity budget, avoids planned duplication, keeps deps acyclic, and does not invent speculative public APIs (`templates/structural-build-charter.md`).
 - **Evidence:** The recommendation should rest on investigation outputs and explicit criteria — not untested assumptions. Flag gaps before the user approves.
 

@@ -19,7 +19,7 @@ PROMPTS_DIR = Path(__file__).resolve().parent.parent.parent / "prompts"
 _CHECKOUT_SENTINELS = (
     "plan/context.md",
     "review/team_dispatch.md",
-    "develop/startup.md",
+    "design/startup.md",
     "diagnose/technique_catalog.md",
 )
 
@@ -52,7 +52,17 @@ WORKFLOW_PROMPT_TEMPLATES: tuple[str, ...] = (
     "plan/approval",
     "plan/documentation",
     "plan/handoff",
-    # develop
+    # design (canonical; legacy develop/* names still load via alias)
+    "design/startup",
+    "design/scope",
+    "design/investigation",
+    "design/investigation_review",
+    "design/solution",
+    "design/approval",
+    "design/handoff",
+    "design/spec_gate",
+    "design/spec_issues",
+    # legacy aliases kept for validate_workflow_prompts callers during migration
     "develop/startup",
     "develop/scope",
     "develop/investigation",
@@ -226,6 +236,9 @@ def load_template(name: str, prompts_dir: Path | _ResourceLike | None = None) ->
     Raises:
         FileNotFoundError: If template file doesn't exist in any root.
     """
+    # Legacy develop/* prompts live under design/*
+    if name.startswith("develop/"):
+        name = "design/" + name[len("develop/") :]
     rel = f"{name}.md"
     tried: list[str] = []
     for root in _prompt_roots(prompts_dir):

@@ -158,3 +158,76 @@ def test_skill_chain_has_takeover():
     assert "takeover" in SKILL_CHAIN
     assert SKILL_CHAIN["takeover"].default == "ship"
     assert "iterate" not in SKILL_CHAIN
+
+
+def test_router_small_scope_from_design_scope(tmp_path, monkeypatch):
+    from scripts.shared.orchestrator import runtime_memory_dir
+
+    monkeypatch.chdir(tmp_path)
+    mem = runtime_memory_dir(tmp_path)
+    mem.mkdir(parents=True, exist_ok=True)
+    (mem / "design-scope.json").write_text(
+        json.dumps({"scope_tier": "trivial"}),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(
+        "scripts.takeover.router.runtime_memory_dir",
+        lambda search_dir=None: mem,
+    )
+    monkeypatch.setattr(
+        "scripts.takeover.router.legacy_memory_dir",
+        lambda search_dir=None: mem,
+    )
+    plan, _ = build_route_plan(repo_root=tmp_path, issue=None, design=None, goal=None)
+    assert plan.scope_tier == "small"
+    assert plan.skip_evaluate is True
+    assert plan.code_review_effort == "light"
+
+
+def test_router_diagnose_simple_short_circuit(tmp_path, monkeypatch):
+    from scripts.shared.orchestrator import runtime_memory_dir
+
+    monkeypatch.chdir(tmp_path)
+    mem = runtime_memory_dir(tmp_path)
+    mem.mkdir(parents=True, exist_ok=True)
+    (mem / "handoff-diagnose.md").write_text(
+        "# Handoff\n\n- **Fix complexity:** simple\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(
+        "scripts.takeover.router.runtime_memory_dir",
+        lambda search_dir=None: mem,
+    )
+    monkeypatch.setattr(
+        "scripts.takeover.router.legacy_memory_dir",
+        lambda search_dir=None: mem,
+    )
+    plan, _ = build_route_plan(repo_root=tmp_path, issue="fix login bug", goal=None)
+    assert plan.scope_tier == "small"
+    assert plan.skip_evaluate is True
+    assert plan.short_circuit_to_test is True
+    assert plan.code_review_effort == "light"
+
+
+def test_blocking_findings_suggestions_advisory():
+    from scripts.takeover.takeover import _blocking_findings_count
+
+    assert (
+        _blocking_findings_count(
+            {"critical": 0, "warning": 0, "suggestion": 4, "open_findings_total": 4}
+        )
+        == 0
+    )
+    assert _blocking_findings_count({"critical": 1, "warning": 0, "suggestion": 9}) == 1
+    assert (
+        _blocking_findings_count(
+            {
+                "findings": [
+                    {"severity": "suggestion", "status": "open"},
+                    {"severity": "warning", "status": "open"},
+                ]
+            }
+        )
+        == 1
+    )
+    assert _blocking_findings_count({"open_findings_total": 2}) == 2

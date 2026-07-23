@@ -31,15 +31,18 @@ Read `templates/diagnose-feedback-loop.md` first, then `templates/diagnose-execu
 
 ## Beat D — Remaining evidence
 
-### Evidence Checklist
+### Evidence Checklist — Core (always)
 - [ ] Error messages & stack traces
 - [ ] Reproduction steps (minimal repro) — **Gemba:** link artifact paths
 - [ ] Timeline (correlate with deploys, config changes)
-- [ ] Metrics (CPU, memory, latency, error rates) — establish baseline vs. degraded per `templates/data-analysis.md` §4
 - [ ] Source code (relevant paths end-to-end)
+- [ ] Tests (existing failures? missing coverage?)
+
+### Evidence Checklist — Extended (gate on severity/incident_profile)
+Run when `severity` is high/critical or `incident_profile` includes safety/compliance/production-incident; otherwise skip and note the skip reason in investigator memory.
+- [ ] Metrics (CPU, memory, latency, error rates) — establish baseline vs. degraded per `templates/data-analysis.md` §4
 - [ ] Dependencies (versions, changelogs, known issues) — run audit per `templates/data-analysis.md` §5
 - [ ] Configuration (env vars, feature flags, DB state)
-- [ ] Tests (existing failures? missing coverage?)
 - [ ] Git history (recent commits on relevant files) — run `python3 {{SCRIPT_DIR}}/git_hotspots.py --path <dir>` for churn analysis
 - [ ] Log analysis — run `python3 {{SCRIPT_DIR}}/log_analyzer.py --file <logfile>` for error pattern extraction and spike detection
 

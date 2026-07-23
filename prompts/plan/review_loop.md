@@ -25,8 +25,10 @@ Read `{{PLAN_FILE}}`
 |------|-------|-------|
 | Self-review | Planner | File paths real? No placeholders? Verify command + expected outcome on every task? |
 | Cross-review | QA Reviewer | Every task testable? Verification evidence concrete? Integration covered? |
-| Critic challenge | Critic | Hidden dependencies? Weakest assumption? Rollback realistic? Planned complexity growth, duplication, cycles, or unused surfaces? |
-| PM validation | PM | All solutions covered? Mode-appropriate depth? Interfaces match? |
+| Critic challenge | Critic | Hidden dependencies? Weakest assumption? Rollback realistic? **Scope creep?** **Over-decomposition?** Planned complexity growth, duplication, cycles, or unused surfaces? |
+| PM validation | PM | All **In scope** solutions covered (and nothing outside)? Mode-appropriate depth? Interfaces match? Bloat check? |
+
+Apply `templates/review-loop.md` loop-reduction: batch findings, suggestions advisory, two-round cap for low-risk.
 
 ## Structural focus (this step)
 Challenge planned tasks that would grow complexity past budget, duplicate logic, create cycles, or add speculative exports. See `templates/structural-build-charter.md`.

@@ -151,7 +151,9 @@ def inject_structural_probes(
         repo_root=_detect_repo_root(),
         state_dir=state_path.parent,
         mode=state.mode,
-        quick_mode=False,
+        quick_mode=bool(state.custom.get("quick_mode"))
+        or str(state.custom.get("eval_size") or "").lower() in ("small", "trivial")
+        or str(state.custom.get("effort") or "").lower() == "light",
     )
     if sidecar:
         state.custom["structural_probes_sidecar"] = str(sidecar)

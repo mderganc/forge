@@ -140,10 +140,10 @@ The develop skill uses **two** persistence mechanisms and they serve different p
 
 | File | Owner | Purpose |
 |------|-------|---------|
-| `.forge/state/develop.json` | `scripts/develop/develop.py` | Orchestrator step machine. Tracks which of the 7 CLI steps the skill is on. Advanced by `develop.py --step N`. |
-| `.forge/memory/current-step.md` | PM (Codex) | Human-readable lifeline for context-compaction resume. Tracks *sub-step* state within a CLI step (e.g., which gate is waiting). Never read by `develop.py`. |
+| `.forge/state/design.json` | `scripts/design/design.py` | Orchestrator step machine. Tracks which of the 8 CLI steps the skill is on. Advanced by `design.py --step N`. Legacy: `develop.json` / `scripts/develop/develop.py` shim. |
+| `.forge/memory/current-step.md` | PM (Codex) | Human-readable lifeline for context-compaction resume. Tracks *sub-step* state within a CLI step (e.g., which gate is waiting). Never read by `design.py`. |
 
-**On resume, the PM must check `current-step.md` *before* invoking `develop.py`.** If `current-step.md` says `Step: gate-N-waiting` or `Step: gate-N-answered`, the PM handles the gate directly (re-fires it, or advances to the next dispatch) and only calls `develop.py --step 6` after Stage 2 is truly complete. This keeps the script's coarse step machine from stomping on sub-step gate state.
+**On resume, the PM must check `current-step.md` *before* invoking `design.py`.** If `current-step.md` says `Step: gate-N-waiting` or `Step: gate-N-answered`, the PM handles the gate directly (re-fires it, or advances to the next dispatch) and only calls `design.py --step 6` after Stage 2 is truly complete. This keeps the script's coarse step machine from stomping on sub-step gate state.
 
 ### Gate-specific transitions
 

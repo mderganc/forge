@@ -241,7 +241,22 @@ def _build_variables(
     }
 
     # Team assignments based on effort / quick mode
+    # light → Architect + QA; standard → Architect + QA (+ Security if auth/data);
+    # thorough → full six-agent team.
     effort = str(state.custom.get("effort") or ("light" if state.quick_mode else "standard"))
+    handoff_blob = str(state.custom.get("handoff_content") or "")
+    target_blob = str(state.custom.get("target") or "")
+    include_security = False
+    try:
+        from scripts.code_review.effort_recommendation import mentions_auth_or_data
+
+        include_security = mentions_auth_or_data(f"{handoff_blob} {target_blob}") or mode in (
+            "deep",
+            "architecture",
+        )
+    except Exception:
+        include_security = mode in ("deep", "architecture")
+
     if state.quick_mode or effort == "light":
         team_section = (
             f"**Effort: {effort}** — abbreviated review:\n\n"
@@ -249,10 +264,12 @@ def _build_variables(
             "|-------|-------|\n"
             "| Architect | Design and structure review |\n"
             "| QA Reviewer | Correctness and test coverage |\n"
+            "\nStructural probes **on** (S3/S4/S8 quick subset); diff-scoped; "
+            "unrelated findings advisory.\n"
         )
-    else:
+    elif effort == "thorough":
         team_section = (
-            f"**Effort: {effort}**\n\n"
+            f"**Effort: {effort}** — full team:\n\n"
             "| Agent | Focus |\n"
             "|-------|-------|\n"
             "| Architect | Design patterns, structure, coupling |\n"
@@ -261,6 +278,31 @@ def _build_variables(
             "| Critic | Assumptions, missed cases, over-engineering |\n"
             "| Investigator | Deep code path tracing, dependency analysis |\n"
             "| Doc-writer | Documentation completeness, API docs |\n"
+            "\nStructural probes **on** with broader fan-out (full S1–S8); "
+            "diff-scoped; unrelated findings advisory.\n"
+        )
+    else:
+        # standard — trimmed team
+        rows = [
+            "| Agent | Focus |",
+            "|-------|-------|",
+            "| Architect | Design patterns, structure, coupling |",
+            "| QA Reviewer | Correctness, edge cases, test coverage |",
+        ]
+        if include_security:
+            rows.insert(
+                3,
+                "| Security Reviewer | Auth, data flow, injection, secrets |",
+            )
+            security_note = "Security Reviewer included (auth/data signals)."
+        else:
+            security_note = "Security Reviewer skipped (no auth/data signals)."
+        team_section = (
+            f"**Effort: {effort}** — trimmed team:\n\n"
+            + "\n".join(rows)
+            + f"\n\n{security_note}\n"
+            "Structural probes **on** (S3/S4/S8 quick subset); diff-scoped; "
+            "unrelated findings advisory.\n"
         )
 
     probe_summary = ""
@@ -291,7 +333,7 @@ def _build_variables(
         "QUICK_MODE": "yes" if state.quick_mode else "no",
         "EFFORT": str(state.custom.get("effort") or ("light" if state.quick_mode else "standard")),
         "STRUCTURAL_ENABLED": (
-            "yes" if state.custom.get("structural_enabled", False) else "no"
+            "yes" if state.custom.get("structural_enabled", True) else "no"
         ),
         "EFFORT_CONFIG_SECTION": state.custom.get("effort_config_section", ""),
         "SKILL_NAME": SKILL_NAME,
@@ -493,7 +535,7 @@ def handle_step_n(
 
     scan_root = _detect_repo_root(Path.cwd())
 
-    if step >= 4 and bool(state.custom.get("structural_enabled", False)):
+    if step >= 4 and bool(state.custom.get("structural_enabled", True)):
         from scripts.code_review.structural_probes_gate import exit_if_structural_probes_gate_fails
 
         state_dir = _code_review_state_dir(sp, scan_root)
@@ -534,7 +576,9 @@ def handle_step_n(
     body = render_template(template, variables)
 
     probe_gate_pending = False
-    structural_enabled = bool(state.custom.get("structural_enabled", False))
+    # Structural defaults on; only --no-structural disables.
+    structural_enabled = bool(state.custom.get("structural_enabled", True))
+    effort = str(state.custom.get("effort") or ("light" if state.quick_mode else "standard"))
     if step == 3 and structural_enabled:
         print(
             "forge: code-review step 3 — loading template and structural Pass B…",
@@ -548,6 +592,8 @@ def handle_step_n(
 
         scan_root = resolve_repo_root(Path.cwd())
         state_dir = _code_review_state_dir(sp, scan_root)
+        # Scale fan-out: light/standard → S3/S4/S8; thorough → full eight.
+        structural_quick = effort != "thorough"
         body, sidecar, _payload = inject_structural_probes_section(
             body,
             skill_name=SKILL_NAME,
@@ -556,7 +602,13 @@ def handle_step_n(
             state_dir=state_dir,
             mode=state.custom.get("mode"),
             scope_paths=scope if scope else None,
-            quick_mode=state.quick_mode,
+            quick_mode=structural_quick,
+            force_full_eight=(effort == "thorough"),
+            advisory=True,
+        )
+        body += (
+            "\n\n**Structural scope:** prefer diff / target paths. Findings outside "
+            "the changed surface are **advisory** unless this change caused them.\n"
         )
         if sidecar:
             state.custom["structural_probes_sidecar"] = str(sidecar)
@@ -568,8 +620,7 @@ def handle_step_n(
         )
     elif step == 3 and not structural_enabled:
         body += (
-            "\n\n---\n\n**Structural Pass B:** skipped "
-            "(`--no-structural` or effort default). "
+            "\n\n---\n\n**Structural Pass B:** skipped (`--no-structural`). "
             "Core reviewers only — no probes / eight-agents.\n"
         )
         probe_gate_pending = False
@@ -691,7 +742,11 @@ def main():
         type=str,
         choices=["light", "standard", "thorough"],
         default=None,
-        help="Review effort (replaces --quick). light=Architect+QA; thorough enables structural by default",
+        help=(
+            "Review effort (replaces --quick). light=Architect+QA; "
+            "standard=Architect+QA(+Security if auth/data); thorough=full six. "
+            "Structural probes are always on unless --no-structural."
+        ),
     )
     struct = parser.add_mutually_exclusive_group()
     struct.add_argument(
@@ -699,13 +754,13 @@ def main():
         dest="structural",
         action="store_true",
         default=None,
-        help="Run structural probes + eight-agent Pass B at step 3",
+        help="Force structural probes on (default already on; use to override --no-structural in scripts)",
     )
     struct.add_argument(
         "--no-structural",
         dest="structural",
         action="store_false",
-        help="Skip structural probes and eight-agents",
+        help="Skip structural probes and eight-agents (opt-out; structural is on by default)",
     )
     parser.add_argument(
         "--target", nargs="+", default=None,

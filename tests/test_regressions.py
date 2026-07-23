@@ -1725,24 +1725,40 @@ def test_flows_scaffold_gate_passes_with_full_layout():
     assert len(failures) == 0
 
 
-def test_flows_authoring_gate_blocks_without_failure_path():
-    """Step 5 authoring gate refuses to advance without failure-path assertion (criterion 7)."""
+def test_flows_scaffold_gate_passes_with_clean_only_smoke():
+    """Proportional budget: clean/ alone is enough for single-role smoke."""
+    from scripts.test.test_flows import _check_scaffold_gate
+    from scripts.shared.orchestrator import SkillState
+
+    state = SkillState(skill_name="test")
+    state.custom["roles"] = ["anonymous"]
+    state.custom["flow_files"] = [
+        "tests/scenarios/test_upload.py",
+        "tests/scenarios/fixtures/data-packs/clean/",
+    ]
+
+    failures = _check_scaffold_gate(state)
+    assert failures == []
+
+
+def test_flows_authoring_gate_allows_smoke_without_failure_path():
+    """Empty failure_paths is intentional smoke — gate must not block."""
     from scripts.test.test_flows import _check_authoring_gate
     from scripts.shared.orchestrator import SkillState
 
     state = SkillState(skill_name="test")
     state.custom["flow_scope"] = {
-        "failure_paths": [],  # Empty — should trigger gate
+        "failure_paths": [],
+        "roles": ["anonymous"],
         "external_services_to_mock": [],
     }
     state.custom["authoring_results"] = {
-        "outcome_surfaces": ["response", "db"],
+        "outcome_surfaces": ["response"],
         "external_mocks": [],
     }
 
     failures = _check_authoring_gate(state)
-    assert len(failures) > 0
-    assert any("failure-path" in f for f in failures)
+    assert failures == []
 
 
 def test_flows_authoring_gate_passes_with_failure_path_and_2_surfaces():

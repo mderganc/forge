@@ -2106,11 +2106,13 @@ def inject_structural_probes_section(
     scope_paths: list[str] | None = None,
     quick_mode: bool = False,
     advisory: bool = False,
+    force_full_eight: bool = False,
 ) -> tuple[str, Path | None, dict[str, Any] | None]:
     """Append planning or results banner; auto-run when policy says so.
 
     ``advisory=True`` (plan step 2): non-OK probe status does not write a pending
     gate or request confirmation — architecture continues with a banner only.
+    ``force_full_eight=True`` (e.g. thorough code-review) dispatches all S1–S8.
     """
     if not should_run_probes(skill_name, step, mode):
         return body, None, None
@@ -2184,7 +2186,10 @@ def inject_structural_probes_section(
 
     eight_banner = ""
     if should_dispatch_eight_agents(skill_name, step, mode):
-        eight_quick = default_eight_agents_quick_mode(user_quick=quick_mode)
+        eight_quick = default_eight_agents_quick_mode(
+            user_quick=quick_mode,
+            force_full=force_full_eight,
+        )
         eight_banner = "\n\n" + format_eight_agents_dispatch_banner(quick_mode=eight_quick)
 
     if should_auto_run_structural_probes(skill_name, step, mode):

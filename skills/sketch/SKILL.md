@@ -7,6 +7,16 @@ description: |
 
 # forge sketch — Pre-design intent
 
+## Skill contract
+
+- **Use when:** intent is fuzzy — problem, constraints, or terminology still need reflection before design.
+- **Do not use when:** direction is already clear (go straight to `design`) or you need investigation/specs (sketch doesn't do that).
+- **Input:** user's raw ask / problem statement. **Output artifact:** `sketch-decisions.md` (Destination, Decisions so far, Not yet specified, Out of scope).
+- **Stops at:** handoff to `design` once decisions stabilize — sketch never investigates the codebase or writes specs.
+- **Small-path behavior:** for trivial asks, skip sketch entirely and go straight to `design`/`plan`; when used, keep the dialogue to 1–2 checkpoints instead of full fog-clearing.
+
+See `templates/scope-size-model.md` and `templates/workflow-skill-preamble.md` for shared sizing/ceremony rules.
+
 Iterative pair-thinking: reflect, confirm, revise — not a checklist. See `templates/sketch-protocol.md`.
 
 Session artifact `sketch-decisions.md` uses wayfinder-inspired sections (adapted from [mattpocock/skills wayfinder](https://github.com/mattpocock/skills/blob/main/skills/engineering/wayfinder/SKILL.md)): **Destination**, **Decisions so far**, **Not yet specified** (fog), and **Out of scope**. Plan, don't do — sketch records decisions; design owns investigation and specs.

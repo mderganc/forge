@@ -70,4 +70,4 @@ Reporting them separately stops one axis from masking the other.
 
 ## Structural probes (Pass B)
 
-At team dispatch (step 3), the orchestrator **runs** structural probes (**pyscn** when Python is present) and writes **`.structural-probes.json`**. Read that sidecar before reviewers; planning-only mode: `FORGE_STRUCTURAL_PROBES_MANUAL=1`. See `templates/structural-quality-probes.md`.
+Structural probes are **always on** unless `--no-structural`. At team dispatch (step 3), the orchestrator **runs** probes (**pyscn** when Python is present) and writes **`.structural-probes.json`**. Fan-out scales with effort (S3/S4/S8 for light/standard; full S1–S8 for thorough). Prefer **diff-scoped** findings; unrelated hits are **advisory**. Planning-only mode: `FORGE_STRUCTURAL_PROBES_MANUAL=1`. See `templates/structural-quality-probes.md`.

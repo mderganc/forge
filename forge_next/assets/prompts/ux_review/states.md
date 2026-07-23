@@ -15,6 +15,7 @@ Capture screenshots of every page and important state, including empty, loading,
 1. For major views in the plan’s state matrix, force:
    - empty, loading (when possible), populated, validation, error, success
 2. At agreed viewports (default desktop; add ~768 and ~375 when the product is responsive / mobile-relevant):
+   - **`--quick`:** desktop-only viewport, unless orientation flags the product as responsive/mobile — then still add ~768/~375.
    - Spot-check critical journeys for clipping, overlap, unusable targets, lost primary CTA
 3. Update coverage `states` and `viewports` lists with evidence paths.
 4. Note broken controls, dead ends, missing states, inconsistent patterns, and friction for step 5.

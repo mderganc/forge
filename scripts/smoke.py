@@ -32,7 +32,8 @@ from scripts.diagnose.technique_coverage import catalog_technique_names  # noqa:
 
 SCRIPTS = {
     "plan": REPO / "scripts/plan/plan.py",
-    "develop": REPO / "scripts/develop/develop.py",
+    "design": REPO / "scripts/design/design.py",
+    "develop": REPO / "scripts/design/design.py",  # legacy alias
     "implement": REPO / "scripts/implement/implement.py",
     "code-review": REPO / "scripts/code_review/code_review.py",
     "test": REPO / "scripts/test/test.py",
@@ -42,6 +43,7 @@ SCRIPTS = {
 
 MAX_STEPS = {
     "plan": 7,
+    "design": 8,
     "develop": 8,
     "implement": 8,
     "code-review": 6,

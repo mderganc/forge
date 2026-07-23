@@ -31,9 +31,11 @@ Write the handoff file with root causes, complexity tier, and recommended routin
 Turn the minimal repro into a failing test **only at a correct seam** — one that exercises the real bug pattern at the call site. If the only available seam is too shallow, document that as a finding in the diagnostic report; do not ship false confidence.
 
 ## Validation Ladder
-1. Unit tests (always)
-2. Regression (full suite)
-3. Reproduction case (re-run the Phase 2 feedback loop; failure no longer triggers)
-4. Static analysis (if available)
+- **`fix_complexity: simple`** — Unit tests + Reproduction case only (re-run the Phase 2 feedback loop; failure no longer triggers). Skip full regression suite and static analysis by default; run them only if the fix touches shared/critical paths.
+- **`complex` / `large`** (rare to reach here; usually routed out above):
+  1. Unit tests (always)
+  2. Regression (full suite)
+  3. Reproduction case (re-run the Phase 2 feedback loop; failure no longer triggers)
+  4. Static analysis (if available)
 
 {{AUTONOMY_GATE}}

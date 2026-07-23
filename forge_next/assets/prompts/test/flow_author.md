@@ -11,9 +11,9 @@ Fill scaffold with data packs, role-parameterized assertions, failure paths, and
 ## Checklist
 
 - [ ] Read **`templates/test-flow-criteria.md`** — acceptance bar for criteria 1–8.
-- [ ] **Data packs:** populate `clean/`, `messy/`, `edge-cases/`, `duplicates/` with README per variant (from step 3 sample inputs).
-- [ ] **Roles:** parametrize via conftest or BDD steps; distinct assertion sets per role; ≥ 2 outcome surfaces per test.
-- [ ] **Failure paths:** ≥ 1 test exercising a scoped failure scenario (bad input, forbidden role, etc.).
+- [ ] **Data packs:** populate budgeted packs only (`clean/` minimum; add `messy/` / `edge-cases/` / `duplicates/` when scope has matching failure_paths — smoke → clean + at most one edge). README per created variant.
+- [ ] **Roles:** parametrize via conftest or BDD steps when roles > 1; distinct assertion sets per role; ≥ 2 outcome surfaces per test (single-role smoke may use one primary surface + one failure if scoped).
+- [ ] **Failure paths:** ≥ 1 test when scope lists failure_paths; smoke with none may omit.
 - [ ] **Entry point:** HTTP `TestClient`, CLI `subprocess`, etc. — never direct internal imports.
 - [ ] **External mocks only:** stub services listed in scope; record in `authoring_results.external_mocks`.
 - [ ] **Determinism:** patch or fix random, time, UUID; sort unordered collections before assert.

@@ -55,3 +55,43 @@ def test_state_path_for_plan(tmp_path: Path) -> None:
     plan.parent.mkdir(parents=True)
     plan.write_text("# plan\n", encoding="utf-8")
     assert state_path_for_plan(str(plan)) == tmp_path / "plans" / ".evaluate-state.json"
+
+
+def test_infer_size_quick_and_task_count() -> None:
+    from scripts.evaluate.evaluate_effort import (
+        infer_size_from_plan,
+        should_skip_phase,
+        skipped_phase_summary,
+    )
+
+    size, rationale = infer_size_from_plan("# plan\n", quick=True)
+    assert size == "small"
+    assert "quick" in rationale.lower() or "CLI" in rationale
+
+    plan = "\n".join(f"### Task {i}: do thing {i}" for i in range(1, 3))
+    size, _ = infer_size_from_plan(plan, referenced_files=["a.py", "b.py"])
+    assert size == "small"
+    assert should_skip_phase("pre", 4, size, False)
+    assert should_skip_phase("pre", 5, size, False)
+    assert not should_skip_phase("pre", 2, size, False)
+    assert should_skip_phase("post", 5, size, False)
+    assert "codebase_alignment" in skipped_phase_summary("pre", size, True)
+
+
+def test_infer_size_scope_tier_trivial() -> None:
+    from scripts.evaluate.evaluate_effort import infer_size_from_plan, normalize_size
+
+    assert normalize_size("trivial") == "small"
+    size, rationale = infer_size_from_plan('scope_tier: trivial\n\n### Task 1: x\n')
+    assert size == "small"
+    assert "trivial" in rationale.lower() or "small" in rationale.lower()
+
+
+def test_apply_size_sets_quick_mode() -> None:
+    from scripts.evaluate.evaluate_effort import apply_size_to_custom
+
+    custom: dict = {"mode": "pre"}
+    apply_size_to_custom(custom, "small", "test", quick=False)
+    assert custom["quick_mode"] is True
+    assert custom["eval_size"] == "small"
+    assert custom["effort"] == "light"

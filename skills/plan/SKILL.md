@@ -6,6 +6,16 @@ description: |
 
 # Forge Plan — Implementation Planning
 
+## Skill contract
+
+- **Use when:** a single approved direction (or design handoff) needs to become concrete tasks and waves before coding.
+- **Do not use when:** direction is still undecided (go to `design`) or the fix is a 1–2 file trivial change that doesn't need a plan file at all.
+- **Input:** approved design direction or a standalone request. **Output artifact:** implementation plan file (tasks, waves, risks).
+- **Stops at:** handoff to `evaluate --mode pre` — plan never edits product source or runs git mutation commands.
+- **Small-path behavior:** `trivial`/small scope uses **`lite`** mode, ≤3 tasks, and skips heavy pre-review ceremony.
+
+See `templates/scope-size-model.md` and `templates/workflow-skill-preamble.md` for shared sizing/ceremony rules.
+
 Routing: [AGENTS.md](../../AGENTS.md) § Process-first.
 
 Shared runtime: [templates/workflow-skill-preamble.md](../../templates/workflow-skill-preamble.md).

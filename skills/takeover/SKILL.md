@@ -6,6 +6,16 @@ description: |
 
 # Forge Takeover
 
+## Skill contract
+
+- **Use when:** resuming or inferring in-flight work and driving Forge skills through to ship-ready without manual step-by-step invocation.
+- **Do not use when:** you already know exactly which single skill to run next — invoke that skill directly instead.
+- **Input:** repo state (+ optional `--issue`/`--design`/`--goal`). **Output artifact:** route plan + gated progression through child skill steps to a ship handoff.
+- **Stops at:** handing off to `ship` once all step gates pass — takeover does not perform the ship steps itself.
+- **Small-path behavior:** small/`trivial` scope skips evaluate pre/post; severity-filtered gates (critical+warning only); code-review `--effort light`; diagnose `simple` can short-circuit toward test/ship.
+
+See `templates/scope-size-model.md` and `templates/workflow-skill-preamble.md` for shared sizing/ceremony rules.
+
 Shared runtime: [templates/workflow-skill-preamble.md](../../templates/workflow-skill-preamble.md).
 
 <invoke cmd="forge takeover" />

@@ -32,12 +32,19 @@ When unsure which skill to run next, see [AGENTS.md](../AGENTS.md) § Process-fi
 
 ## Simplicity (YAGNI)
 
-- **YAGNI:** Build only what the current task or approved scope requires. No speculative APIs, config flags, abstraction layers, or "future-proof" hooks unless explicitly in scope.
-- **Smallest correct change:** Prefer the shortest diff that satisfies acceptance criteria. A focused 5-line fix beats a 100-line refactor.
+- **Original scope bias:** Treat the user's initial request as the **ceiling**. The recommended path is that ask (or confirmed Recommended scope). Do not reframe a narrow fix into a larger initiative without an explicit user yes.
+- **Scope expansion labeling:** Opportunities and delighters are welcome — list them under **Scope expansion (optional — not recommended)** and never promote them silently. See `templates/scope-size-model.md`.
+- **YAGNI:** Build only what the current task or approved Recommended scope requires. No speculative APIs, config flags, abstraction layers, or "future-proof" hooks unless explicitly in scope.
+- **Smallest correct change:** Prefer the shortest diff that satisfies acceptance criteria. A focused 5-line fix beats a 100-line refactor. Prefer **fewer tasks / fewer files / fewer waves** over completeness theater.
 - **One-liners where readable:** Prefer inline expressions (ternaries, comprehensions, small lambdas, guard clauses) over one-off helpers, wrapper classes, or new files—when clarity is preserved.
 - **No premature generalization:** One caller → implement at the call site; three similar call sites → then extract.
-- **When in doubt:** Ship the simpler option; escalate breadth to design/plan, not implementation.
+- **Anti-patterns:** no companion refactor, no "while we're here", no future flag, no unrelated test matrix, no pre-existing-cleanup task unless the user opted that expansion in.
+- **When in doubt:** Ship the simpler option; pick the **lower** size tier (`templates/scope-size-model.md`); escalate breadth only with user confirmation.
+
+## Size-scaled ceremony
+
+Judge **small / medium / large** early and scale ceremony per `templates/scope-size-model.md`. Structural review stays on for every product-code change; scale reviewer fan-out, not whether structural runs. Use the **loop-reduction** policy there (batch findings, focused re-review, suggestions advisory, two-round cap for low-risk).
 
 ## Structural quality (build charter)
 
-While designing, planning, and implementing, follow **`templates/structural-build-charter.md`**: complexity budget, no clones, no dead arms, no new cycles, no speculative exports. jscn/pyscn (and related probes) **verify** those rules later — they are not the first time agents should hear them.
+While designing, planning, and implementing, follow **`templates/structural-build-charter.md`**: complexity budget, no clones, no dead arms, no new cycles, no speculative exports. jscn/pyscn (and related probes) **verify** those rules later — they are not the first time agents should hear them. The charter does **not** authorize repayment waves or drive-bys beyond in-scope hotspots.

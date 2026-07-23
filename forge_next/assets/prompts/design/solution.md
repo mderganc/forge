@@ -15,7 +15,7 @@
 | `templates/scoring-rubric.md` | Architect — weighted scoring |
 | `templates/studio.md` | PM — browser gate transport |
 
-**Guards:** No implementation in Stage 2. One question at a time during PM gates. YAGNI on speculative scope. Evidence from Stage 1 or explicit user statements. Prefer solution shapes that stay under the structural charter (complexity budget, avoid clone-prone designs, acyclic deps, no speculative public surface — `templates/structural-build-charter.md`). No probe runs in design.
+**Guards:** No implementation in Stage 2. One question at a time during PM gates. YAGNI on speculative scope — do **not** grow the solution surface past **Recommended scope** (see `templates/scope-size-model.md`). Score and recommend the **minimal** option that hits Recommended scope; list broader ideas as Scope expansion, not as the default pick. Evidence from Stage 1 or explicit user statements. Prefer solution shapes that stay under the structural charter (complexity budget, avoid clone-prone designs, acyclic deps, no speculative public surface — `templates/structural-build-charter.md`). No probe runs in design. For **trivial** scope, keep candidate count lean (often 2 directions max). If one unresolved logic/state or UI-shape question blocks choosing, **offer** future `forge:prototype` (`docs/forge/prototype-skill-stub.md`).
 
 **Roster:** All dispatches in this stage use **Architect** only (`agents/architect.md`). See **`templates/forge-agent-roster.md`** — never spawn invented names like `backend-architect`.
 

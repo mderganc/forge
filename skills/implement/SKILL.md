@@ -6,6 +6,16 @@ description: |
 
 # Forge Implement — Code Execution
 
+## Skill contract
+
+- **Use when:** an approved plan (or clear task list) is ready to execute in code.
+- **Do not use when:** there is no plan/direction yet (go to `plan`/`design`) or the task is trivial enough for a direct edit without a wave workflow.
+- **Input:** plan path (from handoff or `--plan`). **Output artifact:** code changes + documentation gate result.
+- **Stops at:** handoff to `code-review` — implement does not review/merge/ship its own changes.
+- **Small-path behavior:** `--quick` / small scope runs a lean single-branch pass with minimal per-task review ceremony.
+
+See `templates/scope-size-model.md` and `templates/workflow-skill-preamble.md` for shared sizing/ceremony rules.
+
 Shared runtime: [templates/workflow-skill-preamble.md](../../templates/workflow-skill-preamble.md).
 
 ## Simplicity

@@ -60,7 +60,17 @@ def build_parser() -> argparse.ArgumentParser:
     ev.add_argument("--state", type=str)
     ev.add_argument("--mode", choices=["pre", "post", "review"])
     ev.add_argument("--team", action="store_true")
-
+    ev.add_argument(
+        "--quick",
+        action="store_true",
+        help="Small-ceremony evaluate: skip heavy pre/post phases",
+    )
+    ev.add_argument(
+        "--effort",
+        choices=["small", "medium", "large", "lite", "light", "standard", "thorough"],
+        default=None,
+        help="Override size/ceremony tier (small skips heavy phases)",
+    )
     # sketch (pre-design intent organization)
     sk = sub.add_parser(
         "sketch",

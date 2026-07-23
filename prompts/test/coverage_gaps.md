@@ -32,10 +32,13 @@ Analyze the coverage data to identify gaps:
 - Are error paths tested (exceptions, error returns)?
 
 **Mutation audit (Level 9 from `templates/verification-protocol.md`):**
-- For each critical path with high line coverage: mentally mutate the code
-- Flip a condition, change a boundary operator, remove a null guard, swap an argument order
+
+- **Skip** when `--quick` is on, or the run is green with **no new source files** (coverage gaps stay file/branch-focused only).
+- Otherwise keep the audit **diff-scoped**: mutate only new/changed conditionals and decision points in the changed files — not the whole module tree.
+- When enabled: for each in-scope critical path, mentally mutate the code (flip a condition, change a boundary, remove a null guard).
 - For each mutation: which specific test would catch it?
 - If no test would catch a mutation, flag it as a gap — line coverage alone doesn't guarantee behavioral coverage
+- Record skip reason when skipped (e.g. `"--quick"`, `"green run, no new files"`).
 
 ### 2. Critic — Untested Assumptions
 

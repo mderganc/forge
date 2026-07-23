@@ -70,6 +70,9 @@ Record `standards_sources` list in session memory.
 - Present the detected target, fixed point, diff command, spec source, and standards sources
 - Present the detected mode
 - Ask if they want to adjust the mode, target, or fixed point
-- If quick mode: note that only lead reviewers (Architect, QA) will participate
+- If light/quick effort: note Architect + QA only; structural probes still on (S3/S4/S8)
+- If standard: Architect + QA (+ Security when auth/data); structural quick subset
+- If thorough: full six-agent team + broader structural fan-out
+- Structural is **on by default** (opt out only with `--no-structural`)
 
 Record the confirmed target in the state and proceed to mode selection.

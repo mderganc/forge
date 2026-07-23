@@ -52,6 +52,8 @@ def test_should_dispatch_eight_agents_matrix() -> None:
 def test_default_eight_agents_quick_mode() -> None:
     assert sea.default_eight_agents_quick_mode(user_quick=False) is True
     assert sea.default_eight_agents_quick_mode(user_quick=True) is True
+    assert sea.default_eight_agents_quick_mode(force_full=True) is False
+    assert sea.default_eight_agents_quick_mode(user_quick=True, force_full=True) is False
 
 
 def test_skip_structural_eight_agents(monkeypatch: pytest.MonkeyPatch) -> None:

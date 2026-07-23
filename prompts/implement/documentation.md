@@ -2,6 +2,8 @@
 
 Dispatch **Doc-writer** (and specialists as needed) to align repo docs and external wiki evidence with the **plan file Documentation section** and audience applicability.
 
+Scale by plan **Size**: for **small**, audience rows and wiki items may be **N/A** with a **one-line justification** each — do not invent docs theater.
+
 ## Plan prerequisites
 
 Read the plan file from implement state (`plan_path`): especially **§ Documentation** — applicability matrix, Documentation Definition of Done table, and external wiki checklist.
@@ -68,7 +70,8 @@ Write **`{{STATE_DIR}}/.implement-documentation-gate.json`** next to the impleme
   - **`applicable`:** boolean or `yes`/`no`.
   - **`justification`:** non-empty for every row (why in or out of scope).
   - **`delivery_evidence`:** when `applicable` is **true**, must be non-empty (paths, links, PR refs). When `applicable` is **false**, may be empty.
-- **`external_wiki_checklist`:** required array. Use `[]` if no external wikis apply. Each item must include **`status`**. If status is not N/A, include **`evidence_link`** (URL or ticket).
+- **Small size:** marking all three audiences `applicable: false` is allowed when nothing user-/ops-/architecture-facing changed — each row still needs a **one-line** `justification` (e.g. `"Internal helper only; no CLI/API/docs surface."`). Prefer one real README/CHANGELOG touch over three empty applicable rows.
+- **`external_wiki_checklist`:** required array. Use `[]` if no external wikis apply. Each item must include **`status`**. If status is not N/A, include **`evidence_link`** (URL or ticket). For **small**, `status: "N/A"` with no evidence is fine when wikis were never in scope.
 
 ## Plan file Documentation marker
 
@@ -77,8 +80,8 @@ Replace the `<!-- FORGE_SKELETON: DOCUMENTATION -->` marker in the plan with rea
 ## Review
 
 - Self-review: Doc-writer
-- Cross-review: QA (examples work, terminology)
-- Critic: docs match reality and plan
+- Cross-review: QA (examples work, terminology) — *small: self-review only unless docs claim user-facing behavior*
+- Critic: docs match reality and plan — *medium/large*
 
 ## Quick Mode
 

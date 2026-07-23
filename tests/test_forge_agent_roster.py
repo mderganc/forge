@@ -21,9 +21,9 @@ def test_forge_agent_roster_template_exists():
 
 def test_design_dispatch_prompts_reference_roster():
     for rel in (
-        "prompts/develop/investigation.md",
-        "prompts/develop/solution.md",
-        "prompts/develop/scope.md",
+        "prompts/design/investigation.md",
+        "prompts/design/solution.md",
+        "prompts/design/scope.md",
         "templates/workflow-skill-preamble.md",
     ):
         text = (REPO_ROOT / rel).read_text(encoding="utf-8")

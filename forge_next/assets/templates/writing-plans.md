@@ -2,7 +2,15 @@
 
 Used by the plan skill and planner agent. Defines the required structure, format, and quality bar for implementation plans.
 
-See also `templates/plan-modes.md` for `default` vs `lite` ceremony; **correctness requirements are identical in both modes**.
+See also `templates/plan-modes.md` for `default` vs `lite` ceremony; **correctness requirements are identical in both modes**. Size model: `templates/scope-size-model.md`.
+
+## Minimal plan (read first)
+
+- Prefer the **smallest task set** that covers **In scope** (Recommended scope) only.
+- Aim for **≤3 tasks** for `lite` / trivial / small; split further only when INVEST fails.
+- Forbidden: “while we’re here”, companion refactors, docs-only tasks unless the docs gate requires them, speculative interface contracts, pre-existing cleanup.
+- **Out of scope** must list rejected expansions (opportunities brainstormed but not opted in) — do not leave empty when extras were considered.
+- Tag each task with **Size:** `small` | `medium` | `large` (default small for lite plans) so implement can scale review.
 
 ## Plan Header (required at top of every plan file)
 
@@ -11,14 +19,15 @@ After `# Implementation Plan`, include:
 ```markdown
 **Goal:** [One sentence]
 **Spec reference:** [Handoff, develop memory, or user request]
-**In scope:** [Bullets]
-**Out of scope:** [Bullets — explicit]
+**In scope:** [Bullets — Recommended scope only]
+**Out of scope:** [Bullets — explicit; include rejected Scope expansion]
+**Scope expansion (not planned):** [Bullets or “None”]
 **Plan mode:** default | lite
 ```
 
 ## Plan Structure
 
-Every plan must contain all of the following sections. Missing sections are a review blocker.
+Every plan must contain all of the following sections. Missing sections are a review blocker. For **`lite`**, keep narrative compact; do not invent work to fill sections.
 
 1. Architecture Overview
 2. Branch Strategy
@@ -42,16 +51,18 @@ A concise description of the architectural approach. Include:
 
 Use a Conventional-Branch-style prefix: **`feat/`** (default), or **`fix/`**, **`chore/`**, **`refactor/`**, **`docs/`**, **`hotfix/`** as appropriate. The implement orchestrator stores the prefix from `forge implement --branch-prefix` (default **feat**).
 
+**Small / single-task plans:** one feature branch; commit directly on it — **skip** per-task sub-branches and worktrees.
+
 ```
 main
  └─ feat/<short-slug>              ← feature branch (created by PM)
-     ├─ feat/<short-slug>/task-1   ← sub-branch per task (created by assigned agent)
+     ├─ feat/<short-slug>/task-1   ← sub-branch per task (only when >1 task)
      ├─ feat/<short-slug>/task-2
      └─ feat/<short-slug>/task-3
 ```
 
 - Feature branch is created from main before any work begins.
-- Each task gets its own sub-branch off the feature branch.
+- Each task gets its own sub-branch off the feature branch **only when the plan has more than one task**.
 - Sub-branches are merged back to the feature branch in dependency order after review.
 - Feature branch is merged to main after all tasks pass verification.
 - If parallel tasks touch the same file, the plan must specify merge order and conflict resolution strategy.
@@ -73,7 +84,8 @@ Each task is a discrete unit of work assigned to one agent. Every task must incl
 ```
 ### Task [N]: [Title]
 **Agent:** [Architect | Dev-1 | Dev-2 | QA | ...]
-**Branch:** feat/<short-slug>/task-[N]
+**Size:** small | medium | large
+**Branch:** feat/<short-slug>/task-[N]  (or feat/<short-slug> when single-task)
 **Files:** [Exact file paths to create or modify — no wildcards, no "and related files"]
 **Dependencies:** [Task IDs this depends on, or "none"]
 
@@ -98,7 +110,7 @@ Each task is a discrete unit of work assigned to one agent. Every task must incl
 3. **TDD is mandatory.** Every task that changes runtime code must have TDD steps. Config-only or documentation tasks are exempt but must say so explicitly.
 4. **Acceptance criteria must be observable.** "Code is clean" is not observable. "Linter passes with zero warnings" is.
 5. **No task should take more than ~2 hours of agent work.** If it's bigger, break it down further.
-6. **YAGNI on tasks.** No speculative or "future" tasks; no framework-building unless explicitly in scope. Prefer fewer, smaller tasks.
+6. **YAGNI on tasks.** No speculative or "future" tasks; no framework-building unless explicitly in scope. Prefer **fewer** tasks — merge when INVEST still holds.
 7. **INVEST validation.** Every task must pass the INVEST criteria:
    - **I**ndependent — Can be completed without waiting for other in-progress tasks
    - **N**egotiable — Implementation approach is flexible (not over-specified)
@@ -251,12 +263,14 @@ Implement step 8 refuses to complete until documentation artifacts satisfy the g
 
 ## Self-Review Checklist (planner, before review loop)
 
-1. **Spec coverage:** Each requirement in scope maps to at least one task.
-2. **Placeholder scan:** Search for forbidden patterns in "No Placeholders" above; fix inline.
-3. **Type/signature consistency:** Names and signatures match across tasks and interface contracts.
-4. **Verification:** Every task has command + expected outcome.
-5. **Mode fit:** `lite` plans are concise but not less correct; `default` plans include full governance depth.
-6. **Structural charter:** Tasks respect complexity budgets, avoid planned copy-paste, keep deps acyclic, and do not add speculative exports (`templates/structural-build-charter.md`).
+1. **Spec coverage:** Each requirement in **In scope** maps to at least one task.
+2. **Scope fidelity:** No task implements Scope expansion or Out of scope work.
+3. **Bloat check:** Could this plan be one fewer task (or a single task) without failing INVEST?
+4. **Placeholder scan:** Search for forbidden patterns in "No Placeholders" above; fix inline.
+5. **Type/signature consistency:** Names and signatures match across tasks and interface contracts.
+6. **Verification:** Every task has command + expected outcome.
+7. **Mode fit:** `lite` plans are concise but not less correct; `default` plans include full governance depth.
+8. **Structural charter:** Tasks respect complexity budgets, avoid planned copy-paste, keep deps acyclic, and do not add speculative exports (`templates/structural-build-charter.md`).
 
 ## Rules
 
@@ -264,3 +278,4 @@ Implement step 8 refuses to complete until documentation artifacts satisfy the g
 2. **No orphan dependencies.** Every dependency referenced in a task must correspond to another task in the plan.
 3. **No circular dependencies.** The dependency graph must be a DAG.
 4. **Plans are living documents.** Update the plan when reality diverges. Record what changed and why.
+5. **No scope creep.** Reject companion refactors and “while we’re here” work; list them under Scope expansion / Out of scope instead.

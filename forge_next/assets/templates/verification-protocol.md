@@ -8,7 +8,7 @@ Used by the test skill and evaluate review mode. Defines the validation ladder a
 
 ## Validation Ladder
 
-Eight levels of verification. Execute every applicable level. Skip a level only if it is genuinely not applicable — and document why.
+Nine levels of verification. Execute levels **1–7** when applicable. **Levels 8–9 are skip-by-default** — enable only when the change is security-/input-sensitive, the user/plan flags them, or a prior finding demands them. Skip any level that is genuinely not applicable — and document why.
 
 ### Level 1: Unit Tests
 
@@ -60,14 +60,14 @@ Skip reason: [if skipped — e.g., "new feature, no prior bug to reproduce"]
 - Run the project's linter with existing configuration.
 - Run the type checker if the project uses one.
 - Run SAST tools if configured.
-- Optional Forge structural probes (when installed): **knip** / **madge** (Node) and **pyscn** (Python) per `templates/structural-quality-probes.md`.
+- Optional Forge structural probes (when installed): **knip** / **madge** / **jscn** (Node) and **pyscn** (Python) per `templates/structural-quality-probes.md` (same lenses as `templates/structural-build-charter.md`).
 - No new warnings or errors introduced by this change.
 
 ```
 Linter: [tool] — [pass/fail, N warnings]
 Type checker: [tool] — [pass/fail]
 SAST: [tool] — [pass/fail]
-Structural (knip/madge/pyscn): [pass/fail/skip]
+Structural (knip/madge/jscn/pyscn): [pass/fail/skip]
 Skip reason: [if any tool skipped — e.g., "no SAST configured", "no package.json"]
 ```
 
@@ -99,7 +99,7 @@ Skip reason: [if skipped]
 
 ### Level 8: Adversarial
 
-- Applicable for security-sensitive, data-handling, or input-processing changes.
+- **Skip by default.** Enable when the change is security-sensitive, handles untrusted input, or is flagged (`--adversarial`, plan/security note, or prior FAIL on input validation).
 - Try to break the implementation with unexpected, malformed, or malicious inputs.
 - Test: SQL injection, XSS, path traversal, oversized inputs, null bytes, Unicode edge cases — whichever apply.
 
@@ -107,12 +107,12 @@ Skip reason: [if skipped]
 Adversarial tests:
 - [attack vector]: [result]
 - [attack vector]: [result]
-Skip reason: [if skipped — e.g., "change is internal refactor, no user-facing input"]
+Skip reason: [default: "L8 skip-by-default — not security/input-sensitive"]
 ```
 
 ### Level 9: Mutation Audit
 
-- Applicable for critical code paths, especially those with high line coverage but uncertain behavioral coverage.
+- **Skip by default.** Enable for critical code paths, security/input-sensitive changes, or when flagged; otherwise prefer diff-scoped audit only when new conditionals land (see `prompts/test/coverage_gaps.md`).
 - For each critical function or conditional: mentally "mutate" the code (flip a condition, change an operator, remove a null check, swap a boundary) and ask: "Which specific test would catch this mutation?"
 - If no test would catch a mutation, that's a **coverage gap** even if line coverage is 100%.
 
@@ -120,7 +120,7 @@ Skip reason: [if skipped — e.g., "change is internal refactor, no user-facing 
 Mutation audit:
 - [location]: [mutation] → caught by [test name] | NOT CAUGHT — gap
 - [location]: [mutation] → caught by [test name] | NOT CAUGHT — gap
-Skip reason: [if skipped — e.g., "trivial code with no conditionals"]
+Skip reason: [default: "L9 skip-by-default — not critical/security path"]
 ```
 
 ## Validation Ladder Summary
@@ -214,7 +214,7 @@ Notes: [any changes to rollback strategy needed]
 
 ## Rules
 
-1. **No level is optional by default.** Every level is assumed applicable unless explicitly skipped with documented reason.
+1. **Levels 1–7:** assume applicable unless skipped with documented reason. **Levels 8–9:** skip-by-default; enable for security/input-sensitive work or when flagged.
 2. **Skipping a level is not failing it.** A skipped level with valid reason is fine. A failed level is a blocker.
 3. **Verification must use actual commands and actual output.** "I checked and it looks fine" is not verification.
 4. **The Validation Ladder Summary is required.** It goes into the review and the handoff file.

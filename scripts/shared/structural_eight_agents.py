@@ -136,11 +136,22 @@ def should_dispatch_eight_agents(skill_name: str, step: int, mode: str | None = 
     return False
 
 
-def default_eight_agents_quick_mode(*, user_quick: bool = False) -> bool:
-    """Default to S3/S4/S8 unless the session or env requests full eight-agent dispatch."""
+def default_eight_agents_quick_mode(
+    *,
+    user_quick: bool = False,
+    force_full: bool = False,
+) -> bool:
+    """Default to S3/S4/S8 unless full eight is requested.
+
+    ``force_full`` (e.g. thorough code-review) or ``FORGE_STRUCTURAL_EIGHT_AGENTS_FULL=1``
+    → full eight (return False). Otherwise return True for the quick trio.
+    ``user_quick`` keeps the trio even when an env full-dispatch flag is absent.
+    """
+    if force_full or structural_eight_agents_full_dispatch():
+        return False
     if user_quick:
         return True
-    return not structural_eight_agents_full_dispatch()
+    return True
 
 
 def _template_path() -> Path | None:

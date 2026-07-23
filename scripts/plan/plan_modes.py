@@ -15,7 +15,8 @@ from typing import Any
 from scripts.shared.orchestrator import runtime_memory_dir
 
 PLAN_MODES = ("default", "lite")
-DEFAULT_MODE = "default"
+# Prefer lite when CLI/session/preference do not resolve — small/uncertain bias.
+DEFAULT_MODE = "lite"
 PREFERENCE_FILENAME = "plan-preference.json"
 
 
@@ -89,18 +90,32 @@ def recommend_mode(
     """Recommend default or lite from scope/risk signals.
 
     Returns (recommended_mode, one_line_rationale).
+    Bias: insufficient or tied signals → ``lite`` (minimal ceremony).
+    Explicit trivial/small scope → ``lite``.
     """
     text = f"{handoff_content}\n{plan_context}".lower()
+    # Strong small/trivial signals win even if mixed with generic words
+    if re.search(
+        r"\b(scope[_\s-]?tier\s*[:=]\s*trivial|trivial\s+scope|size\s*[:=]\s*small|"
+        r"small\s+scope|recommended\s+scope)\b",
+        text,
+    ) or re.search(r'"scope_tier"\s*:\s*"trivial"', text):
+        return (
+            "lite",
+            "Scope tier is trivial/small — use concise planning with full task rigor.",
+        )
     lite_signals = [
         r"\b(hotfix|quick fix|small fix|one[- ]file|single file|typo|copy change)\b",
-        r"\b(isolated|localized|narrow scope|ad hoc|adhoc)\b",
+        r"\b(isolated|localized|narrow scope|ad hoc|adhoc|trivial)\b",
         r"\b(bugfix|patch|tweak|minor)\b",
+        r"\b(size\s*[:=]\s*small|small\s*/\s*trivial)\b",
     ]
     default_signals = [
         r"\b(refactor|architecture|multi[- ]module|cross[- ]cutting)\b",
         r"\b(migration|schema|breaking|interface contract)\b",
-        r"\b(epic|large feature|greenfield)\b",
+        r"\b(epic|large feature|greenfield|scope[_\s-]?tier\s*[:=]\s*large)\b",
         r"\b(parallel|wave|sub[- ]system)\b",
+        r"\b(size\s*[:=]\s*large|scope[_\s-]?tier\s*[:=]\s*medium)\b",
     ]
     lite_score = sum(1 for p in lite_signals if re.search(p, text))
     default_score = sum(1 for p in default_signals if re.search(p, text))
@@ -109,14 +124,15 @@ def recommend_mode(
             "default",
             "Scope looks multi-module, architectural, or higher-risk — use full governance.",
         )
-    if lite_score > 0 and default_score == 0:
+    if lite_score > default_score:
         return (
             "lite",
             "Scope looks small, isolated, and low-risk — use concise planning with full task rigor.",
         )
+    # Tied or no signals — prefer lite (minimal ceremony bias)
     return (
-        "default",
-        "Insufficient scope signals — default mode is the safer starting point.",
+        "lite",
+        "Insufficient or tied scope signals — lite is the preferred starting point; escalate to default only with clear risk.",
     )
 
 
@@ -154,12 +170,12 @@ def format_mode_selection_block(
         f"**Recommended:** `{recommended}` — {rationale}\n\n"
         f"{persisted_line}\n"
         "Ask the user to choose before continuing past step 1:\n\n"
-        "- **`default`** — Full governance: architecture depth, wave map, interface "
-        "contracts, expanded risk/rollback, complete documentation tables.\n"
-        "- **`lite`** — Lower ceremony for short ad hoc work; **same correctness bar** "
-        "(no placeholders, exact file paths, verification command + expected outcome per task).\n\n"
+        "- **`lite`** — Preferred for small/uncertain work; lower ceremony; **same correctness bar** "
+        "(no placeholders, exact file paths, verification command + expected outcome per task).\n"
+        "- **`default`** — Full governance when multi-module / higher-risk signals fire: architecture "
+        "depth, wave map, interface contracts, expanded risk/rollback, complete documentation tables.\n\n"
         "Use `templates/user-questions.md`. Question: **Which plan mode should we use?** "
-        "Options: `default`, `lite`, plus optional **Save as my default** for future sessions.\n\n"
+        "Options: `lite`, `default`, plus optional **Save as my default** for future sessions.\n\n"
         "Record the choice in `state.custom['plan_mode']` via planner notes in "
         "`.codex/forge/memory/planner.md` and proceed with that mode for steps 2–7.\n"
     )

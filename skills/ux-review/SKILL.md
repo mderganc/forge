@@ -7,6 +7,16 @@ description: |
 
 # forge ux-review — Product UX audit
 
+## Skill contract
+
+- **Use when:** you need a real-browser product UX audit (IA, discoverability, consistency, every reachable control/state) of a live app.
+- **Do not use when:** you need automated test/coverage execution or mock-flow authoring (use `test`) or a root-cause fix (use `diagnose`).
+- **Input:** app base URL. **Output artifact:** prioritized UX findings report with screenshot evidence.
+- **Stops at:** handoff to `ship`, or `diagnose` when high-severity findings remain — ux-review does not fix findings itself.
+- **Small-path behavior:** `--quick` narrows to critical journeys only and uses desktop-only viewport unless orientation flags the product as responsive/mobile.
+
+See `templates/scope-size-model.md` and `templates/workflow-skill-preamble.md` for shared sizing/ceremony rules.
+
 Walk the live UI like a real user and produce an evidence-backed UX report.
 
 **No agent team required** for the walkthrough itself (1:1 browser work). Spawn helpers only if the user asks.

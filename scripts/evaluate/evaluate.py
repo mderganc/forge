@@ -253,7 +253,12 @@ def _build_variables(
         "REFERENCED_FILES": ", ".join(state.referenced_files) if state.referenced_files else "(none extracted yet)",
         "PREVIOUS_FINDINGS": findings_text.strip(),
         "REVIEW_ROUND": str(state.review_round),
-        "QUICK_MODE_NOTE": "",
+        "QUICK_MODE_NOTE": (
+            "Quick/minimal-scope mode: heavy phases may be skipped "
+            f"(eval_size={state.custom.get('eval_size', 'unknown')})."
+            if state.custom.get("quick_mode")
+            else ""
+        ),
         "FINDINGS_SIDECAR": sidecar_path,
         "NATIVE_PLAN_HINTS": native_hints,
         "STRUCTURAL_PROBES_SUMMARY": probe_summary,
@@ -410,6 +415,21 @@ def handle_step_1(args: argparse.Namespace) -> None:
     state.mode = mode
     state.current_step = 1
     state.referenced_files = refs
+    from scripts.evaluate.evaluate_effort import (
+        apply_size_to_custom,
+        infer_size_from_plan,
+        skipped_phase_summary,
+    )
+
+    quick = bool(getattr(args, "quick", False))
+    size, size_rationale = infer_size_from_plan(
+        plan_content,
+        referenced_files=refs,
+        cli_effort=getattr(args, "effort", None),
+        quick=quick,
+    )
+    state.custom["mode"] = mode
+    apply_size_to_custom(state.custom, size, size_rationale, quick)
     save_state(state, sp)
 
     # Print state path so user/Codex knows where it is
@@ -427,6 +447,16 @@ def handle_step_1(args: argparse.Namespace) -> None:
         body += f" ({matched}/{total} referenced files show matching changes)\n\n"
     body += f"Confirm this mode with the user. If they want to switch, update the mode.\n"
     body += f"Then proceed to the next step.\n"
+    skipped = skipped_phase_summary(mode, size, bool(state.custom.get("quick_mode")))
+    body += (
+        f"\n## Size / ceremony\n\n"
+        f"**Eval size:** `{size}` — {size_rationale}\n"
+        f"**Quick mode:** `{bool(state.custom.get('quick_mode'))}`\n"
+        f"**Skipped phases:** {skipped}\n\n"
+        "Small/trivial/quick skips heavy phases "
+        "(pre: codebase_alignment + risk_dependencies; "
+        "post: performance + operational_readiness).\n"
+    )
 
     # Mark step 1 complete
     state.mark_step_complete(1)
@@ -591,6 +621,39 @@ def handle_step_n(
         print(f"ERROR: Invalid step {step} for mode {state.mode}")
         sys.exit(1)
 
+    from scripts.evaluate.evaluate_effort import should_skip_phase, skip_note
+
+    eval_size = str(state.custom.get("eval_size") or "medium")
+    quick = bool(state.custom.get("quick_mode"))
+    if should_skip_phase(state.mode, step, eval_size, quick):
+        state.current_step = step
+        state.mark_step_complete(step)
+        save_state(state, sp)
+        mode_label = state.mode.upper() if state.mode else "UNKNOWN"
+        phase_name = PHASE_NAMES.get(state.mode or "pre", {}).get(step, f"Step {step}")
+        title = f"EVALUATE ({mode_label}) — {phase_name} (Step {step} of {max_step}) [SKIPPED]"
+        next_cmd = _next_command(step, state_path=str(sp), mode=state.mode)
+        body = skip_note(state.mode, step)
+        append_skill_run_memory(
+            "evaluate",
+            step,
+            phase_name,
+            f"Skipped {phase_name} for size={eval_size}",
+            state=state,
+            state_path=sp,
+        )
+        print(
+            _format_output(
+                title,
+                body,
+                next_cmd,
+                phase_todos=PHASE_TODOS.get((state.mode or "pre", step), []),
+                mode=state.mode or "pre",
+                step=step,
+            )
+        )
+        return
+
     template = load_template(template_name)
     variables = _build_variables(state, plan_content, state_dir=sp.parent, step=step)
     body, probe_gate_pending = render_step_body(template, variables, state, sp, step)
@@ -663,6 +726,17 @@ def main():
     )
     parser.add_argument("--mode", choices=["pre", "post", "review"], help="Force evaluation mode (pre or post)")
     parser.add_argument("--team", action="store_true", help="Enable team dispatch in pre/post modes")
+    parser.add_argument(
+        "--quick",
+        action="store_true",
+        help="Small-ceremony evaluate: skip heavy pre/post phases (alignment/risk or perf/ops).",
+    )
+    parser.add_argument(
+        "--effort",
+        choices=["small", "medium", "large", "lite", "light", "standard", "thorough"],
+        default=None,
+        help="Override size/ceremony tier (small skips heavy phases).",
+    )
 
     args = parser.parse_args()
 

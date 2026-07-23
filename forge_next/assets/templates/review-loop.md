@@ -1,6 +1,6 @@
 # Review Loop Protocol
 
-Every stage in the forge-codex team workflow uses this triple-layer review loop. No stage exits until all four steps pass cleanly in the same round.
+Every stage in the forge-codex team workflow uses this review loop. Scale depth with task/plan size (`templates/scope-size-model.md`).
 
 ## The Loop
 
@@ -12,33 +12,43 @@ Round N:
   Step 2: CROSS-AGENT REVIEW (assigned reviewer)
     A different agent reviews from their specialist perspective.
     Assignment varies by stage (see stage skill files).
+    **Small / low-risk:** may combine Steps 2–3 into one combined cross/critic pass.
 
   Step 3: CRITIC CHALLENGE (critic)
     Devil's advocate review. Assumes the artifact is wrong.
     Guiding question: "What's the strongest argument against this work?"
+    Also flag **scope creep** and **over-decomposition**.
 
   Step 4: PM VALIDATION (PM — independent of critic)
-    PM checks completeness, consistency, and readiness to proceed.
+    PM checks completeness, consistency, scope fidelity, and readiness to proceed.
     PM challenges independently — not just rubber-stamping the critic.
 
-  EXIT CONDITION: All four steps pass with no findings in the same round.
-  CONTINUE: Any step produces a finding → producing agent addresses it → Round N+1.
+## Loop-reduction policy
+
+1. **Batch** all first-pass findings before requesting changes.
+2. After a fix, **re-review only changed files and unresolved critical/warning blockers** — do not rerun the full roster for suggestion-only changes.
+3. **Suggestions are advisory** — record them; they neither reopen a phase nor block handoff.
+4. **Cap low-risk loops at two rounds** (initial + focused verification). If critical/warning remain, escalate to the user rather than looping indefinitely.
+5. **Full extra rounds** only when the fix changes design boundary, public contract, security posture, or structural probe results materially.
+
+EXIT CONDITION: No open **FAIL** or blocking **WARN** in the same round (suggestions may remain).
+CONTINUE: Blocking finding → producing agent addresses it → Round N+1 (focused).
 
 ## Finding Severity
 
 | Severity | Meaning | Blocks Exit? |
 |----------|---------|-------------|
 | FAIL | Incorrect, broken, or dangerous | Yes |
-| WARN | Suboptimal, risky, or incomplete | Yes (default) |
-| PASS | Acceptable | No |
+| WARN | Suboptimal, risky, or incomplete | Yes for medium/large by default; for **small/low-risk**, PM may treat as advisory with recorded rationale |
+| PASS / suggestion | Acceptable or nice-to-have | No |
 
-WARN is treated as blocking by default. Only the PM + Architect can explicitly reclassify a WARN as informational (non-blocking), and the reclassification must be recorded with rationale.
+WARN is treated as blocking by default on medium/large work. For small/low-risk, prefer advisory WARN unless security/data-integrity is involved. Only the PM + Architect can reclassify a WARN, and the reclassification must be recorded with rationale.
 
 ## Finding Format
 
 ### [PASS|WARN|FAIL]: [title]
 **ID:** [STAGE-ROLE-NNN] (e.g., S1-QA-001)
-**Status:** OPEN | RESOLVED
+**Status:** OPEN | RESOLVED | ADVISORY
 **Location:** [file:line or artifact section]
 **Description:** What was found
 **Impact/Risk:** What could go wrong
@@ -47,9 +57,10 @@ WARN is treated as blocking by default. Only the PM + Architect can explicitly r
 ## Review Summary (required at end of each round)
 
 ## Review Summary — Round N
-**Open findings:** [count]
+**Open blocking findings:** [count]
+**Advisory suggestions:** [count]
 **Resolved findings verified:** [count]
-**Review status:** CLEAN | REQUIRES_FIXES
+**Review status:** CLEAN | REQUIRES_FIXES | ESCALATE
 
 ## Source Data Precedence
 
@@ -66,9 +77,10 @@ This principle applies at every review step (self-review, cross-agent, critic, P
 
 ## Rules
 
-1. No fixed iteration limit — loop continues until clean or user accepts risk.
+1. Follow the loop-reduction policy above — do not loop forever on low-risk work.
 2. Each round's findings are appended to the producing agent's memory file.
-3. Every finding gets a beads issue (if beads available) with label `review,stage-N`.
+3. Every **blocking** finding gets a beads issue (if beads available) with label `review,stage-N`.
 4. Resolved findings are verified by the original reviewer before marking RESOLVED.
 5. The PM tracks aggregate finding counts in `project.md`.
 6. Every finding must cite source data (file:line, test output, log entry, metric). Findings backed only by synthesis or ratings without source references are incomplete and must be substantiated before they can block exit.
+7. Reject **scope creep** and **over-decomposition** (too many waves/tasks for a localized change).

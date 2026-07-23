@@ -111,6 +111,57 @@ def _read_gate(path: Path) -> dict[str, Any] | None:
         return None
 
 
+def _blocking_findings_count(gate: dict[str, Any] | None) -> int:
+    """Count critical+warning findings; suggestions are advisory."""
+    if not gate:
+        return 0
+    if "blocking_findings" in gate:
+        return int(gate.get("blocking_findings") or 0)
+    if "open_blocking_total" in gate:
+        return int(gate.get("open_blocking_total") or 0)
+    findings = gate.get("findings")
+    if isinstance(findings, list):
+        return sum(
+            1
+            for f in findings
+            if isinstance(f, dict)
+            and str(f.get("severity", "")).lower() in ("critical", "warning")
+            and f.get("status", "open") != "dismissed"
+        )
+    # Prefer explicit severity tallies when present (suggestions advisory)
+    has_severity = any(
+        k in gate
+        for k in (
+            "critical",
+            "critical_count",
+            "warning",
+            "warning_count",
+            "suggestion",
+            "suggestions",
+            "suggestion_count",
+        )
+    )
+    if has_severity:
+        critical = int(gate.get("critical", gate.get("critical_count", 0)) or 0)
+        warning = int(gate.get("warning", gate.get("warning_count", 0)) or 0)
+        return critical + warning
+    # Legacy gate without severity split — keep open_findings_total as last resort
+    return int(gate.get("open_findings_total", 0) or 0)
+
+
+def _blocking_gate_open(
+    gd: Path,
+    gate_file: str,
+    *,
+    missing_is_open: bool = True,
+) -> bool:
+    """True when gate missing or blocking (critical+warning) findings remain."""
+    gate = _read_gate(gd / gate_file)
+    if not gate:
+        return missing_is_open
+    return _blocking_findings_count(gate) > 0
+
+
 def _metric_gate_open(
     gd: Path,
     gate_file: str,
@@ -119,7 +170,12 @@ def _metric_gate_open(
     missing_is_open: bool = True,
     fail_above: int = 0,
 ) -> bool:
-    """True when the gate file is absent or the metric is still above the pass threshold."""
+    """True when the gate file is absent or the metric is still above the pass threshold.
+
+    For findings metrics (`open_findings_total`), only critical+warning block.
+    """
+    if metric_key in ("open_findings_total", "blocking_findings", "open_blocking_total"):
+        return _blocking_gate_open(gd, gate_file, missing_is_open=missing_is_open)
     gate = _read_gate(gd / gate_file)
     if not gate:
         return missing_is_open
@@ -157,10 +213,17 @@ def _handle_primary_then_metric_stage(
     await_primary_log: str,
     pending_log: str,
     pass_log: str,
+    skip_secondary: bool = False,
+    skip_secondary_body: str = "",
 ) -> tuple[str, str, bool]:
     """Return (body, log_msg, awaiting_gate). awaiting_gate True → re-run same step."""
     if not _read_gate(gd / primary_gate):
         return primary_body, await_primary_log, True
+
+    if skip_secondary:
+        state.mark_step_complete(complete_step)
+        state.custom[inner_key] = 0
+        return (skip_secondary_body or pass_body), "Evaluate skipped (small scope)", False
 
     if _metric_gate_open(gd, secondary_gate, metric_key):
         inner += 1
@@ -173,6 +236,19 @@ def _handle_primary_then_metric_stage(
     state.mark_step_complete(complete_step)
     state.custom[inner_key] = 0
     return pass_body, pass_log, False
+
+
+def _metric_gate_not_equal(
+    gd: Path,
+    gate_file: str,
+    metric_key: str,
+    required: int,
+) -> bool:
+    """True when the gate is missing or the metric does not equal ``required``."""
+    gate = _read_gate(gd / gate_file)
+    if not gate:
+        return True
+    return int(gate.get(metric_key, required + 1)) != required
 
 
 def _init_state() -> SkillState:
@@ -204,6 +280,10 @@ def _route_plan_from_custom(custom: dict[str, Any]) -> RoutePlan | None:
         design_path=raw.get("design_path"),
         issue_ref=raw.get("issue_ref"),
         goal=raw.get("goal", "ship-ready"),
+        scope_tier=raw.get("scope_tier") or "medium",
+        skip_evaluate=bool(raw.get("skip_evaluate")),
+        code_review_effort=raw.get("code_review_effort") or "standard",
+        short_circuit_to_test=bool(raw.get("short_circuit_to_test")),
     )
 
 
@@ -217,6 +297,10 @@ def _route_plan_to_dict(plan: RoutePlan) -> dict[str, Any]:
         "design_path": plan.design_path,
         "issue_ref": plan.issue_ref,
         "goal": plan.goal,
+        "scope_tier": plan.scope_tier,
+        "skip_evaluate": plan.skip_evaluate,
+        "code_review_effort": plan.code_review_effort,
+        "short_circuit_to_test": plan.short_circuit_to_test,
     }
 
 
@@ -304,7 +388,12 @@ def handle_step_1(args: argparse.Namespace, sp: Path) -> None:
         "",
         f"**Goal:** {plan.goal}",
         f"**Entry skill:** `{plan.entry_skill}` — {plan.entry_reason}",
+        f"**Scope tier:** `{plan.scope_tier}` (evaluate skip={plan.skip_evaluate}; code-review effort=`{plan.code_review_effort}`)",
     ]
+    if plan.short_circuit_to_test:
+        body_parts.append(
+            "**Short-circuit:** diagnose `simple` fix detected — prefer test/ship path; skip evaluate when small."
+        )
     if plan.upstream_skills:
         body_parts.append(f"**Upstream:** {', '.join(plan.upstream_skills)}")
     if plan.design_path:
@@ -315,6 +404,7 @@ def handle_step_1(args: argparse.Namespace, sp: Path) -> None:
         [
             "",
             "Run the child skill commands emitted on subsequent steps until ship-ready gates pass.",
+            "Gate findings: only **critical** + **warning** block; suggestions are advisory.",
             f"Gate directory: `{gates_dir_relative()}/`",
         ]
     )
@@ -409,33 +499,83 @@ def handle_step_n(step: int, sp: Path, _args: argparse.Namespace) -> None:
             _log("Upstream skipped")
 
     elif step == 3:
-        body, log_msg, awaiting = _handle_primary_then_metric_stage(
-            gd,
-            state,
-            primary_gate="plan.json",
-            primary_body=f"## Plan\n\nComplete **plan**. Write {_gate_ref('plan.json')} with `status: pass`.",
-            secondary_gate="evaluate-pre.json",
-            metric_key="open_findings_total",
-            inner_key="inner_eval_pre",
-            inner=int(state.custom.get("inner_eval_pre", 0)),
-            max_inner=max_inner,
-            cap_body=f"## Evaluate (pre) — inner cap ({max_inner})",
-            pending_body=(
-                "## Evaluate (pre)\n\nRun **evaluate** pre mode. "
-                f"Write {_gate_ref('evaluate-pre.json')} with `open_findings_total: 0`."
-            ),
-            pass_body="## Plan + evaluate (pre) clean\n\nRun **step 4** for implement.",
-            complete_step=3,
-            await_primary_log="Await plan gate",
-            pending_log="Evaluate pre pending",
-            pass_log="Plan + eval pre pass",
-        )
-        if awaiting:
-            _stay()
-        _save()
-        _log(log_msg)
+        skip_eval = bool(plan and plan.skip_evaluate)
+        if plan and plan.short_circuit_to_test and skip_eval:
+            # Simple diagnose fix: allow jumping past plan+evaluate when implement already done
+            if _read_gate(gd / "implement.json") or _read_gate(gd / "test.json"):
+                state.mark_step_complete(3)
+                state.mark_step_complete(4)
+                body = (
+                    "## Short-circuit (simple diagnose)\n\n"
+                    "Small/simple fix path — plan + evaluate skipped. Run **step 5** "
+                    f"(code-review `--effort {plan.code_review_effort}` + test)."
+                )
+                _save()
+                _log("Short-circuit to test/ship path")
+            else:
+                body, log_msg, awaiting = _handle_primary_then_metric_stage(
+                    gd,
+                    state,
+                    primary_gate="plan.json",
+                    primary_body=(
+                        f"## Plan\n\nComplete **plan** (lite). Write {_gate_ref('plan.json')} "
+                        "with `status: pass`."
+                    ),
+                    secondary_gate="evaluate-pre.json",
+                    metric_key="open_findings_total",
+                    inner_key="inner_eval_pre",
+                    inner=int(state.custom.get("inner_eval_pre", 0)),
+                    max_inner=max_inner,
+                    cap_body=f"## Evaluate (pre) — inner cap ({max_inner})",
+                    pending_body="",
+                    pass_body="## Plan clean (evaluate skipped — small scope)\n\nRun **step 4** for implement.",
+                    complete_step=3,
+                    await_primary_log="Await plan gate",
+                    pending_log="Evaluate pre pending",
+                    pass_log="Plan pass (eval skipped)",
+                    skip_secondary=True,
+                    skip_secondary_body=(
+                        "## Plan clean (evaluate skipped — small scope)\n\nRun **step 4** for implement."
+                    ),
+                )
+                if awaiting:
+                    _stay()
+                _save()
+                _log(log_msg)
+        else:
+            body, log_msg, awaiting = _handle_primary_then_metric_stage(
+                gd,
+                state,
+                primary_gate="plan.json",
+                primary_body=f"## Plan\n\nComplete **plan**. Write {_gate_ref('plan.json')} with `status: pass`.",
+                secondary_gate="evaluate-pre.json",
+                metric_key="open_findings_total",
+                inner_key="inner_eval_pre",
+                inner=int(state.custom.get("inner_eval_pre", 0)),
+                max_inner=max_inner,
+                cap_body=f"## Evaluate (pre) — inner cap ({max_inner})",
+                pending_body=(
+                    "## Evaluate (pre)\n\nRun **evaluate** pre mode. "
+                    f"Write {_gate_ref('evaluate-pre.json')} with `blocking_findings: 0` "
+                    "(critical+warning only; suggestions advisory)."
+                ),
+                pass_body="## Plan + evaluate (pre) clean\n\nRun **step 4** for implement.",
+                complete_step=3,
+                await_primary_log="Await plan gate",
+                pending_log="Evaluate pre pending",
+                pass_log="Plan + eval pre pass",
+                skip_secondary=skip_eval,
+                skip_secondary_body=(
+                    "## Plan clean (evaluate skipped — small scope)\n\nRun **step 4** for implement."
+                ),
+            )
+            if awaiting:
+                _stay()
+            _save()
+            _log(log_msg)
 
     elif step == 4:
+        skip_eval = bool(plan and plan.skip_evaluate)
         body, log_msg, awaiting = _handle_primary_then_metric_stage(
             gd,
             state,
@@ -452,13 +592,18 @@ def handle_step_n(step: int, sp: Path, _args: argparse.Namespace) -> None:
             cap_body="## Evaluate (post) — inner cap",
             pending_body=(
                 "## Evaluate (post)\n\nRun **evaluate** post mode. "
-                f"Write {_gate_ref('evaluate-post.json')} with `open_findings_total: 0`."
+                f"Write {_gate_ref('evaluate-post.json')} with `blocking_findings: 0` "
+                "(critical+warning only; suggestions advisory)."
             ),
             pass_body="## Implement + evaluate (post) clean\n\nRun **step 5**.",
             complete_step=4,
             await_primary_log="Await implement gate",
             pending_log="Evaluate post pending",
             pass_log="Implement stage pass",
+            skip_secondary=skip_eval,
+            skip_secondary_body=(
+                "## Implement clean (evaluate skipped — small scope)\n\nRun **step 5**."
+            ),
         )
         if awaiting:
             _stay()
@@ -467,6 +612,7 @@ def handle_step_n(step: int, sp: Path, _args: argparse.Namespace) -> None:
 
     elif step == 5:
         inner = int(state.custom.get("inner_cr", 0))
+        cr_effort = (plan.code_review_effort if plan else "standard") or "standard"
         if _metric_gate_open(gd, "code-review.json", "open_findings_total"):
             inner += 1
             state.custom["inner_cr"] = inner
@@ -475,8 +621,10 @@ def handle_step_n(step: int, sp: Path, _args: argparse.Namespace) -> None:
                 state.mark_step_complete(5)
             else:
                 body = (
-                    "## Code review\n\nRun **code-review**. "
-                    f"Write {_gate_ref('code-review.json')} with `open_findings_total: 0`."
+                    f"## Code review\n\nRun **code-review --effort {cr_effort}** "
+                    "(structural review always on). "
+                    f"Write {_gate_ref('code-review.json')} with `blocking_findings: 0` "
+                    "(critical+warning only; suggestions advisory)."
                 )
                 _stay()
             _save()

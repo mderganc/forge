@@ -6,6 +6,16 @@ description: |
 
 # Forge Diagnose — Root Cause Analysis
 
+## Skill contract
+
+- **Use when:** root cause of a bug, regression, or incident is unknown and needs structured RCA.
+- **Do not use when:** the cause is already known (go straight to `plan`/`implement`) or you just need to run tests (`test`).
+- **Input:** bug/incident description. **Output artifact:** diagnostic report with root cause, `fix_complexity` tier, and routing.
+- **Stops at:** handoff by `fix_complexity` — `simple` may fix in-phase; `complex`/`large` hand off to `plan`/`design` rather than implementing here.
+- **Small-path behavior:** `--quick` is Investigator-only; extended evidence checklist and full technique catalog gate on severity/incident profile, not run by default.
+
+See `templates/scope-size-model.md` and `templates/workflow-skill-preamble.md` for shared sizing/ceremony rules.
+
 Routing: [AGENTS.md](../../AGENTS.md) § Process-first.
 
 Shared runtime: [templates/workflow-skill-preamble.md](../../templates/workflow-skill-preamble.md).

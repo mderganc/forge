@@ -14,8 +14,8 @@ from forge_next.cli_runtime import repo_root_from_args, run_module_main
 
 _WORKFLOW_MODULES = {
     "evaluate": "scripts.evaluate.evaluate",
-    "design": "scripts.develop.develop",
-    "develop": "scripts.develop.develop",
+    "design": "scripts.design.design",
+    "develop": "scripts.design.design",
     "plan": "scripts.plan.plan",
     "implement": "scripts.implement.implement",
     "code-review": "scripts.code_review.code_review",

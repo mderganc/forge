@@ -27,7 +27,9 @@ Spec reference, In scope, Out of scope, **Plan mode: {{PLAN_MODE}}**).
 Replace each remaining `<!-- FORGE_SKELETON: ... -->` marker with content per
 `templates/writing-plans.md` and `templates/plan-modes.md`:
 
-- **YAGNI:** Plan only in-scope work; no speculative or "while we're here" tasks—list those in **Out of scope**.
+- **YAGNI:** Plan only **Recommended / In scope** work; no speculative or "while we're here" tasks—list those under **Out of scope** / **Scope expansion (not planned)**.
+- Prefer the **smallest task set** (≤3 tasks for lite/trivial). See Minimal plan in `templates/writing-plans.md` and `templates/scope-size-model.md`.
+- Critic/PM must reject scope creep and over-decomposition.
 
 ## Structural focus (this step)
 - Per-task **Verify** must include charter checks: complexity budget, clone avoidance / extract-reuse, no planned dead paths, no speculative exports
